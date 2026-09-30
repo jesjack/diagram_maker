@@ -1,0 +1,33 @@
+flowchart TD
+    inicio(("Inicio App"))
+    log["Abrir LOG"]
+    yaHayApp{"¿Ya hay una app de este usuario?"}
+    avisaFrente["Avisa, la trae al frente y sale"]
+    libreOffice{"¿LibreOffice en path o registro?"}
+    avisoQt["Aviso Qt claro y sale"]
+    otraApp{"¿Otra app tiene la caja del equipo?"}
+    pedirCaja(("Pedir caja"))
+    tomaCaja["Toma la caja y registra usuario y sesión en BD"]
+    ventasDb[("VENTAS DB")]
+    archivador(("Lanza archivador (cámaras)"))
+    modoNormal["Modo normal (en RAM)"]
+    preparaOds["Prepara main.ods del usuario: copia la plantilla y la hornea"]
+    mainOds(("main.ods"))
+
+    inicio --> log
+    log --> yaHayApp
+    yaHayApp -->|Si| avisaFrente
+    yaHayApp -->|No| libreOffice
+    libreOffice -->|No| avisoQt
+    libreOffice -->|Si| otraApp
+    otraApp -->|Si| pedirCaja
+    otraApp -->|No| tomaCaja
+    tomaCaja --> modoNormal
+    tomaCaja --> archivador
+    tomaCaja <--> ventasDb
+    modoNormal --> preparaOds
+    preparaOds --> mainOds
+
+    %% @dir yaHayApp -> libreOffice : down
+    %% @dir libreOffice -> otraApp : down
+    %% @dir otraApp -> tomaCaja : down

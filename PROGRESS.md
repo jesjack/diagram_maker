@@ -26,13 +26,14 @@ src/render.js       dibuja el SVG (formas, líneas rectas con flecha, etiquetas)
 src/viewer.js       zoom con scroll, arrastre, exportar PNG/SVG
 src/template.html   plantilla; el CLI incrusta los .js y el código del diagrama
 examples/           diagramas de prueba (.mmd)
+tests/              tests con el runner integrado de Node: `node --test`
 ```
 
 El CLI concatena los `.js` dentro de `template.html`, así que el HTML generado es un único archivo autocontenido.
 
 ## Fase 1: prototipo
 
-- [ ] 1. **Parser**: texto Mermaid -> nodos, aristas y metadatos `@dir`. Errores claros con número de línea.
+- [x] 1. **Parser**: texto Mermaid -> nodos, aristas y metadatos `@dir`. Errores claros con número de línea.
 - [ ] 2. **Layout**: reglas de dirección de SPEC.md -> coordenadas.
 - [ ] 3. **Render SVG**: 4 formas (rectángulo, círculo, rombo, cilindro), líneas rectas con flecha, etiquetas.
 - [ ] 4. **Visor**: zoom con scroll, arrastre, exportar PNG y SVG.
@@ -47,7 +48,7 @@ Caso de prueba principal: el ejemplo "Inicio App" de SPEC.md (se guardará en `e
 
 ## Último estado
 
-2026-09-30: especificación acordada. Iniciando Fase 1, paso 1.
+2026-09-30: paso 1 (parser) terminado, con tests en `tests/parser.test.js`. Siguiente: paso 2 (layout).
 
-Notas del entorno: en la máquina de desarrollo no hay Node. Para probar el JS se usa Microsoft Edge headless
-(`flatpak run com.microsoft.Edge --headless ...`) o simplemente abriendo el HTML generado en el navegador.
+Notas del entorno: Node v24 instalado con nvm en `~/.config/nvm` (si `node` no se encuentra:
+`export PATH=$HOME/.config/nvm/versions/node/v24.21.0/bin:$PATH`).

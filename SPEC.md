@@ -34,6 +34,7 @@ diagrama.mmd ──► CLI (Python) ──► genera HTML autocontenido ──�
 | Sintaxis           | Forma                     |
 |--------------------|---------------------------|
 | `id["texto"]`      | Rectángulo                |
+| `id("texto")`      | Rectángulo redondeado     |
 | `id(("texto"))`    | Círculo                   |
 | `id{"texto"}`      | Rombo (IF / decisión)     |
 | `id[("texto")]`    | Cilindro (base de datos)  |
@@ -47,6 +48,13 @@ Convención: IDs descriptivos (`tomaCaja`, `ventasDb`) y textos entre comillas.
 | `a --> b`             | Flecha de `a` a `b`             |
 | `a -->\|texto\| b`    | Flecha con etiqueta             |
 | `a <--> b`            | Flecha bidireccional            |
+| `a --- b`             | Línea sin flecha                |
+| `a ==> b`, `a -.-> b` | Flecha gruesa / punteada        |
+| `a -- texto --> b`    | Flecha con etiqueta (alternativa) |
+| `a --> b --> c`       | Cadena de aristas               |
+
+Las líneas `classDef`, `style`, `class`, `linkStyle` y `click` se ignoran con un aviso.
+`subgraph` todavía no está soportado (error).
 
 Las líneas que conectan nodos son **rectas**.
 
