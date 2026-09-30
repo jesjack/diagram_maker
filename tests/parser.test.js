@@ -70,3 +70,41 @@ test("estilos se ignoran con aviso", () => {
   const g = parseDiagram("a --> b\nstyle a fill:#f00");
   assert.strictEqual(g.warnings.length, 1);
 });
+
+test("subgraphs: pertenencia, anidados, título y referencia al subgraph entero", () => {
+  const g = parseDiagram(
+    [
+      "flowchart LR",
+      "    fuera[/\"IN x\"/]",
+      "    subgraph APP[\"App — lógica\"]",
+      "        direction TB",
+      "        a[\"A\"]",
+      "        subgraph Hijo",
+      "            b[\\\"OUT b\"\\]",
+      "        end",
+      "    end",
+      "    fuera --> a",
+      "    a --> b",
+      "    fuera --> APP",
+    ].join("\n")
+  );
+  assert.deepStrictEqual(
+    g.subgraphs.map((s) => [s.id, s.title, s.parent]),
+    [["APP", "App — lógica", null], ["Hijo", "Hijo", "APP"]]
+  );
+  assert.strictEqual(g.nodes.get("fuera").group, null);
+  assert.strictEqual(g.nodes.get("fuera").shape, "parallelogram");
+  assert.strictEqual(g.nodes.get("a").group, "APP");
+  assert.strictEqual(g.nodes.get("b").group, "Hijo");
+  assert.strictEqual(g.nodes.get("b").shape, "parallelogram-alt");
+  assert.strictEqual(g.nodes.get("b").text, "OUT b");
+  assert.ok(!g.nodes.has("APP"), "el id del subgraph no es un nodo");
+  assert.strictEqual(g.edges[2].to, "APP");
+  assert.ok(g.warnings.some((w) => w.line === 4 && /direction/.test(w.message)));
+});
+
+test("subgraphs: errores de apertura y cierre", () => {
+  assert.throws(() => parseDiagram("a --> b\nend"), (e) => e.line === 2 && /sin 'subgraph'/.test(e.message));
+  assert.throws(() => parseDiagram("subgraph S\na --> b"), (e) => e.line === 1 && /Falta 'end'/.test(e.message));
+  assert.throws(() => parseDiagram('subgraph S\nend\nS["nodo"] --> b'), /a la vez un subgraph y un nodo/);
+});

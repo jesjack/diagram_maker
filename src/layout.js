@@ -3,6 +3,8 @@
 // Cada nodo ocupa una celda (col, row) de una rejilla. Un hijo se coloca en la celda vecina
 // de su padre según la dirección de la arista (reglas en SPEC.md). Después, el ancho de cada
 // columna y el alto de cada fila se ajustan al nodo más grande que contienen.
+//
+// Cada subgraph es un diagrama aparte, colocado a la derecha del anterior (ver SPEC.md).
 
 // En el navegador todos los scripts comparten ámbito global; en Node se importa del parser.
 const layoutDeps = typeof module !== "undefined" ? require("./parser.js") : { DiagramError };
@@ -14,7 +16,18 @@ const LAYOUT_DEFAULTS = {
   colGap: 70,
   rowGap: 60,
   // Ancho máximo del texto antes de partirlo en líneas, por forma.
-  wrapWidth: { rect: 170, round: 170, stadium: 170, diamond: 110, circle: 90, cylinder: 110 },
+  wrapWidth: {
+    rect: 170,
+    round: 170,
+    stadium: 170,
+    parallelogram: 170,
+    "parallelogram-alt": 170,
+    diamond: 110,
+    circle: 90,
+    cylinder: 110,
+  },
+  diagramGap: 120, // separación horizontal entre los diagramas de cada subgraph
+  titleGap: 16, // separación entre el título de un diagrama y sus nodos
   // Si no hay función para medir texto (p. ej. en Node), se estima por carácter.
   measure: null,
 };
@@ -40,6 +53,95 @@ function layoutDiagram(graph, options = {}) {
   const measure = opts.measure || ((text) => text.length * opts.fontSize * 0.52);
   const warnings = [...(graph.warnings || [])];
 
+  if (!graph.subgraphs || !graph.subgraphs.length) {
+    return { ...layoutSingle(graph, measure, opts, warnings), titles: [], warnings, options: opts };
+  }
+
+  // Un diagrama por grupo (el nivel superior y cada subgraph), de izquierda a derecha.
+  const parts = splitBySubgraph(graph, warnings);
+  const nodes = [];
+  const edges = [];
+  const titles = [];
+  let bounds = null;
+  let cursor = 0;
+  for (const part of parts) {
+    const r = layoutSingle(part, measure, opts, warnings);
+    const titleH = part.title ? opts.lineHeight + opts.titleGap : 0;
+    const titleW = part.title ? measure(part.title) : 0;
+    const dx = cursor - r.bounds.minX;
+    const dy = titleH - r.bounds.minY;
+    for (const n of r.nodes) {
+      n.x += dx;
+      n.y += dy;
+      nodes.push(n);
+    }
+    for (const e of r.edges) {
+      for (const p of e.points) {
+        p.x += dx;
+        p.y += dy;
+      }
+      if (e.labelBox) {
+        e.labelBox.x += dx;
+        e.labelBox.y += dy;
+      }
+      edges.push(e);
+    }
+    const width = Math.max(r.bounds.maxX - r.bounds.minX, titleW);
+    if (part.title) titles.push({ text: part.title, x: cursor, y: opts.lineHeight / 2 });
+    const b = { minX: cursor, minY: 0, maxX: cursor + width, maxY: titleH + r.bounds.maxY - r.bounds.minY };
+    bounds = bounds
+      ? { minX: bounds.minX, minY: 0, maxX: b.maxX, maxY: Math.max(bounds.maxY, b.maxY) }
+      : b;
+    cursor += width + opts.diagramGap;
+  }
+  return { nodes, edges, bounds: bounds || { minX: 0, minY: 0, maxX: 0, maxY: 0 }, titles, warnings, options: opts };
+}
+
+// Separa el grafo en un grafo por grupo. Una arista entre dos grupos se dibuja en los dos: en
+// cada uno, el extremo ajeno se sustituye por un nodo de referencia (paralelogramo con borde
+// discontinuo) con el texto del nodo real. Una arista hacia o desde un subgraph entero se
+// dibuja solo en el grupo del nodo, con una referencia que lleva el título del subgraph.
+function splitBySubgraph(graph, warnings) {
+  const byId = new Map(graph.subgraphs.map((s) => [s.id, s]));
+  const fullTitle = (sg) => (sg.parent ? `${fullTitle(byId.get(sg.parent))} › ${sg.title}` : sg.title);
+  const groups = [null, ...graph.subgraphs.map((s) => s.id)];
+  const parts = new Map(
+    groups.map((g) => [g, { nodes: new Map(), edges: [], meta: { dirs: [] }, title: g ? fullTitle(byId.get(g)) : null }])
+  );
+  for (const n of graph.nodes.values()) parts.get(n.group).nodes.set(n.id, n);
+
+  const ref = (part, e, target) => {
+    const id = `${target}\u2197${e.index}`; // no puede chocar con un id escrito (\u2197 no es válido en ids)
+    const real = graph.nodes.get(target);
+    const text = real ? real.text : byId.get(target).title;
+    part.nodes.set(id, { id, shape: "parallelogram", text, line: e.line, group: null, ref: true });
+    return id;
+  };
+  // Cada copia de una arista hereda su @dir.
+  const dirsOf = (e) => graph.meta.dirs.filter((d) => d.from === e.from && d.to === e.to);
+  const add = (group, e, from, to) => {
+    const part = parts.get(group);
+    part.edges.push({ ...e, from, to });
+    for (const d of dirsOf(e)) part.meta.dirs.push({ ...d, from, to });
+  };
+
+  for (const e of graph.edges) {
+    const a = graph.nodes.get(e.from);
+    const b = graph.nodes.get(e.to);
+    if (a && b) {
+      if (a.group === b.group) add(a.group, e, e.from, e.to);
+      else {
+        add(a.group, e, e.from, ref(parts.get(a.group), e, e.to));
+        add(b.group, e, ref(parts.get(b.group), e, e.from), e.to);
+      }
+    } else if (a) add(a.group, e, e.from, ref(parts.get(a.group), e, e.to));
+    else if (b) add(b.group, e, ref(parts.get(b.group), e, e.from), e.to);
+    else warnings.push({ line: e.line, message: `Arista entre dos subgraphs ('${e.from}' y '${e.to}') ignorada` });
+  }
+  return [...parts.values()].filter((p) => p.nodes.size);
+}
+
+function layoutSingle(graph, measure, opts, warnings) {
   const nodes = new Map();
   for (const n of graph.nodes.values()) nodes.set(n.id, { ...n, ...sizeNode(n, measure, opts) });
 
@@ -49,7 +151,7 @@ function layoutDiagram(graph, options = {}) {
   const bounds = computeCoordinates(nodes, edges, measure, opts);
   for (const e of edges) routeEdge(e, nodes.get(e.from), nodes.get(e.to), measure, opts);
 
-  return { nodes: [...nodes.values()], edges, bounds, warnings, options: opts };
+  return { nodes: [...nodes.values()], edges, bounds };
 }
 
 // ---------------------------------------------------------------- tamaño de nodos
@@ -100,6 +202,14 @@ function sizeNode(node, measure, opts) {
       h = Math.max(th + 20, 40);
       w = Math.max(tw + h * 0.8 + 16, 90);
       break;
+    case "parallelogram":
+    case "parallelogram-alt": {
+      // skew: desplazamiento horizontal de los lados inclinados (lo usa también render.js).
+      h = Math.max(th + 20, 40);
+      const skew = h * 0.35;
+      w = Math.max(tw + 32 + skew, 90);
+      return { lines, w, h, skew };
+    }
     default:
       w = Math.max(tw + 32, 90);
       h = Math.max(th + 20, 40);
@@ -269,6 +379,12 @@ function borderDistance(node, ux, uy) {
       return hw;
     case "diamond":
       return 1 / (ax / hw + ay / hh);
+    case "parallelogram":
+    case "parallelogram-alt": {
+      // A media altura los lados inclinados quedan a skew/2 hacia dentro.
+      const sx = hw - node.skew / 2;
+      return Math.min(ax ? sx / ax : Infinity, ay ? hh / ay : Infinity);
+    }
     default:
       return Math.min(ax ? hw / ax : Infinity, ay ? hh / ay : Infinity);
   }

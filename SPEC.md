@@ -36,6 +36,8 @@ diagrama.mmd ──► CLI (Python) ──► genera HTML autocontenido ──�
 | `id["texto"]`      | Rectángulo                |
 | `id("texto")`      | Rectángulo redondeado     |
 | `id(["texto"])`    | Estadio (píldora)         |
+| `id[/"texto"/]`    | Paralelogramo inclinado a la derecha |
+| `id[\"texto"\]`    | Paralelogramo inclinado a la izquierda |
 | `id(("texto"))`    | Círculo                   |
 | `id{"texto"}`      | Rombo (IF / decisión)     |
 | `id[("texto")]`    | Cilindro (base de datos)  |
@@ -58,6 +60,26 @@ Las líneas `classDef`, `style`, `class`, `linkStyle` y `click` se ignoran con u
 `subgraph` todavía no está soportado (error).
 
 Las líneas que conectan nodos son **rectas**.
+
+### Subgraphs
+
+```
+subgraph ID["Título"]      (también: subgraph ID[Título], subgraph "Título", subgraph Título)
+    ...
+end
+```
+
+- **Cada subgraph es un diagrama aparte.** No se dibujan rectángulos: el nivel superior va primero y
+  cada subgraph (hijos directos y anidados, en orden de aparición) va a la derecha del anterior,
+  con su propio layout. Ningún diagrama invade el área de otro.
+- **Título:** un label encima de cada diagrama. En los anidados incluye la ruta: `APP › Ventas`.
+- **Pertenencia:** un nodo pertenece al subgraph donde aparece por primera vez (declarado o en una arista).
+- **Aristas entre diagramas:** se dibujan en los dos. En cada uno, el extremo ajeno se sustituye por
+  un **nodo de referencia**: paralelogramo con borde discontinuo y el texto del nodo real. Hay una
+  referencia por arista. La copia conserva etiqueta, estilo y `@dir`.
+- **Arista hacia o desde un subgraph entero** (`a --> APP`): solo se dibuja en el diagrama del nodo,
+  con una referencia que lleva el título del subgraph. Entre dos subgraphs enteros se ignora con aviso.
+- `direction` dentro de un subgraph se ignora con aviso; `style` de un subgraph, como todos los estilos.
 
 ## Reglas de layout por defecto
 
@@ -137,6 +159,8 @@ flowchart TD
 
 ## TODO
 
+- [ ] Colores: `classDef`, `:::clase` y `style` (de nodos y de subgraphs) hoy se ignoran con aviso.
+      Decidir cómo se aplican, también a los títulos y a los nodos de referencia.
 - [ ] Nodos con más de 3 salidas: definir una solución mediante metadatos.
 - [ ] Bucles y nodos con varios padres (incluye un nuevo tipo de línea para las aristas que regresan). Decidir tras el prototipo.
 - [ ] Choques entre ramas: separación automática. Decidir tras el prototipo.

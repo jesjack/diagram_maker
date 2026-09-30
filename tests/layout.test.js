@@ -74,3 +74,62 @@ test("choque de ramas genera aviso (TODO)", () => {
   const L = layout("a --> b\nb --> c\n%% @dir b -> c : up");
   assert.ok(L.warnings.some((w) => /Choque/.test(w.message)));
 });
+
+test("subgraphs: un diagrama por grupo, en fila, con referencias en ambos lados", () => {
+  const L = layout(
+    [
+      'fuera["Fuera"]',
+      'subgraph S["Sistema"]',
+      '  a["A"] --> b["B"]',
+      "  subgraph T",
+      '    c["C"]',
+      "  end",
+      "end",
+      'fuera -->|"x"| a',
+      "b --> c",
+      "fuera --> T",
+      "%% @dir fuera -> a : right",
+    ].join("\n")
+  );
+  const byGroup = (g) => L.nodes.filter((n) => n.group === g && !n.ref).map((n) => n.id);
+  assert.deepStrictEqual(byGroup(null), ["fuera"]);
+  assert.deepStrictEqual(byGroup("S"), ["a", "b"]);
+  assert.deepStrictEqual(byGroup("T"), ["c"]);
+  assert.deepStrictEqual(L.titles.map((t) => t.text), ["Sistema", "Sistema › T"]);
+
+  // fuera --> a: en el nivel superior "fuera -> ref(A)" y en S "ref(Fuera) -> a", ambos con la etiqueta y el @dir.
+  const refs = L.nodes.filter((n) => n.ref);
+  const refTo = (text) => refs.filter((n) => n.text === text).map((n) => n.id);
+  assert.strictEqual(refTo("A").length, 1);
+  assert.strictEqual(refTo("Fuera").length, 1);
+  const top = L.edges.find((e) => e.from === "fuera" && e.to === refTo("A")[0]);
+  const inS = L.edges.find((e) => e.from === refTo("Fuera")[0] && e.to === "a");
+  assert.strictEqual(top.label, "x");
+  assert.strictEqual(inS.label, "x");
+  assert.strictEqual(top.dir, "right");
+  assert.strictEqual(inS.dir, "right");
+  // fuera --> T (subgraph entero): solo en el diagrama de "fuera", con el título de T.
+  assert.strictEqual(refTo("T").length, 1);
+  assert.ok(refs.every((n) => n.shape === "parallelogram"));
+
+  // Los diagramas no se solapan: cada grupo queda a la derecha del anterior.
+  const span = (ids) => {
+    const ns = L.nodes.filter((n) => ids.includes(n.id));
+    return [Math.min(...ns.map((n) => n.x - n.w / 2)), Math.max(...ns.map((n) => n.x + n.w / 2))];
+  };
+  const idsOf = (test) => L.nodes.filter(test).map((n) => n.id);
+  const top0 = span(["fuera", ...refTo("A"), ...refTo("T")]);
+  const s0 = span(["a", "b", ...refTo("Fuera"), ...idsOf((n) => n.ref && n.text === "C")]);
+  const t0 = span(["c", ...idsOf((n) => n.ref && n.text === "B")]);
+  assert.ok(top0[1] < s0[0] && s0[1] < t0[0], JSON.stringify([top0, s0, t0]));
+  // Cada título empieza en el borde izquierdo de su diagrama y queda encima de sus nodos.
+  assert.ok(Math.abs(L.titles[0].x - s0[0]) < 1 && Math.abs(L.titles[1].x - t0[0]) < 1);
+  const topOf = (n) => n.y - n.h / 2;
+  assert.ok(L.nodes.filter((n) => n.group === "S").every((n) => topOf(n) > L.titles[0].y));
+});
+
+test("sin subgraphs el resultado no cambia", () => {
+  const L = layout('a --> b');
+  assert.deepStrictEqual(L.titles, []);
+  assert.ok(!L.nodes.some((n) => n.ref));
+});

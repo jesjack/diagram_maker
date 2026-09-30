@@ -1,8 +1,10 @@
 // Parser: texto Mermaid (subconjunto flowchart) -> { nodes, edges, meta, warnings }
 //
-// nodes:  Map id -> { id, shape, text, line }
+// nodes:  Map id -> { id, shape, text, line, group }   (group: id del subgraph, o null)
 // edges:  [{ index, from, to, label, arrowStart, arrowEnd, style, line }]  (orden de declaración)
+//         from/to pueden ser el id de un subgraph entero.
 // meta:   { dirs: [{ from, to, dir, line }] }
+// subgraphs: [{ id, title, parent, line }]  (orden de aparición; parent: id o null)
 
 class DiagramError extends Error {
   constructor(message, line) {
@@ -19,6 +21,8 @@ const SHAPES = [
   { open: "((", close: "))", shape: "circle" },
   { open: "[(", close: ")]", shape: "cylinder" },
   { open: "([", close: "])", shape: "stadium" },
+  { open: "[/", close: "/]", shape: "parallelogram" },
+  { open: "[\\", close: "\\]", shape: "parallelogram-alt" },
   { open: "[", close: "]", shape: "rect" },
   { open: "(", close: ")", shape: "round" },
   { open: "{", close: "}", shape: "diamond" },
@@ -33,6 +37,8 @@ function parseDiagram(source) {
   const edges = [];
   const meta = { dirs: [] };
   const warnings = [];
+  const subgraphs = [];
+  const open = []; // pila de subgraphs abiertos
   let headerSeen = false;
 
   const lines = source.split(/\r?\n/);
@@ -59,12 +65,31 @@ function parseDiagram(source) {
       warnings.push({ line: lineNo, message: "Estilos de Mermaid ignorados" });
       return;
     }
-    if (/^(subgraph|end|direction)\b/.test(line)) {
-      throw new DiagramError("'subgraph' todavía no está soportado", lineNo);
+    if (/^subgraph\b/.test(line)) {
+      const sg = parseSubgraphHeader(line, lineNo);
+      if (subgraphs.some((s) => s.id === sg.id)) throw new DiagramError(`Subgraph '${sg.id}' repetido`, lineNo);
+      sg.parent = open.length ? open[open.length - 1].id : null;
+      subgraphs.push(sg);
+      open.push(sg);
+      return;
+    }
+    if (line === "end") {
+      if (!open.length) throw new DiagramError("'end' sin 'subgraph'", lineNo);
+      open.pop();
+      return;
+    }
+    if (/^direction\b/.test(line)) {
+      warnings.push({ line: lineNo, message: "'direction' ignorada: el layout usa sus propias reglas" });
+      return;
     }
 
-    parseStatement(line, lineNo, nodes, edges);
+    parseStatement(line, lineNo, nodes, edges, open.length ? open[open.length - 1].id : null);
   });
+
+  if (open.length) {
+    const last = open[open.length - 1];
+    throw new DiagramError(`Falta 'end' para el subgraph '${last.id}'`, last.line);
+  }
 
   // Cada @dir debe referirse a una arista existente.
   for (const d of meta.dirs) {
@@ -74,7 +99,29 @@ function parseDiagram(source) {
     }
   }
 
-  return { nodes, edges, meta, warnings };
+  // Un id de subgraph usado en una arista apunta al subgraph entero, no a un nodo.
+  for (const sg of subgraphs) {
+    const node = nodes.get(sg.id);
+    if (!node) continue;
+    if (node.declared) {
+      throw new DiagramError(`'${sg.id}' es a la vez un subgraph y un nodo con forma`, node.line);
+    }
+    nodes.delete(sg.id);
+  }
+  for (const n of nodes.values()) delete n.declared;
+
+  return { nodes, edges, meta, warnings, subgraphs };
+}
+
+// subgraph ID["título"] | subgraph ID[título] | subgraph "título" | subgraph título
+function parseSubgraphHeader(line, lineNo) {
+  const rest = line.slice("subgraph".length).trim();
+  if (!rest) throw new DiagramError("Falta el nombre del subgraph", lineNo);
+  const m = rest.match(/^([\p{L}\p{N}_]+)\s*\[\s*("?)(.*?)\2\s*\]$/u);
+  if (m) return { id: m[1], title: m[3], line: lineNo };
+  const quoted = rest.match(/^"(.*)"$/);
+  const title = quoted ? quoted[1] : rest;
+  return { id: title, title, line: lineNo };
 }
 
 // "%% @dir a -> b : down"  (comentarios normales se ignoran)
@@ -110,14 +157,14 @@ function stripTrailingComment(line) {
 }
 
 // nodo (arista nodo)*   p. ej. "a --> b -->|x| c"
-function parseStatement(line, lineNo, nodes, edges) {
+function parseStatement(line, lineNo, nodes, edges, group) {
   let pos = 0;
   const skipSpaces = () => {
     while (pos < line.length && /\s/.test(line[pos])) pos++;
   };
 
   skipSpaces();
-  let prev = parseNodeRef(line, pos, lineNo, nodes);
+  let prev = parseNodeRef(line, pos, lineNo, nodes, group);
   pos = prev.end;
 
   for (;;) {
@@ -130,7 +177,7 @@ function parseStatement(line, lineNo, nodes, edges) {
     skipSpaces();
     if (pos >= line.length) throw new DiagramError("Falta el nodo destino de la arista", lineNo);
 
-    const next = parseNodeRef(line, pos, lineNo, nodes);
+    const next = parseNodeRef(line, pos, lineNo, nodes, group);
     pos = next.end;
     edges.push({
       index: edges.length,
@@ -147,7 +194,7 @@ function parseStatement(line, lineNo, nodes, edges) {
 }
 
 // id, opcionalmente seguido de forma y texto: a["texto"], a(("texto")), a{texto}...
-function parseNodeRef(line, pos, lineNo, nodes) {
+function parseNodeRef(line, pos, lineNo, nodes, group) {
   const idMatch = line.slice(pos).match(ID_RE);
   if (!idMatch) throw new DiagramError(`Se esperaba un id de nodo en '${line.slice(pos)}'`, lineNo);
   const id = idMatch[0];
@@ -170,8 +217,10 @@ function parseNodeRef(line, pos, lineNo, nodes) {
 
   const existing = nodes.get(id);
   if (!existing) {
-    nodes.set(id, { id, shape: shape || "rect", text: text ?? id, line: lineNo });
+    // El nodo pertenece al subgraph donde aparece por primera vez.
+    nodes.set(id, { id, shape: shape || "rect", text: text ?? id, line: lineNo, group, declared: !!shape });
   } else if (shape) {
+    existing.declared = true;
     // Una definición posterior con forma sustituye a la anterior (como en Mermaid).
     existing.shape = shape;
     existing.text = text;

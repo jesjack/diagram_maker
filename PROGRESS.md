@@ -67,8 +67,9 @@ Notas:
   `will-change: transform`. Los SVG/PNG exportados sí llevan el filtro. Se probó una sombra sin
   desenfoque (copia gris desplazada) y al usuario no le gustó.
 - `examples/v3_*.mmd`: diagramas reales de un proyecto del usuario (de `~/prueba.md`) que todavía
-  no se pueden dibujar. Faltan: `subgraph`, hexágono `{{}}`, paralelogramos `[/ /]` y `[\ \]`,
-  más de 3 salidas, colores (`classDef`/`:::`) y `flowchart LR`. El estadio `([ ])` ya funciona.
+  se podían dibujar. Rama `subgraphs`: subgraphs (un diagrama aparte por cada uno, con nodos de
+  referencia; ver SPEC.md) y paralelogramos. Con eso `v3_soffice` y `v3_uno` ya se dibujan.
+  Faltan: hexágono `{{}}` (bloquea `v3_app` y `v3_leyenda`), más de 3 salidas, colores y `flowchart LR`.
 - El CLI abre la página con un mini servidor en 127.0.0.1 que sirve una sola vez y termina, porque el
   navegador del usuario (Edge por flatpak) no tiene acceso a carpetas fuera de Descargas/Documentos.
   El HTML también se guarda en disco (junto al .mmd, o con `-o`).

@@ -10,6 +10,8 @@ const THEME = {
   edgeWidth: 1.5,
   labelText: "#1f2328",
   labelBackground: "#ffffff",
+  title: "#656d76", // título de cada subgraph, encima de su diagrama
+  refDash: "5 3", // borde de los nodos de referencia a otro diagrama
   padding: 40,
   // Sombra difuminada bajo todas las formas. null = sin sombra.
   shadow: { dx: 0, dy: 1, blur: 1.5, color: "#000000", opacity: 0.18 },
@@ -62,7 +64,18 @@ function renderSvg(layout, theme = THEME, { shadow = true } = {}) {
   for (const n of nodes) parts.push(renderNode(n, theme, opts));
   parts.push(`</g><g class="labels">`);
   for (const e of edges) if (e.labelBox) parts.push(renderLabel(e, theme));
-  parts.push(`</g></svg>`);
+  parts.push(`</g>`);
+  if (layout.titles && layout.titles.length) {
+    parts.push(`<g class="titles">`);
+    for (const t of layout.titles) {
+      parts.push(
+        `<text x="${fmt(t.x)}" y="${fmt(t.y)}" dominant-baseline="central" font-weight="600" fill="${theme.title}">` +
+          `${escapeXml(t.text)}</text>`
+      );
+    }
+    parts.push(`</g>`);
+  }
+  parts.push(`</svg>`);
   return parts.join("\n");
 }
 
@@ -117,7 +130,8 @@ function renderEdge(e, theme) {
 }
 
 function renderNode(n, theme, opts) {
-  const style = `fill="${theme.nodeFill}" stroke="${theme.nodeStroke}" stroke-width="${theme.nodeStrokeWidth}"`;
+  const dash = n.ref ? ` stroke-dasharray="${theme.refDash}"` : "";
+  const style = `fill="${theme.nodeFill}" stroke="${theme.nodeStroke}" stroke-width="${theme.nodeStrokeWidth}"${dash}`;
   const shape = nodeShape(n, style, theme.nodeStroke, theme.nodeStrokeWidth);
   // En el cilindro el texto se centra en el cuerpo, bajo la tapa.
   const textY = n.shape === "cylinder" ? n.y + n.w * 0.06 : n.y;
@@ -137,6 +151,21 @@ function nodeShape(n, style, stroke, strokeWidth) {
         `<polygon points="${fmt(n.x)},${fmt(n.y - hh)} ${fmt(n.x + hw)},${fmt(n.y)} ` +
         `${fmt(n.x)},${fmt(n.y + hh)} ${fmt(n.x - hw)},${fmt(n.y)}" ${style}/>`;
       break;
+    case "parallelogram":
+    case "parallelogram-alt": {
+      const l = n.x - hw;
+      const r = n.x + hw;
+      const t = n.y - hh;
+      const b = n.y + hh;
+      const k = n.skew;
+      // parallelogram = [/ /] (inclinado a la derecha); alt = [\ \] (a la izquierda).
+      const pts =
+        n.shape === "parallelogram"
+          ? [[l + k, t], [r, t], [r - k, b], [l, b]]
+          : [[l, t], [r - k, t], [r, b], [l + k, b]];
+      shape = `<polygon points="${pts.map(([x, y]) => `${fmt(x)},${fmt(y)}`).join(" ")}" ${style}/>`;
+      break;
+    }
     case "cylinder": {
       const ry = n.w * 0.12;
       const top = n.y - hh + ry;

@@ -53,3 +53,14 @@ test("sombra: difuminada debajo de todo, sin flechas, y se puede omitir o desact
   assert.ok(!only.includes('class="nodes"'));
   assert.strictEqual(only.match(/viewBox="[^"]*"/)[0], svg.match(/viewBox="[^"]*"/)[0]);
 });
+
+test("subgraphs: títulos, paralelogramos y referencias con borde discontinuo", () => {
+  const svg = renderSvg(
+    layoutDiagram(parseDiagram('p[/"IN"/]\nsubgraph S["Sis & co"]\n  a["A"] --> q[\\"OUT"\\]\nend\np --> a')),
+    undefined,
+    { shadow: false }
+  );
+  assert.match(svg, /<g class="titles">\s*<text[^>]*>Sis &amp; co<\/text>/);
+  assert.strictEqual((svg.match(/stroke-dasharray="5 3"/g) || []).length, 2); // ref(A) arriba, ref(IN) en S
+  assert.strictEqual((svg.match(/<polygon /g) || []).length, 4); // p, q y las dos referencias
+});
