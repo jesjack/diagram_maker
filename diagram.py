@@ -15,6 +15,8 @@ import argparse
 import http.server
 import json
 import re
+import shutil
+import subprocess
 import sys
 import time
 import webbrowser
@@ -51,6 +53,17 @@ def read_source(path):
     return sys.stdin.read()
 
 
+def launch_browser(url):
+    """Abre la URL; en Android (Termux) webbrowser no encuentra navegador y se usa termux-open-url."""
+    if webbrowser.open(url):
+        return
+    opener = shutil.which("termux-open-url")
+    if opener:
+        subprocess.run([opener, url], check=False)
+    else:
+        print(f"No se encontró navegador. Abre {url} manualmente.", file=sys.stderr)
+
+
 def open_in_browser(html):
     """Sirve la página una vez en 127.0.0.1 y la abre.
 
@@ -77,7 +90,7 @@ def open_in_browser(html):
 
     with http.server.HTTPServer(("127.0.0.1", 0), Handler) as server:
         url = f"http://127.0.0.1:{server.server_address[1]}/"
-        webbrowser.open(url)
+        launch_browser(url)
         deadline = time.monotonic() + SERVE_TIMEOUT
         while not served and time.monotonic() < deadline:
             server.timeout = max(0.1, deadline - time.monotonic())

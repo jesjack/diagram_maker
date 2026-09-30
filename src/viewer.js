@@ -1,4 +1,4 @@
-// Visor: monta el diagrama en la página, zoom con la rueda, arrastre, pellizco y exportación.
+// Visor: monta el diagrama en la página, zoom con la rueda, arrastre, gestos táctiles y exportación.
 
 const DiagramViewer = (() => {
   const MIN_SCALE = 0.1;
@@ -67,36 +67,58 @@ const DiagramViewer = (() => {
       { passive: false }
     );
 
-    // ---- arrastre (un puntero) y pellizco (dos punteros)
+    // ---- gestos: un dedo (o ratón) arrastra; dos dedos hacen zoom y arrastran a la vez.
+    // Se usa el centro y la separación de los dos primeros punteros: en cada movimiento el
+    // diagrama se desplaza lo que se movió el centro y se escala lo que cambió la separación.
     const pointers = new Map();
-    let pinchDist = 0;
+    let gesture = null; // { x, y, d } del último movimiento
+    let lastTap = { time: 0, x: 0, y: 0 };
+    let tapStart = null;
+    const snapshot = () => {
+      const pts = [...pointers.values()].slice(0, 2);
+      const r = stage.getBoundingClientRect();
+      const x = pts.reduce((acc, p) => acc + p.x, 0) / pts.length - r.left;
+      const y = pts.reduce((acc, p) => acc + p.y, 0) / pts.length - r.top;
+      const d = pts.length === 2 ? Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) || 1 : 0;
+      return { x, y, d };
+    };
     stage.addEventListener("pointerdown", (ev) => {
-      if (ev.target.closest(".toolbar")) return;
+      if (ev.pointerType === "mouse" && ev.button !== 0) return;
       stage.setPointerCapture(ev.pointerId);
       pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
       stage.classList.add("dragging");
-      if (pointers.size === 2) pinchDist = pointerDistance(pointers);
+      gesture = snapshot();
+      tapStart = pointers.size === 1 ? { x: ev.clientX, y: ev.clientY, time: ev.timeStamp } : null;
     });
     stage.addEventListener("pointermove", (ev) => {
-      const prev = pointers.get(ev.pointerId);
-      if (!prev) return;
-      if (pointers.size === 1) {
-        view.tx += ev.clientX - prev.x;
-        view.ty += ev.clientY - prev.y;
-        apply();
-      }
+      if (!pointers.has(ev.pointerId)) return;
       pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
-      if (pointers.size === 2) {
-        const d = pointerDistance(pointers);
-        const [a, b] = [...pointers.values()];
-        const r = stage.getBoundingClientRect();
-        zoomAt(d / pinchDist, (a.x + b.x) / 2 - r.left, (a.y + b.y) / 2 - r.top);
-        pinchDist = d;
-      }
+      const g = snapshot();
+      view.tx += g.x - gesture.x;
+      view.ty += g.y - gesture.y;
+      if (g.d && gesture.d) zoomAt(g.d / gesture.d, g.x, g.y);
+      else apply();
+      gesture = g;
     });
     const release = (ev) => {
-      pointers.delete(ev.pointerId);
-      if (!pointers.size) stage.classList.remove("dragging");
+      if (!pointers.delete(ev.pointerId)) return;
+      if (pointers.size) gesture = snapshot();
+      else stage.classList.remove("dragging");
+      // Doble toque (táctil) = ajustar; en ratón ya lo cubre dblclick.
+      if (ev.type === "pointerup" && ev.pointerType !== "mouse" && tapStart && !pointers.size) {
+        const moved = Math.hypot(ev.clientX - tapStart.x, ev.clientY - tapStart.y);
+        const quick = ev.timeStamp - tapStart.time < 300;
+        if (moved < 10 && quick) {
+          const near = Math.hypot(ev.clientX - lastTap.x, ev.clientY - lastTap.y) < 40;
+          if (ev.timeStamp - lastTap.time < 350 && near) {
+            fit();
+            lastTap.time = 0;
+          } else {
+            lastTap = { time: ev.timeStamp, x: ev.clientX, y: ev.clientY };
+          }
+        }
+      }
+      if (!pointers.size) tapStart = null;
     };
     stage.addEventListener("pointerup", release);
     stage.addEventListener("pointercancel", release);
@@ -115,7 +137,16 @@ const DiagramViewer = (() => {
       download(new Blob([svgText], { type: "image/svg+xml" }), `${title}.svg`);
     document.getElementById("btn-png").onclick = () => exportPng(svgText, size, title);
 
-    window.addEventListener("resize", fit);
+    // En móvil "resize" salta cada vez que aparece o se oculta la barra del navegador:
+    // se conserva el punto que estaba en el centro en lugar de volver a ajustar.
+    let stageSize = stage.getBoundingClientRect();
+    window.addEventListener("resize", () => {
+      const r = stage.getBoundingClientRect();
+      view.tx += (r.width - stageSize.width) / 2;
+      view.ty += (r.height - stageSize.height) / 2;
+      stageSize = r;
+      apply();
+    });
     fit();
   }
 
@@ -174,10 +205,6 @@ const DiagramViewer = (() => {
   }
 
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-  const pointerDistance = (map) => {
-    const [a, b] = [...map.values()];
-    return Math.hypot(a.x - b.x, a.y - b.y) || 1;
-  };
 
   return { start };
 })();

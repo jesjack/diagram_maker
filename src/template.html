@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Diagrama</title>
 <style>
   :root {
@@ -67,6 +67,7 @@
     cursor: pointer;
   }
   .toolbar button:hover { background: var(--bg); }
+  .toolbar, #warnings { touch-action: manipulation; }
   .toolbar .sep { width: 1px; height: 20px; background: var(--border); margin: 0 2px; }
   #status { min-width: 48px; text-align: center; color: var(--muted); font-variant-numeric: tabular-nums; }
 
@@ -93,6 +94,28 @@
     background: var(--bg);
     z-index: 20;
   }
+  /* Pantallas táctiles y estrechas: botones más grandes y barra respetando la zona segura. */
+  @media (pointer: coarse) {
+    .toolbar button { min-width: 40px; height: 40px; }
+    .toolbar button:hover { background: transparent; }
+    .toolbar button:active { background: var(--bg); }
+  }
+  @media (max-width: 480px) {
+    .toolbar {
+      top: auto;
+      right: 50%;
+      bottom: max(12px, env(safe-area-inset-bottom));
+      transform: translateX(50%);
+    }
+    #warnings {
+      top: max(12px, env(safe-area-inset-top));
+      bottom: auto;
+      left: 12px;
+      max-height: 30vh;
+      overflow: auto;
+    }
+  }
+
   #error[hidden], #warnings[hidden] { display: none; }
   #error .message {
     max-width: 900px;
@@ -138,7 +161,7 @@
   <button id="btn-zoom-out" title="Alejar (-)">−</button>
   <span id="status">100%</span>
   <button id="btn-zoom-in" title="Acercar (+)">+</button>
-  <button id="btn-fit" title="Ajustar a la pantalla (0 o doble clic)">Ajustar</button>
+  <button id="btn-fit" title="Ajustar a la pantalla (0, doble clic o doble toque)">Ajustar</button>
   <span class="sep"></span>
   <button id="btn-svg" title="Descargar como SVG">SVG</button>
   <button id="btn-png" title="Descargar como PNG">PNG</button>
