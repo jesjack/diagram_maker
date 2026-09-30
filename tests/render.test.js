@@ -56,11 +56,21 @@ test("sombra: difuminada debajo de todo, sin flechas, y se puede omitir o desact
 
 test("subgraphs: títulos, paralelogramos y referencias con borde discontinuo", () => {
   const svg = renderSvg(
-    layoutDiagram(parseDiagram('p[/"IN"/]\nsubgraph S["Sis & co"]\n  a["A"] --> q[\\"OUT"\\]\nend\np --> a')),
+    layoutDiagram(parseDiagram('p[/"IN"/]\nsubgraph S["Sis & co"]\n  a["A"] --> q[\\"OUT"\\]\nend\np --> a\np --> z')),
     undefined,
     { shadow: false }
   );
   assert.match(svg, /<g class="titles">\s*<text[^>]*>Sis &amp; co<\/text>/);
   assert.strictEqual((svg.match(/stroke-dasharray="5 3"/g) || []).length, 2); // ref(A) arriba, ref(IN) en S
   assert.strictEqual((svg.match(/<polygon /g) || []).length, 4); // p, q y las dos referencias
+});
+
+test("nodo absorbido: se dibuja con su forma y borde normales dentro del subgraph", () => {
+  const svg = renderSvg(
+    layoutDiagram(parseDiagram('p[/"IN"/]\nsubgraph S["Sis"]\n  a["A"]\nend\np --> a')),
+    undefined,
+    { shadow: false }
+  );
+  assert.ok(!svg.includes("stroke-dasharray"));
+  assert.strictEqual((svg.match(/<polygon /g) || []).length, 1); // solo p, con su paralelogramo
 });

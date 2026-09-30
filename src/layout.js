@@ -109,13 +109,29 @@ function splitBySubgraph(graph, warnings) {
   const parts = new Map(
     groups.map((g) => [g, { nodes: new Map(), edges: [], meta: { dirs: [] }, title: g ? fullTitle(byId.get(g)) : null }])
   );
-  for (const n of graph.nodes.values()) parts.get(n.group).nodes.set(n.id, n);
+  // Nodo absorbido: está fuera de todo subgraph y todas sus aristas van a nodos de subgraphs. Su
+  // propio diagrama solo repetiría lo que ya se ve dentro, así que no se dibuja ahí: aparece solo
+  // dentro de esos subgraphs, con su forma normal (no es referencia a nada dibujado en otro sitio).
+  const absorbed = new Set();
+  for (const n of graph.nodes.values()) {
+    if (n.group !== null) continue;
+    const own = graph.edges.filter((e) => e.from === n.id || e.to === n.id);
+    const insideOnly = own.every((e) => {
+      const other = graph.nodes.get(e.from === n.id ? e.to : e.from);
+      return other && other.group !== null;
+    });
+    if (own.length && insideOnly) absorbed.add(n.id);
+  }
+  for (const n of graph.nodes.values()) if (!absorbed.has(n.id)) parts.get(n.group).nodes.set(n.id, n);
 
   const ref = (part, e, target) => {
     const id = `${target}\u2197${e.index}`; // no puede chocar con un id escrito (\u2197 no es válido en ids)
     const real = graph.nodes.get(target);
     const text = real ? real.text : byId.get(target).title;
-    part.nodes.set(id, { id, shape: "parallelogram", text, line: e.line, group: null, ref: true });
+    const node = absorbed.has(target)
+      ? { id, shape: real.shape, text, line: e.line, group: null, ref: true, absorbed: true, realId: target }
+      : { id, shape: "parallelogram", text, line: e.line, group: null, ref: true, realId: target };
+    part.nodes.set(id, node);
     return id;
   };
   // Cada copia de una arista hereda su @dir.
@@ -133,8 +149,8 @@ function splitBySubgraph(graph, warnings) {
     if (a && b) {
       if (a.group === b.group) add(a.group, e, e.from, e.to);
       else {
-        add(a.group, e, e.from, ref(parts.get(a.group), e, e.to));
-        add(b.group, e, ref(parts.get(b.group), e, e.from), e.to);
+        if (!absorbed.has(e.from)) add(a.group, e, e.from, ref(parts.get(a.group), e, e.to));
+        if (!absorbed.has(e.to)) add(b.group, e, ref(parts.get(b.group), e, e.from), e.to);
       }
     } else if (a) add(a.group, e, e.from, ref(parts.get(a.group), e, e.to));
     else if (b) add(b.group, e, ref(parts.get(b.group), e, e.from), e.to);
@@ -324,7 +340,8 @@ function resolveDeferred({ e, node, used }, { edges, overrides }) {
   }
 }
 
-const nodeLabel = (n) => (n.ref ? `la referencia a '${n.text.replace(/\n/g, " ")}'` : `'${n.id}'`);
+const nodeLabel = (n) =>
+  n.absorbed ? `'${n.realId}'` : n.ref ? `la referencia a '${n.text.replace(/\n/g, " ")}'` : `'${n.id}'`;
 
 // ---------------------------------------------------------------- rejilla
 

@@ -130,7 +130,7 @@ function renderEdge(e, theme) {
 }
 
 function renderNode(n, theme, opts) {
-  const dash = n.ref ? ` stroke-dasharray="${theme.refDash}"` : "";
+  const dash = n.ref && !n.absorbed ? ` stroke-dasharray="${theme.refDash}"` : "";
   const style = `fill="${theme.nodeFill}" stroke="${theme.nodeStroke}" stroke-width="${theme.nodeStrokeWidth}"${dash}`;
   const shape = nodeShape(n, style, theme.nodeStroke, theme.nodeStrokeWidth);
   // En el cilindro el texto se centra en el cuerpo, bajo la tapa.

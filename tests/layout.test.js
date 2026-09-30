@@ -230,3 +230,40 @@ test("un @dir explícito no se mueve aunque choque", () => {
   assert.strictEqual(L.edges.find((e) => e.to === "c").dir, "right");
   assert.ok(L.warnings.some((w) => /Choque/.test(w.message)));
 });
+
+test("nodos de fuera conectados solo con subgraphs: se absorben y su diagrama desaparece", () => {
+  const L = layout(
+    [
+      'p1[/"IN uno"/]',
+      'p2[("DB")]',
+      'suelto["Sin aristas"]',
+      'libre["Libre"]',
+      "subgraph S",
+      '  a["A"] --> b["B"]',
+      "end",
+      "p1 --> a",
+      "b <--> p2",
+      "libre --> a", // también va a un nodo de fuera: no se absorbe
+      'libre --> otro["Otro"]',
+    ].join("\n")
+  );
+  const shown = (pred) => L.nodes.filter(pred);
+  // p1 y p2 no están en el nivel superior; dentro de S aparecen con su forma y marcados como absorbidos.
+  assert.ok(!shown((n) => !n.ref && (n.id === "p1" || n.id === "p2")).length);
+  const p1 = shown((n) => n.absorbed && n.realId === "p1");
+  const p2 = shown((n) => n.absorbed && n.realId === "p2");
+  assert.deepStrictEqual([p1.length, p1[0].shape], [1, "parallelogram"]);
+  assert.deepStrictEqual([p2.length, p2[0].shape], [1, "cylinder"]);
+  // Los que no cumplen la condición siguen en el nivel superior.
+  assert.ok(shown((n) => n.id === "suelto" && !n.ref).length === 1);
+  assert.ok(shown((n) => n.id === "libre" && !n.ref).length === 1);
+  // Referencias normales: solo las de "libre --> a" (ref(A) arriba y ref(Libre) en S); ninguna de p1 ni p2.
+  const refs = shown((n) => n.ref && !n.absorbed);
+  assert.deepStrictEqual(refs.map((n) => n.text).sort(), ["A", "Libre"]);
+});
+
+test("si el nivel superior se queda vacío, no se dibuja", () => {
+  const L = layout(['p["P"]', 'subgraph S["Sis"]', '  a["A"]', "end", "p --> a"].join("\n"));
+  assert.deepStrictEqual(L.titles.map((t) => t.text), ["Sis"]);
+  assert.strictEqual(Math.min(...L.nodes.map((n) => n.x - n.w / 2)), L.bounds.minX);
+});

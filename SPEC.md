@@ -94,6 +94,11 @@ end
   nodo empieza un grupo nuevo como antes.
   - Con `@dir`, la dirección es la de la flecha (`%% @dir iOds -> S2 : left` → S2 queda a la izquierda
     de la referencia, es decir, la referencia a la derecha de S2).
+- **Nodos absorbidos:** un nodo de fuera de todo subgraph cuyas aristas van **todas** a nodos de
+  subgraphs no se dibuja en su diagrama (ni sus referencias): aparece solo dentro de esos subgraphs,
+  con su forma y borde normales, porque no es referencia a nada dibujado en otro sitio (una copia
+  por arista). Un nodo sin aristas, o con alguna arista a un nodo de fuera o a un subgraph entero,
+  no se absorbe. Un diagrama que se queda sin nodos no se dibuja.
 - **Arista hacia o desde un subgraph entero** (`a --> APP`): solo se dibuja en el diagrama del nodo,
   con una referencia que lleva el título del subgraph. Entre dos subgraphs enteros se ignora con aviso.
 - `direction` dentro de un subgraph se ignora con aviso; `style` de un subgraph, como todos los estilos.
