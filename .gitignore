@@ -1,0 +1,3 @@
+# HTML generados por diagram.py
+*.html
+!src/template.html

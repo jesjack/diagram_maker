@@ -36,8 +36,8 @@ El CLI concatena los `.js` dentro de `template.html`, así que el HTML generado 
 - [x] 1. **Parser**: texto Mermaid -> nodos, aristas y metadatos `@dir`. Errores claros con número de línea.
 - [x] 2. **Layout**: reglas de dirección de SPEC.md -> coordenadas.
 - [x] 3. **Render SVG**: 4 formas (rectángulo, círculo, rombo, cilindro), líneas rectas con flecha, etiquetas.
-- [ ] 4. **Visor**: zoom con scroll, arrastre, exportar PNG y SVG.
-- [ ] 5. **CLI Python**: `python3 diagram.py archivo.mmd` o texto escrito en la terminal -> HTML -> navegador.
+- [x] 4. **Visor**: zoom con scroll, arrastre, exportar PNG y SVG.
+- [x] 5. **CLI Python**: `python3 diagram.py archivo.mmd` o texto escrito en la terminal -> HTML -> navegador.
 
 Caso de prueba principal: el ejemplo "Inicio App" de SPEC.md (se guardará en `examples/inicio_app.mmd`).
 
@@ -48,8 +48,17 @@ Caso de prueba principal: el ejemplo "Inicio App" de SPEC.md (se guardará en `e
 
 ## Último estado
 
-2026-09-30: pasos 1-3 terminados (parser, layout en rejilla, render SVG), con tests (`node --test`).
-`renderSvg()` devuelve un SVG autocontenido en texto. Siguiente: paso 4 (visor web).
+2026-09-30: **Fase 1 completa** (pasos 1-5). Probar con:
+
+    python3 diagram.py examples/inicio_app.mmd
+
+Pendiente: que el usuario revise el visor en su navegador y dé su opinión antes de pasar a la Fase 2.
+
+Notas:
+- El CLI abre la página con un mini servidor en 127.0.0.1 que sirve una sola vez y termina, porque el
+  navegador del usuario (Edge por flatpak) no tiene acceso a carpetas fuera de Descargas/Documentos.
+  El HTML también se guarda en disco (junto al .mmd, o con `-o`).
+- Los .html generados están en .gitignore.
 
 Notas del entorno: Node v24 instalado con nvm en `~/.config/nvm` (si `node` no se encuentra:
 `export PATH=$HOME/.config/nvm/versions/node/v24.21.0/bin:$PATH`).
