@@ -9,7 +9,7 @@
     --bg: #f4f5f7;
     --dot: #d5d8de;
     --panel: #ffffff;
-    --panel-translucent: rgba(255, 255, 255, .72);
+    --panel-translucent: rgba(255, 255, 255, .5);
     --border: #d0d4db;
     --text: #1f2328;
     --muted: #656d76;
@@ -40,7 +40,8 @@
     transform-origin: 0 0;
     user-select: none;
   }
-  #canvas svg { display: block; overflow: visible; }
+  #canvas svg { position: relative; display: block; overflow: visible; }
+  #canvas .shadow { position: absolute; top: 0; left: 0; pointer-events: none; }
 
   .toolbar {
     position: fixed;
@@ -51,8 +52,6 @@
     align-items: center;
     padding: 4px;
     background: var(--panel-translucent);
-    -webkit-backdrop-filter: blur(6px);
-    backdrop-filter: blur(6px);
     border: 1px solid var(--border);
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, .08);

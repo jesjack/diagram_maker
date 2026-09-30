@@ -59,8 +59,13 @@ Notas:
   la barra de herramientas va abajo en pantallas estrechas; el zoom no se reinicia al cambiar el alto
   de la ventana (barra del navegador). En Termux se abre con `termux-open-url`.
 - Estética (2026-09-30): SVG sin fondo (se funde con la rejilla de puntos), nodos con relleno blanco,
-  sombra ligera en aristas, nodos y etiquetas; barra de herramientas translúcida. El PNG exportado
-  se pinta sobre blanco.
+  sombra difuminada en aristas, nodos y etiquetas; barra de herramientas translúcida (50 %, sin
+  backdrop-filter). El PNG exportado se pinta sobre blanco.
+- Rendimiento: un filtro de desenfoque dentro del SVG se recalcula en cada repintado y hacía caer
+  los fps (sobre todo al alejar desde zoom alto). El visor muestra el SVG sin sombra y pinta la
+  sombra una sola vez en un <canvas> debajo (`renderShadowSvg`); durante los gestos pone
+  `will-change: transform`. Los SVG/PNG exportados sí llevan el filtro. Se probó una sombra sin
+  desenfoque (copia gris desplazada) y al usuario no le gustó.
 - El CLI abre la página con un mini servidor en 127.0.0.1 que sirve una sola vez y termina, porque el
   navegador del usuario (Edge por flatpak) no tiene acceso a carpetas fuera de Descargas/Documentos.
   El HTML también se guarda en disco (junto al .mmd, o con `-o`).

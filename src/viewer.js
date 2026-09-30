@@ -15,14 +15,15 @@ const DiagramViewer = (() => {
     try {
       const graph = parseDiagram(source);
       result = layoutDiagram(graph, { measure: makeMeasure() });
-      svgText = renderSvg(result);
+      svgText = renderSvg(result); // con sombra difuminada: es lo que se exporta
     } catch (err) {
       showError(err, source);
       return;
     }
-    canvas.innerHTML = svgText;
+    canvas.innerHTML = renderSvg(result, THEME, { shadow: false });
     const svg = canvas.querySelector("svg");
     const size = { w: parseFloat(svg.getAttribute("width")), h: parseFloat(svg.getAttribute("height")) };
+    if (THEME.shadow) paintShadow(renderShadowSvg(result), size, canvas);
     showWarnings(result.warnings);
 
     // ---- vista: translate(tx, ty) scale(s) con origen arriba a la izquierda
@@ -55,10 +56,25 @@ const DiagramViewer = (() => {
       return [r.width / 2, r.height / 2];
     };
 
+    // Mientras hay un gesto en curso el diagrama se sube a su propia capa (will-change) y el
+    // navegador solo mueve/escala esa imagen, sin volver a pintar el SVG (y sus sombras) en
+    // cada fotograma. Al terminar se quita para que se vuelva a pintar nítido a la escala final.
+    let motionTimer = 0;
+    const beginMotion = () => {
+      clearTimeout(motionTimer);
+      canvas.style.willChange = "transform";
+    };
+    const endMotion = () => {
+      clearTimeout(motionTimer);
+      motionTimer = setTimeout(() => (canvas.style.willChange = ""), 150);
+    };
+
     stage.addEventListener(
       "wheel",
       (ev) => {
         ev.preventDefault();
+        beginMotion();
+        endMotion();
         const r = stage.getBoundingClientRect();
         // deltaMode 1 = líneas (algunos ratones); se normaliza a píxeles.
         const delta = ev.deltaY * (ev.deltaMode === 1 ? 16 : 1);
@@ -87,6 +103,7 @@ const DiagramViewer = (() => {
       stage.setPointerCapture(ev.pointerId);
       pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
       stage.classList.add("dragging");
+      beginMotion();
       gesture = snapshot();
       tapStart = pointers.size === 1 ? { x: ev.clientX, y: ev.clientY, time: ev.timeStamp } : null;
     });
@@ -103,7 +120,10 @@ const DiagramViewer = (() => {
     const release = (ev) => {
       if (!pointers.delete(ev.pointerId)) return;
       if (pointers.size) gesture = snapshot();
-      else stage.classList.remove("dragging");
+      else {
+        stage.classList.remove("dragging");
+        endMotion();
+      }
       // Doble toque (táctil) = ajustar; en ratón ya lo cubre dblclick.
       if (ev.type === "pointerup" && ev.pointerType !== "mouse" && tapStart && !pointers.size) {
         const moved = Math.hypot(ev.clientX - tapStart.x, ev.clientY - tapStart.y);
@@ -148,6 +168,26 @@ const DiagramViewer = (() => {
       apply();
     });
     fit();
+  }
+
+  // Pinta la sombra una sola vez en un <canvas> debajo del SVG (ver renderShadowSvg en render.js).
+  // Resolución: hasta 3 px por unidad, limitada a ~6 Mpx para no gastar memoria en diagramas grandes.
+  function paintShadow(shadowSvg, size, parent) {
+    const k = Math.min(3, Math.sqrt(6e6 / (size.w * size.h)));
+    const c = document.createElement("canvas");
+    c.className = "shadow";
+    c.width = Math.ceil(size.w * k);
+    c.height = Math.ceil(size.h * k);
+    c.style.width = `${size.w}px`;
+    c.style.height = `${size.h}px`;
+    const url = URL.createObjectURL(new Blob([shadowSvg], { type: "image/svg+xml" }));
+    const img = new Image();
+    img.onload = () => {
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      parent.prepend(c);
+    };
+    img.src = url;
   }
 
   // Mide texto con la misma fuente que usa el SVG.
