@@ -1,0 +1,30 @@
+flowchart TD
+    inicio(("Pedido recibido"))
+    validar["Validar datos del cliente"]
+    datosOk{"¿Datos completos?"}
+    pedirDatos["Pedir datos faltantes"]
+    stock{"¿Hay stock?"}
+    reservar["Reservar productos"]
+    inventario[("INVENTARIO DB")]
+    avisarFalta["Avisar falta de stock"]
+    pago{"¿Pago aprobado?"}
+    enviar["Preparar envío"]
+    fin(("Pedido enviado"))
+    cancelar["Cancelar pedido"]
+
+    inicio --> validar
+    validar --> datosOk
+    datosOk -->|No| pedirDatos
+    datosOk -->|Si| stock
+    stock -->|Si| reservar
+    stock -->|No| avisarFalta
+    reservar <--> inventario
+    reservar --> pago
+    pago -->|Si| enviar
+    pago -->|No| cancelar
+    enviar --> fin
+
+    %% @dir datosOk -> stock : down
+    %% @dir stock -> reservar : down
+    %% @dir reservar -> pago : down
+    %% @dir pago -> enviar : down

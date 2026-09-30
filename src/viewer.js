@@ -165,6 +165,10 @@ const DiagramViewer = (() => {
       c.width = Math.ceil(size.w * scale);
       c.height = Math.ceil(size.h * scale);
       const ctx = c.getContext("2d");
+      // El SVG no tiene fondo; en el PNG se pinta blanco para que se lea en cualquier visor
+      // (muchas galerías muestran lo transparente en negro).
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, c.width, c.height);
       ctx.scale(scale, scale);
       ctx.drawImage(img, 0, 0, size.w, size.h);
       URL.revokeObjectURL(url);

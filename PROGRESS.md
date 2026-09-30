@@ -58,6 +58,9 @@ Notas:
 - Soporte móvil (2026-09-30): un dedo arrastra, dos dedos hacen zoom y arrastran, doble toque ajusta;
   la barra de herramientas va abajo en pantallas estrechas; el zoom no se reinicia al cambiar el alto
   de la ventana (barra del navegador). En Termux se abre con `termux-open-url`.
+- Estética (2026-09-30): SVG sin fondo (se funde con la rejilla de puntos), nodos con relleno blanco,
+  sombra ligera en aristas, nodos y etiquetas; barra de herramientas translúcida. El PNG exportado
+  se pinta sobre blanco.
 - El CLI abre la página con un mini servidor en 127.0.0.1 que sirve una sola vez y termina, porque el
   navegador del usuario (Edge por flatpak) no tiene acceso a carpetas fuera de Descargas/Documentos.
   El HTML también se guarda en disco (junto al .mmd, o con `-o`).

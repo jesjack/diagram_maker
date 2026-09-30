@@ -1,7 +1,7 @@
 // Render: resultado del layout -> texto SVG autocontenido (estilos en línea, listo para exportar).
 
 const THEME = {
-  background: "#ffffff",
+  background: null, // null = transparente: el diagrama se funde con el fondo del visor
   nodeFill: "#ffffff",
   nodeStroke: "#1f2328",
   nodeStrokeWidth: 1.5,
@@ -11,6 +11,7 @@ const THEME = {
   labelText: "#1f2328",
   labelBackground: "#ffffff",
   padding: 40,
+  shadow: { dx: 0, dy: 1, blur: 1.5, color: "#000000", opacity: 0.18 }, // null = sin sombra
 };
 
 function escapeXml(s) {
@@ -35,16 +36,27 @@ function renderSvg(layout, theme = THEME) {
   parts.push(
     `<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" ` +
       `markerUnits="userSpaceOnUse" orient="auto-start-reverse">` +
-      `<path d="M0,0 L10,5 L0,10 z" fill="${theme.edge}"/></marker></defs>`
+      `<path d="M0,0 L10,5 L0,10 z" fill="${theme.edge}"/></marker>` +
+      // Región del filtro en coordenadas del diagrama: con la predeterminada (relativa a la caja
+      // del elemento) una línea recta horizontal o vertical tiene alto o ancho 0 y desaparece.
+      (theme.shadow
+        ? `<filter id="shadow" filterUnits="userSpaceOnUse" x="${fmt(x0)}" y="${fmt(y0)}" width="${fmt(width)}" height="${fmt(height)}">` +
+          `<feDropShadow dx="${theme.shadow.dx}" dy="${theme.shadow.dy}" stdDeviation="${theme.shadow.blur}" ` +
+          `flood-color="${theme.shadow.color}" flood-opacity="${theme.shadow.opacity}"/></filter>`
+        : "") +
+      `</defs>`
   );
-  parts.push(`<rect x="${fmt(x0)}" y="${fmt(y0)}" width="${fmt(width)}" height="${fmt(height)}" fill="${theme.background}"/>`);
+  if (theme.background) {
+    parts.push(`<rect x="${fmt(x0)}" y="${fmt(y0)}" width="${fmt(width)}" height="${fmt(height)}" fill="${theme.background}"/>`);
+  }
 
   // Aristas debajo de los nodos, etiquetas encima de todo.
-  parts.push(`<g class="edges">`);
+  const shadow = theme.shadow ? ` filter="url(#shadow)"` : "";
+  parts.push(`<g class="edges"${shadow}>`);
   for (const e of edges) parts.push(renderEdge(e, theme));
-  parts.push(`</g><g class="nodes">`);
+  parts.push(`</g><g class="nodes"${shadow}>`);
   for (const n of nodes) parts.push(renderNode(n, theme, opts));
-  parts.push(`</g><g class="labels">`);
+  parts.push(`</g><g class="labels"${shadow}>`);
   for (const e of edges) if (e.labelBox) parts.push(renderLabel(e, theme));
   parts.push(`</g></svg>`);
   return parts.join("\n");
