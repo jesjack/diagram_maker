@@ -87,11 +87,9 @@ end
   - Una referencia nunca quita el hueco a una salida real: si no cabe, prueba cualquier lado libre y,
     si no queda ninguno, se dibuja suelta.
 - **Nodo cuyas únicas entradas son referencias** (p. ej. `iApi --> S7 --> S4` con S4 ya colocado):
-  no es un inicio de verdad, así que no se lleva a la derecha como grupo desconectado. Su primer
-  hijo hace de padre (la flecha no cambia de sentido): el nodo se coloca en el primer lado libre
-  de ese hijo (abajo, derecha, izquierda, arriba; `@dir` en esa arista lo elige) y su referencia
-  entrante pasa a ser una salida más. Si el hijo aún no está colocado o no tiene lados libres, el
-  nodo empieza un grupo nuevo como antes.
+  cuenta como nodo sin padre, así que se aplica la regla 9: se pega a su primer hijo ya colocado y
+  su referencia entrante pasa a ser una salida más. Si ningún hijo está colocado o no hay lados
+  libres, empieza un grupo nuevo.
   - Con `@dir`, la dirección es la de la flecha (`%% @dir iOds -> S2 : left` → S2 queda a la izquierda
     de la referencia, es decir, la referencia a la derecha de S2).
 - **Nodos absorbidos:** un nodo de fuera de todo subgraph cuyas aristas van **todas** a nodos de
@@ -118,7 +116,10 @@ end
 7. **Nodo inicial**: el primer nodo declarado sin aristas entrantes.
 8. Las salidas con `@dir` se asignan primero; las demás toman, en orden, las direcciones por defecto que queden libres.
    (Un rombo con 3 salidas usa `down` para la tercera.)
-9. Los grupos de nodos desconectados se colocan a la derecha de lo ya dibujado.
+9. Los grupos de nodos desconectados se colocan a la derecha de lo ya dibujado. Un nodo sin padre
+   (que no es el inicial) con algún hijo ya colocado no está desconectado: se pega al primero de
+   esos hijos, en orden de declaración, en su primer lado libre (abajo, derecha, izquierda, arriba;
+   `@dir` en esa arista lo elige). El hijo hace de padre sin cambiar el sentido de la flecha.
 
 10. Si al colocar un hijo (o una referencia) su celda ya está ocupada, se prueba otro lado del padre
     que no esté reservado para otra de sus conexiones y cuya celda esté libre, en el orden abajo,

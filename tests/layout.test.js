@@ -285,3 +285,13 @@ test("nodo absorbido con varias aristas: una sola copia por diagrama; más de 3 
     /'t' tiene 4 salidas/
   );
 });
+
+test("nodo sin padre con algún hijo ya colocado: se pega a ese hijo en vez de ir a la derecha", () => {
+  // t no tiene entradas; su primer hijo (x) no está colocado, pero b sí: t va junto a b.
+  const L = layout(["a --> b", "t --> x", "t --> b"].join("\n"));
+  const at = (id) => L.nodes.find((n) => n.id === id);
+  const [b, t, x] = ["b", "t", "x"].map(at);
+  assert.strictEqual(Math.abs(t.col - b.col) + Math.abs(t.row - b.row), 1, "t es vecino de b");
+  assert.strictEqual(Math.abs(x.col - t.col) + Math.abs(x.row - t.row), 1, "x es vecino de t");
+  assert.ok(!L.warnings.some((w) => /Choque/.test(w.message)));
+});

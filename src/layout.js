@@ -412,14 +412,17 @@ function placeInGrid(nodes, edges, warnings, ctx) {
     place(node, parent.col + v.dc, parent.row + v.dr);
   };
 
-  // Un nodo cuyas únicas entradas son referencias no es un inicio de verdad: si su primer hijo ya
-  // está colocado, se pega a él en su primer lado libre (el hijo hace de padre, sin cambiar el
-  // sentido de la flecha). Un @dir en esa arista elige el lado.
+  // Un nodo sin padre real que no es el primero en colocarse no forma un grupo desconectado si
+  // alguno de sus hijos ya está colocado: se pega al primero de ellos (en orden de declaración) en
+  // su primer lado libre. Ese hijo hace de padre, sin cambiar el sentido de la flecha; las
+  // referencias entrantes del nodo pasan a ser salidas más. Un @dir en esa arista elige el lado.
   const findAnchor = (node) => {
-    if (!edges.some((e) => e.attached && e.to === node.id)) return null;
-    const edge = edges.filter((e) => e.from === node.id).sort((a, b) => a.index - b.index)[0];
+    if (edges.some((e) => !e.refEdge && e.to === node.id)) return null; // tiene padre real
+    const edge = edges
+      .filter((e) => e.from === node.id && !nodes.get(e.to).ref && nodes.get(e.to).col !== undefined)
+      .sort((a, b) => a.index - b.index)[0];
     const child = edge && nodes.get(edge.to);
-    if (!child || child.ref || child.col === undefined) return null;
+    if (!child) return null;
     const o = ctx.overrides.get(`${edge.from}\u0000${edge.to}`);
     if (o) return { edge, child, cell: OPPOSITE[o.dir] };
     const order = [...DEFAULT_DIRS[child.shape === "diamond" ? "diamond" : "other"], "up"];
