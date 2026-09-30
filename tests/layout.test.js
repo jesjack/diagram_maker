@@ -213,3 +213,20 @@ test("nodo cuyo único padre es una referencia: se pega a su primer hijo ya colo
   assert.deepStrictEqual([ref.col - c.col, ref.row - c.row], [0, 1]);
   assert.ok(!L.warnings.some((w) => /Choque/.test(w.message)));
 });
+
+test("si el lado asignado ya está ocupado, se usa otro lado libre del padre", () => {
+  // b queda a la izquierda de a (@dir); la 2ª salida de b (derecha) caería sobre a: pasa a la izquierda.
+  const L = layout(["a --> b", "b --> c", "b --> d", "%% @dir a -> b : left"].join("\n"));
+  const at = (id) => L.nodes.find((n) => n.id === id);
+  const [b, c, d] = ["b", "c", "d"].map(at);
+  assert.deepStrictEqual([c.col - b.col, c.row - b.row], [0, 1]);
+  assert.deepStrictEqual([d.col - b.col, d.row - b.row], [-1, 0]);
+  assert.strictEqual(L.edges.find((e) => e.to === "d").dir, "left");
+  assert.ok(!L.warnings.some((w) => /Choque/.test(w.message)));
+});
+
+test("un @dir explícito no se mueve aunque choque", () => {
+  const L = layout(["a --> b", "b --> c", "%% @dir a -> b : left", "%% @dir b -> c : right"].join("\n"));
+  assert.strictEqual(L.edges.find((e) => e.to === "c").dir, "right");
+  assert.ok(L.warnings.some((w) => /Choque/.test(w.message)));
+});

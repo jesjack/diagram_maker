@@ -277,7 +277,10 @@ function assignSlots(node, ctx, anchor = null) {
   const conns = [...out, ...att].sort((a, b) => a.index - b.index);
   for (const e of conns) {
     const o = overrides.get(`${e.from}\u0000${e.to}`);
-    if (o && !e.dir) take(e, e.attached ? OPPOSITE[o.dir] : o.dir, o.line);
+    if (o && !e.dir) {
+      take(e, e.attached ? OPPOSITE[o.dir] : o.dir, o.line);
+      e.explicit = true;
+    }
   }
   // Un nodo sin padre real (p. ej. el primero de un subgraph) toma su primera referencia
   // entrante como padre: va arriba y el flujo sigue hacia abajo, como en "iArr --> S1 --> S2".
@@ -327,8 +330,9 @@ const nodeLabel = (n) => (n.ref ? `la referencia a '${n.text.replace(/\n/g, " ")
 
 function placeInGrid(nodes, edges, warnings, ctx) {
   const occupied = new Map(); // "col,row" -> nodo
-  // Las referencias pegadas no son raíces ni cuentan como entrada: se colocan junto a su destino.
-  const hasIncoming = new Set(edges.filter((e) => !e.attached).map((e) => e.to));
+  // Las referencias no cuentan como entrada: las pegadas se colocan junto a su destino y las
+  // sueltas (sin lado libre) al final, cuando su destino ya está colocado.
+  const hasIncoming = new Set(edges.filter((e) => !e.refEdge).map((e) => e.to));
   const isAttachedRef = (n) => edges.some((e) => e.attached && e.from === n.id);
   let nextComponentCol = 0;
 
@@ -345,6 +349,30 @@ function placeInGrid(nodes, edges, warnings, ctx) {
     } else {
       occupied.set(key, node);
     }
+  };
+
+  // Coloca un hijo (o una referencia pegada) junto a su padre, en el lado que le tocó. Si esa celda
+  // ya está ocupada (p. ej. por el propio padre del padre), prueba los demás lados del padre que
+  // no estén reservados para otra conexión: abajo, derecha, izquierda, arriba. Un @dir se respeta.
+  const sideOf = (e) => (e.attached ? e.slot : e.dir);
+  const cellAt = (n, side) => `${n.col + DIR_VECTORS[side].dc},${n.row + DIR_VECTORS[side].dr}`;
+  const placeNextTo = (parent, node, e) => {
+    let side = sideOf(e);
+    if (occupied.has(cellAt(parent, side)) && !e.explicit) {
+      const reserved = new Set(
+        edges.filter((x) => x !== e && (x.from === parent.id || (x.attached && x.to === parent.id))).map(sideOf)
+      );
+      const alt = ["down", "right", "left", "up"].find((d) => !reserved.has(d) && !occupied.has(cellAt(parent, d)));
+      if (alt) {
+        side = alt;
+        if (e.attached) {
+          e.slot = alt;
+          e.dir = OPPOSITE[alt];
+        } else e.dir = alt;
+      }
+    }
+    const v = DIR_VECTORS[side];
+    place(node, parent.col + v.dc, parent.row + v.dr);
   };
 
   // Un nodo cuyas únicas entradas son referencias no es un inicio de verdad: si su primer hijo ya
@@ -365,7 +393,8 @@ function placeInGrid(nodes, edges, warnings, ctx) {
   // Raíces: primero los nodos sin aristas entrantes (en orden de declaración), luego el resto,
   // por si queda algún ciclo sin alcanzar.
   const all = [...nodes.values()];
-  const roots = [...all.filter((n) => !hasIncoming.has(n.id)), ...all];
+  const real = all.filter((n) => !n.ref);
+  const roots = [...real.filter((n) => !hasIncoming.has(n.id)), ...real, ...all.filter((n) => n.ref)];
 
   for (const root of roots) {
     if (root.col !== undefined || isAttachedRef(root)) continue;
@@ -385,15 +414,13 @@ function placeInGrid(nodes, edges, warnings, ctx) {
       for (const e of edges) {
         if (e.attached && e.to === parent.id) {
           const ref = nodes.get(e.from);
-          const v = DIR_VECTORS[e.slot];
-          if (ref.col === undefined) place(ref, parent.col + v.dc, parent.row + v.dr);
+          if (ref.col === undefined) placeNextTo(parent, ref, e);
           continue;
         }
         if (e.from !== parent.id || e.attached) continue;
         const child = nodes.get(e.to);
         if (child.col !== undefined) continue; // TODO (SPEC): bucles / varios padres
-        const v = DIR_VECTORS[e.dir];
-        place(child, parent.col + v.dc, parent.row + v.dr);
+        placeNextTo(parent, child, e);
         queue.push(child);
       }
     }
