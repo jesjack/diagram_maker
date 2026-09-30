@@ -123,7 +123,7 @@ function splitBySubgraph(graph, warnings) {
   // attached: la arista sale de una referencia; la referencia se coloca pegada a su destino.
   const add = (group, e, from, to) => {
     const part = parts.get(group);
-    part.edges.push({ ...e, from, to, attached: from !== e.from });
+    part.edges.push({ ...e, from, to, attached: from !== e.from, refEdge: from !== e.from });
     for (const d of dirsOf(e)) part.meta.dirs.push({ ...d, from, to });
   };
 
@@ -148,8 +148,8 @@ function layoutSingle(graph, measure, opts, warnings) {
   for (const n of graph.nodes.values()) nodes.set(n.id, { ...n, ...sizeNode(n, measure, opts) });
 
   const edges = graph.edges.map((e) => ({ ...e }));
-  assignDirections(nodes, edges, graph.meta.dirs);
-  placeInGrid(nodes, edges, warnings);
+  const ctx = assignDirections(nodes, edges, graph.meta.dirs);
+  placeInGrid(nodes, edges, warnings, ctx);
   const bounds = computeCoordinates(nodes, edges, measure, opts);
   for (const e of edges) routeEdge(e, nodes.get(e.from), nodes.get(e.to), measure, opts);
 
@@ -222,84 +222,102 @@ function sizeNode(node, measure, opts) {
 // ---------------------------------------------------------------- direcciones
 
 // Las referencias entrantes (arista "attached": ref -> nodo) ocupan un hueco del nodo destino como si
-// fueran una salida más, en el orden de declaración de las aristas (salvo la que hace de padre, arriba). e.slot es el lado del nodo
-// donde va la referencia; e.dir sigue siendo la dirección de la flecha (ref -> nodo).
+// fueran una salida más, en el orden de declaración de las aristas (salvo la que hace de padre, arriba).
+// e.slot es el lado del nodo donde va la referencia; e.dir sigue siendo la dirección de la flecha.
 function assignDirections(nodes, edges, metaDirs) {
-  const overrides = new Map(metaDirs.map((d) => [`${d.from}\u0000${d.to}`, d]));
+  const ctx = { nodes, edges, overrides: new Map(metaDirs.map((d) => [`${d.from}\u0000${d.to}`, d])) };
   const deferred = [];
-
   for (const node of nodes.values()) {
     if (node.ref && edges.some((e) => e.attached && e.from === node.id)) continue;
-    const out = edges.filter((e) => e.from === node.id);
-    const att = edges.filter((e) => e.attached && e.to === node.id);
-    if (out.length > MAX_OUTGOING) {
-      throw new layoutDeps.DiagramError(
-        `El nodo '${node.id}' tiene ${out.length} salidas; el máximo es ${MAX_OUTGOING}`,
-        out[MAX_OUTGOING].line
-      );
-    }
+    deferred.push(...assignSlots(node, ctx));
+  }
+  for (const d of deferred) resolveDeferred(d, ctx);
+  return ctx;
+}
 
-    const used = new Map(); // lado del nodo -> arista que lo ocupa
-    const other = (e) => (e.attached ? nodeLabel(nodes.get(e.from)) : `'${e.to}'`);
-    const take = (edge, side, line) => {
-      if (used.has(side)) {
-        throw new layoutDeps.DiagramError(
-          `El nodo '${node.id}' tiene dos ${used.get(side).attached || edge.attached ? "conexiones" : "salidas"} ` +
-            `hacia '${side}': ${other(used.get(side))} y ${other(edge)}`,
-          line
-        );
-      }
-      used.set(side, edge);
-      if (edge.attached) {
-        edge.slot = side;
-        edge.dir = OPPOSITE[side];
-      } else edge.dir = side;
-    };
-
-    // Primero los @dir explícitos (en una referencia, el @dir es la dirección de la flecha
-    // ref -> nodo, así que la referencia va al lado opuesto); luego el resto recibe los
-    // valores por defecto libres, en orden de declaración.
-    const conns = [...out, ...att].sort((a, b) => a.index - b.index);
-    for (const e of conns) {
-      const o = overrides.get(`${e.from}\u0000${e.to}`);
-      if (o) take(e, e.attached ? OPPOSITE[o.dir] : o.dir, o.line);
-    }
-    // Un nodo sin padre real (p. ej. el primero de un subgraph) toma su primera referencia
-    // entrante como padre: va arriba y el flujo sigue hacia abajo, como en "iArr --> S1 --> S2".
-    const hasRealParent = edges.some((e) => !e.attached && e.to === node.id && e.from !== node.id);
-    const firstAtt = att.find((e) => !e.dir);
-    if (!hasRealParent && firstAtt && !used.has("up")) take(firstAtt, "up", firstAtt.line);
-
-    const defaults = DEFAULT_DIRS[node.shape === "diamond" ? "diamond" : "other"];
-    const free = defaults.filter((d) => !used.has(d));
-    let pendingOut = out.filter((e) => !e.dir).length;
-    for (const e of conns) {
-      if (e.dir) continue;
-      if (!e.attached) {
-        take(e, free.shift(), e.line);
-        pendingOut--;
-      } else if (free.length > pendingOut) {
-        // Una referencia solo toma un hueco si quedan suficientes para las salidas reales.
-        take(e, free.shift(), e.line);
-      } else deferred.push({ e, node, used });
-    }
+// Reparte los lados de un nodo entre sus conexiones. anchor = { edge, side }: una salida que ya
+// tiene lado fijo porque el nodo se colocó pegado a ese hijo (ver placeInGrid).
+function assignSlots(node, ctx, anchor = null) {
+  const { nodes, edges, overrides } = ctx;
+  const out = edges.filter((e) => e.from === node.id);
+  const att = edges.filter((e) => e.refEdge && e.to === node.id);
+  if (out.length > MAX_OUTGOING) {
+    throw new layoutDeps.DiagramError(
+      `El nodo '${node.id}' tiene ${out.length} salidas; el máximo es ${MAX_OUTGOING}`,
+      out[MAX_OUTGOING].line
+    );
+  }
+  for (const e of [...out, ...att]) {
+    delete e.dir;
+    delete e.slot;
+    if (e.refEdge) e.attached = true;
   }
 
-  // Referencias sin hueco: prueban cualquier lado libre (también arriba, si no llega por ahí
-  // ninguna arista); si no queda ninguno, se dibujan sueltas como antes.
-  for (const { e, node, used } of deferred) {
-    const busy = new Set(used.keys());
-    for (const x of edges) if (!x.attached && x.to === node.id && x.dir) busy.add(OPPOSITE[x.dir]);
-    for (const x of edges) if (x.attached && x.to === node.id && x.slot) busy.add(x.slot);
-    const side = ["down", "right", "left", "up"].find((d) => !busy.has(d));
-    if (side) {
-      e.slot = side;
-      e.dir = OPPOSITE[side];
-    } else {
-      e.attached = false;
-      const o = overrides.get(`${e.from}\u0000${e.to}`);
-      e.dir = o ? o.dir : "down";
+  const used = new Map(); // lado del nodo -> arista que lo ocupa
+  const other = (e) => (e.attached ? nodeLabel(nodes.get(e.from)) : `'${e.to}'`);
+  const take = (edge, side, line) => {
+    if (used.has(side)) {
+      throw new layoutDeps.DiagramError(
+        `El nodo '${node.id}' tiene dos ${used.get(side).attached || edge.attached ? "conexiones" : "salidas"} ` +
+          `hacia '${side}': ${other(used.get(side))} y ${other(edge)}`,
+        line
+      );
     }
+    used.set(side, edge);
+    if (edge.attached) {
+      edge.slot = side;
+      edge.dir = OPPOSITE[side];
+    } else edge.dir = side;
+  };
+
+  if (anchor) take(anchor.edge, anchor.side, anchor.edge.line);
+  // Primero los @dir explícitos (en una referencia, el @dir es la dirección de la flecha
+  // ref -> nodo, así que la referencia va al lado opuesto); luego el resto recibe los
+  // valores por defecto libres, en orden de declaración.
+  const conns = [...out, ...att].sort((a, b) => a.index - b.index);
+  for (const e of conns) {
+    const o = overrides.get(`${e.from}\u0000${e.to}`);
+    if (o && !e.dir) take(e, e.attached ? OPPOSITE[o.dir] : o.dir, o.line);
+  }
+  // Un nodo sin padre real (p. ej. el primero de un subgraph) toma su primera referencia
+  // entrante como padre: va arriba y el flujo sigue hacia abajo, como en "iArr --> S1 --> S2".
+  // Si el nodo está anclado a su primer hijo, ese hijo hace de padre y la referencia es una salida más.
+  const hasRealParent = anchor || edges.some((e) => !e.attached && e.to === node.id && e.from !== node.id);
+  const firstAtt = att.find((e) => !e.dir);
+  if (!hasRealParent && firstAtt && !used.has("up")) take(firstAtt, "up", firstAtt.line);
+
+  const defaults = DEFAULT_DIRS[node.shape === "diamond" ? "diamond" : "other"];
+  const free = defaults.filter((d) => !used.has(d));
+  let pendingOut = out.filter((e) => !e.dir).length;
+  const deferred = [];
+  for (const e of conns) {
+    if (e.dir) continue;
+    if (!e.attached) {
+      // Sin hueco por defecto (solo pasa si el ancla ocupó uno): cualquier lado libre.
+      take(e, free.shift() || ["down", "right", "left", "up"].find((d) => !used.has(d)), e.line);
+      pendingOut--;
+    } else if (free.length > pendingOut) {
+      // Una referencia solo toma un hueco si quedan suficientes para las salidas reales.
+      take(e, free.shift(), e.line);
+    } else deferred.push({ e, node, used });
+  }
+  return deferred;
+}
+
+// Referencia sin hueco: prueba cualquier lado libre (también arriba, si no llega por ahí
+// ninguna arista); si no queda ninguno, se dibuja suelta.
+function resolveDeferred({ e, node, used }, { edges, overrides }) {
+  const busy = new Set(used.keys());
+  for (const x of edges) if (!x.attached && x.to === node.id && x.dir) busy.add(OPPOSITE[x.dir]);
+  for (const x of edges) if (x.attached && x.to === node.id && x.slot) busy.add(x.slot);
+  const side = ["down", "right", "left", "up"].find((d) => !busy.has(d));
+  if (side) {
+    e.slot = side;
+    e.dir = OPPOSITE[side];
+  } else {
+    e.attached = false;
+    const o = overrides.get(`${e.from}\u0000${e.to}`);
+    e.dir = o ? o.dir : "down";
   }
 }
 
@@ -307,11 +325,11 @@ const nodeLabel = (n) => (n.ref ? `la referencia a '${n.text.replace(/\n/g, " ")
 
 // ---------------------------------------------------------------- rejilla
 
-function placeInGrid(nodes, edges, warnings) {
+function placeInGrid(nodes, edges, warnings, ctx) {
   const occupied = new Map(); // "col,row" -> nodo
   // Las referencias pegadas no son raíces ni cuentan como entrada: se colocan junto a su destino.
   const hasIncoming = new Set(edges.filter((e) => !e.attached).map((e) => e.to));
-  const attachedRefs = new Set(edges.filter((e) => e.attached).map((e) => e.from));
+  const isAttachedRef = (n) => edges.some((e) => e.attached && e.from === n.id);
   let nextComponentCol = 0;
 
   const place = (node, col, row) => {
@@ -329,14 +347,36 @@ function placeInGrid(nodes, edges, warnings) {
     }
   };
 
+  // Un nodo cuyas únicas entradas son referencias no es un inicio de verdad: si su primer hijo ya
+  // está colocado, se pega a él en su primer lado libre (el hijo hace de padre, sin cambiar el
+  // sentido de la flecha). Un @dir en esa arista elige el lado.
+  const findAnchor = (node) => {
+    if (!edges.some((e) => e.attached && e.to === node.id)) return null;
+    const edge = edges.filter((e) => e.from === node.id).sort((a, b) => a.index - b.index)[0];
+    const child = edge && nodes.get(edge.to);
+    if (!child || child.ref || child.col === undefined) return null;
+    const o = ctx.overrides.get(`${edge.from}\u0000${edge.to}`);
+    if (o) return { edge, child, cell: OPPOSITE[o.dir] };
+    const order = [...DEFAULT_DIRS[child.shape === "diamond" ? "diamond" : "other"], "up"];
+    const cell = order.find((d) => !occupied.has(`${child.col + DIR_VECTORS[d].dc},${child.row + DIR_VECTORS[d].dr}`));
+    return cell ? { edge, child, cell } : null;
+  };
+
   // Raíces: primero los nodos sin aristas entrantes (en orden de declaración), luego el resto,
   // por si queda algún ciclo sin alcanzar.
-  const all = [...nodes.values()].filter((n) => !attachedRefs.has(n.id));
+  const all = [...nodes.values()];
   const roots = [...all.filter((n) => !hasIncoming.has(n.id)), ...all];
 
   for (const root of roots) {
-    if (root.col !== undefined) continue;
-    place(root, nextComponentCol, 0);
+    if (root.col !== undefined || isAttachedRef(root)) continue;
+    const anchor = findAnchor(root);
+    if (anchor) {
+      const v = DIR_VECTORS[anchor.cell];
+      place(root, anchor.child.col + v.dc, anchor.child.row + v.dr);
+      assignSlots(root, ctx, { edge: anchor.edge, side: OPPOSITE[anchor.cell] }).forEach((d) => resolveDeferred(d, ctx));
+    } else {
+      place(root, nextComponentCol, 0);
+    }
 
     // Recorrido en anchura siguiendo las salidas en orden de declaración.
     const queue = [root];

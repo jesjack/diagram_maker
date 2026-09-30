@@ -86,6 +86,12 @@ end
     declaración de las aristas**.
   - Una referencia nunca quita el hueco a una salida real: si no cabe, prueba cualquier lado libre y,
     si no queda ninguno, se dibuja suelta.
+- **Nodo cuyas únicas entradas son referencias** (p. ej. `iApi --> S7 --> S4` con S4 ya colocado):
+  no es un inicio de verdad, así que no se lleva a la derecha como grupo desconectado. Su primer
+  hijo hace de padre (la flecha no cambia de sentido): el nodo se coloca en el primer lado libre
+  de ese hijo (abajo, derecha, izquierda, arriba; `@dir` en esa arista lo elige) y su referencia
+  entrante pasa a ser una salida más. Si el hijo aún no está colocado o no tiene lados libres, el
+  nodo empieza un grupo nuevo como antes.
   - Con `@dir`, la dirección es la de la flecha (`%% @dir iOds -> S2 : left` → S2 queda a la izquierda
     de la referencia, es decir, la referencia a la derecha de S2).
 - **Arista hacia o desde un subgraph entero** (`a --> APP`): solo se dibuja en el diagrama del nodo,

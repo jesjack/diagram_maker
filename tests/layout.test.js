@@ -186,3 +186,30 @@ test("referencias entrantes no quitan hueco a las salidas reales", () => {
     ["down", "right", "left"]
   );
 });
+
+test("nodo cuyo único padre es una referencia: se pega a su primer hijo ya colocado", () => {
+  const L = layout(
+    [
+      'e1["E1"]',
+      'e2["E2"]',
+      "subgraph S",
+      '  a["A"] --> b["B"]',
+      '  c["C"]',
+      "end",
+      "e1 --> a",
+      "e2 --> c --> b", // c no es un inicio: su primer hijo (b) hace de padre
+    ].join("\n")
+  );
+  const get = (pred) => L.nodes.find(pred);
+  const a = get((n) => n.id === "a");
+  const b = get((n) => n.id === "b");
+  const c = get((n) => n.id === "c");
+  // b está debajo de a; c ocupa el primer lado libre de b (abajo) y la flecha sigue siendo c -> b.
+  assert.deepStrictEqual([b.col - a.col, b.row - a.row], [0, 1]);
+  assert.deepStrictEqual([c.col - b.col, c.row - b.row], [0, 1]);
+  assert.strictEqual(L.edges.find((e) => e.from === "c" && e.to === "b").dir, "up");
+  // La referencia a E2 pasa a ser una salida más de c (abajo, el primer lado libre).
+  const ref = get((n) => n.ref && n.text === "E2");
+  assert.deepStrictEqual([ref.col - c.col, ref.row - c.row], [0, 1]);
+  assert.ok(!L.warnings.some((w) => /Choque/.test(w.message)));
+});
