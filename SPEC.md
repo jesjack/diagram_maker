@@ -67,6 +67,18 @@ Las líneas que conectan nodos son **rectas**.
 4. Un nodo con **más de 3 salidas** produce un **error fatal**.
 5. `a <--> b` cuenta como salida del nodo que la declara (`a`).
 6. El orden de declaración de las aristas es en sí mismo una forma de control del layout.
+7. **Nodo inicial**: el primer nodo declarado sin aristas entrantes.
+8. Las salidas con `@dir` se asignan primero; las demás toman, en orden, las direcciones por defecto que queden libres.
+   (Un rombo con 3 salidas usa `down` para la tercera.)
+9. Los grupos de nodos desconectados se colocan a la derecha de lo ya dibujado.
+
+### Rejilla
+
+Cada nodo ocupa una celda (columna, fila); un hijo va a la celda vecina de su padre según la dirección.
+El ancho de cada columna y el alto de cada fila se ajustan al nodo más grande que contienen, así que
+los nodos quedan alineados. El hueco entre celdas crece si la etiqueta de una arista no cabe.
+
+Si dos nodos caen en la misma celda se genera un **aviso** de choque (resolverlo es un TODO).
 
 ## Metadatos
 

@@ -34,7 +34,7 @@ El CLI concatena los `.js` dentro de `template.html`, así que el HTML generado 
 ## Fase 1: prototipo
 
 - [x] 1. **Parser**: texto Mermaid -> nodos, aristas y metadatos `@dir`. Errores claros con número de línea.
-- [ ] 2. **Layout**: reglas de dirección de SPEC.md -> coordenadas.
+- [x] 2. **Layout**: reglas de dirección de SPEC.md -> coordenadas.
 - [ ] 3. **Render SVG**: 4 formas (rectángulo, círculo, rombo, cilindro), líneas rectas con flecha, etiquetas.
 - [ ] 4. **Visor**: zoom con scroll, arrastre, exportar PNG y SVG.
 - [ ] 5. **CLI Python**: `python3 diagram.py archivo.mmd` o texto escrito en la terminal -> HTML -> navegador.
@@ -48,7 +48,9 @@ Caso de prueba principal: el ejemplo "Inicio App" de SPEC.md (se guardará en `e
 
 ## Último estado
 
-2026-09-30: paso 1 (parser) terminado, con tests en `tests/parser.test.js`. Siguiente: paso 2 (layout).
+2026-09-30: pasos 1 (parser) y 2 (layout en rejilla) terminados, con tests (`node --test`, 17 pasan).
+Siguiente: paso 3 (render SVG). `layoutDiagram()` devuelve nodos con x, y, w, h, lines y aristas con
+`points` (ya recortados al borde de cada forma) y `labelBox`; el render solo tiene que dibujarlos.
 
 Notas del entorno: Node v24 instalado con nvm en `~/.config/nvm` (si `node` no se encuentra:
 `export PATH=$HOME/.config/nvm/versions/node/v24.21.0/bin:$PATH`).
