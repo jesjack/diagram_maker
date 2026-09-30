@@ -96,8 +96,11 @@ end
     de la referencia, es decir, la referencia a la derecha de S2).
 - **Nodos absorbidos:** un nodo de fuera de todo subgraph cuyas aristas van **todas** a nodos de
   subgraphs no se dibuja en su diagrama (ni sus referencias): aparece solo dentro de esos subgraphs,
-  con su forma y borde normales, porque no es referencia a nada dibujado en otro sitio (una copia
-  por arista). Un nodo sin aristas, o con alguna arista a un nodo de fuera o a un subgraph entero,
+  con su forma y borde normales, porque no es referencia a nada dibujado en otro sitio. Se dibuja
+  **una sola vez por diagrama**: con una sola arista ahí se pega a su destino como una referencia;
+  con varias es un nodo normal (más de 3 salidas → error fatal, como cualquier nodo).
+  TODO: decidir si un nodo absorbido muy compartido debería volver a una copia por arista.
+  Un nodo sin aristas, o con alguna arista a un nodo de fuera o a un subgraph entero,
   no se absorbe. Un diagrama que se queda sin nodos no se dibuja.
 - **Arista hacia o desde un subgraph entero** (`a --> APP`): solo se dibuja en el diagrama del nodo,
   con una referencia que lleva el título del subgraph. Entre dos subgraphs enteros se ignora con aviso.

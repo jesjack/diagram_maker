@@ -267,3 +267,21 @@ test("si el nivel superior se queda vacío, no se dibuja", () => {
   assert.deepStrictEqual(L.titles.map((t) => t.text), ["Sis"]);
   assert.strictEqual(Math.min(...L.nodes.map((n) => n.x - n.w / 2)), L.bounds.minX);
 });
+
+test("nodo absorbido con varias aristas: una sola copia por diagrama; más de 3 salidas es error", () => {
+  const L = layout(
+    ['t[/"IN teclado"/]', "subgraph S", '  a["A"] --> b["B"]', '  c["C"]', '  d["D"]', "end", "t --> c", "t --> d", "t --> b"].join("\n")
+  );
+  const copies = L.nodes.filter((n) => n.id === "t" || n.realId === "t");
+  assert.strictEqual(copies.length, 1);
+  const t = copies[0];
+  const at = (id) => L.nodes.find((n) => n.id === id);
+  // c y d son sus hijos (abajo y derecha); b ya estaba colocado bajo a.
+  assert.deepStrictEqual([at("c").col - t.col, at("c").row - t.row], [0, 1]);
+  assert.deepStrictEqual([at("d").col - t.col, at("d").row - t.row], [1, 0]);
+
+  assert.throws(
+    () => layout(['t["T"]', "subgraph S", '  a["A"]', '  b["B"]', '  c["C"]', '  d["D"]', "end", "t --> a", "t --> b", "t --> c", "t --> d"].join("\n")),
+    /'t' tiene 4 salidas/
+  );
+});

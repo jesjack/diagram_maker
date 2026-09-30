@@ -107,7 +107,10 @@ function splitBySubgraph(graph, warnings) {
   const fullTitle = (sg) => (sg.parent ? `${fullTitle(byId.get(sg.parent))} › ${sg.title}` : sg.title);
   const groups = [null, ...graph.subgraphs.map((s) => s.id)];
   const parts = new Map(
-    groups.map((g) => [g, { nodes: new Map(), edges: [], meta: { dirs: [] }, title: g ? fullTitle(byId.get(g)) : null }])
+    groups.map((g) => [
+      g,
+      { group: g, nodes: new Map(), edges: [], meta: { dirs: [] }, title: g ? fullTitle(byId.get(g)) : null },
+    ])
   );
   // Nodo absorbido: está fuera de todo subgraph y todas sus aristas van a nodos de subgraphs. Su
   // propio diagrama solo repetiría lo que ya se ve dentro, así que no se dibuja ahí: aparece solo
@@ -124,9 +127,26 @@ function splitBySubgraph(graph, warnings) {
   }
   for (const n of graph.nodes.values()) if (!absorbed.has(n.id)) parts.get(n.group).nodes.set(n.id, n);
 
+  // Aristas de cada nodo absorbido dentro de cada grupo.
+  const absorbedEdges = new Map();
+  for (const e of graph.edges) {
+    for (const [end, other] of [[e.from, e.to], [e.to, e.from]]) {
+      if (!absorbed.has(end)) continue;
+      const key = `${end}\u0000${graph.nodes.get(other).group}`;
+      absorbedEdges.set(key, (absorbedEdges.get(key) || 0) + 1);
+    }
+  }
+
   const ref = (part, e, target) => {
-    const id = `${target}\u2197${e.index}`; // no puede chocar con un id escrito (\u2197 no es válido en ids)
     const real = graph.nodes.get(target);
+    // Un nodo absorbido con varias aristas en este diagrama se dibuja una sola vez, como nodo
+    // normal (puede tener hasta 3 salidas, como cualquiera). Con una sola arista se trata como
+    // una referencia pegada a su destino.
+    if (absorbed.has(target) && absorbedEdges.get(`${target}\u0000${part.group}`) > 1) {
+      if (!part.nodes.has(target)) part.nodes.set(target, { ...real, group: part.group, absorbed: true });
+      return target;
+    }
+    const id = `${target}\u2197${e.index}`; // no puede chocar con un id escrito (\u2197 no es válido en ids)
     const text = real ? real.text : byId.get(target).title;
     const node = absorbed.has(target)
       ? { id, shape: real.shape, text, line: e.line, group: null, ref: true, absorbed: true, realId: target }
