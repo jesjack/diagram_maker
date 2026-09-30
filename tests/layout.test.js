@@ -133,3 +133,56 @@ test("sin subgraphs el resultado no cambia", () => {
   assert.deepStrictEqual(L.titles, []);
   assert.ok(!L.nodes.some((n) => n.ref));
 });
+
+test("referencias entrantes: se pegan al nodo destino según el orden de las aristas", () => {
+  const L = layout(
+    [
+      'ext1["E1"]',
+      'ext2["E2"]',
+      "subgraph S",
+      '  s1["S1"]',
+      '  s2["S2"]',
+      '  s3["S3"]',
+      '  s4["S4"]',
+      "end",
+      "ext1 --> s1 --> s2", // sin padre real: la referencia a E1 hace de padre (arriba)
+      "ext2 --> s2", // s2 ya tiene padre (s1): la referencia ocupa la 1ª salida libre (abajo)
+      "s2 --> s3",
+      "s2 --> s4",
+    ].join("\n")
+  );
+  const at = (id) => {
+    const n = L.nodes.find((x) => (x.ref ? `ref:${x.text}` : x.id) === id && (x.ref || x.group === "S"));
+    return [n.col, n.row];
+  };
+  const [c1, r1] = at("s1");
+  assert.deepStrictEqual(at("ref:E1"), [c1, r1 - 1]);
+  assert.deepStrictEqual(at("s2"), [c1, r1 + 1]);
+  assert.deepStrictEqual(at("ref:E2"), [c1, r1 + 2]);
+  assert.deepStrictEqual(at("s3"), [c1 + 1, r1 + 1]);
+  assert.deepStrictEqual(at("s4"), [c1 - 1, r1 + 1]);
+  assert.ok(!L.warnings.some((w) => /Choque/.test(w.message)));
+});
+
+test("referencias entrantes: @dir es la dirección de la flecha y la referencia va al lado opuesto", () => {
+  const L = layout(
+    ['e["E"]', "subgraph S", '  a["A"] --> b["B"]', "end", "e --> b", "%% @dir e -> b : left"].join("\n")
+  );
+  const b = L.nodes.find((n) => n.id === "b" && n.group === "S");
+  const ref = L.nodes.find((n) => n.ref && n.text === "E");
+  assert.deepStrictEqual([ref.col, ref.row], [b.col + 1, b.row]);
+});
+
+test("referencias entrantes no quitan hueco a las salidas reales", () => {
+  // a tiene 3 salidas reales y ningún padre: la referencia no desplaza a ninguna y va arriba.
+  const L = layout(
+    ['e["E"]', "subgraph S", '  a["A"]', "  a --> x", "  a --> y", "  a --> z", "end", "e --> a"].join("\n")
+  );
+  const a = L.nodes.find((n) => n.id === "a");
+  const ref = L.nodes.find((n) => n.ref && n.text === "E" && n.row !== undefined && n.col === a.col && n.row === a.row - 1);
+  assert.ok(ref, "la referencia a E queda encima de a");
+  assert.deepStrictEqual(
+    ["x", "y", "z"].map((id) => L.edges.find((e) => e.from === "a" && e.to === id).dir),
+    ["down", "right", "left"]
+  );
+});

@@ -46,6 +46,7 @@ const DEFAULT_DIRS = {
 };
 
 const MAX_OUTGOING = 3;
+const OPPOSITE = { down: "up", up: "down", left: "right", right: "left" };
 
 function layoutDiagram(graph, options = {}) {
   const opts = { ...LAYOUT_DEFAULTS, ...options };
@@ -119,9 +120,10 @@ function splitBySubgraph(graph, warnings) {
   };
   // Cada copia de una arista hereda su @dir.
   const dirsOf = (e) => graph.meta.dirs.filter((d) => d.from === e.from && d.to === e.to);
+  // attached: la arista sale de una referencia; la referencia se coloca pegada a su destino.
   const add = (group, e, from, to) => {
     const part = parts.get(group);
-    part.edges.push({ ...e, from, to });
+    part.edges.push({ ...e, from, to, attached: from !== e.from });
     for (const d of dirsOf(e)) part.meta.dirs.push({ ...d, from, to });
   };
 
@@ -219,11 +221,17 @@ function sizeNode(node, measure, opts) {
 
 // ---------------------------------------------------------------- direcciones
 
+// Las referencias entrantes (arista "attached": ref -> nodo) ocupan un hueco del nodo destino como si
+// fueran una salida más, en el orden de declaración de las aristas (salvo la que hace de padre, arriba). e.slot es el lado del nodo
+// donde va la referencia; e.dir sigue siendo la dirección de la flecha (ref -> nodo).
 function assignDirections(nodes, edges, metaDirs) {
   const overrides = new Map(metaDirs.map((d) => [`${d.from}\u0000${d.to}`, d]));
+  const deferred = [];
 
   for (const node of nodes.values()) {
+    if (node.ref && edges.some((e) => e.attached && e.from === node.id)) continue;
     const out = edges.filter((e) => e.from === node.id);
+    const att = edges.filter((e) => e.attached && e.to === node.id);
     if (out.length > MAX_OUTGOING) {
       throw new layoutDeps.DiagramError(
         `El nodo '${node.id}' tiene ${out.length} salidas; el máximo es ${MAX_OUTGOING}`,
@@ -231,37 +239,79 @@ function assignDirections(nodes, edges, metaDirs) {
       );
     }
 
-    const used = new Map(); // dirección -> arista que la ocupa
-    const take = (edge, dir, line) => {
-      if (used.has(dir)) {
-        const other = used.get(dir);
+    const used = new Map(); // lado del nodo -> arista que lo ocupa
+    const other = (e) => (e.attached ? nodeLabel(nodes.get(e.from)) : `'${e.to}'`);
+    const take = (edge, side, line) => {
+      if (used.has(side)) {
         throw new layoutDeps.DiagramError(
-          `El nodo '${node.id}' tiene dos salidas hacia '${dir}': '${other.to}' y '${edge.to}'`,
+          `El nodo '${node.id}' tiene dos ${used.get(side).attached || edge.attached ? "conexiones" : "salidas"} ` +
+            `hacia '${side}': ${other(used.get(side))} y ${other(edge)}`,
           line
         );
       }
-      used.set(dir, edge);
-      edge.dir = dir;
+      used.set(side, edge);
+      if (edge.attached) {
+        edge.slot = side;
+        edge.dir = OPPOSITE[side];
+      } else edge.dir = side;
     };
 
-    // Primero los @dir explícitos; luego el resto recibe los valores por defecto libres, en orden.
-    for (const e of out) {
+    // Primero los @dir explícitos (en una referencia, el @dir es la dirección de la flecha
+    // ref -> nodo, así que la referencia va al lado opuesto); luego el resto recibe los
+    // valores por defecto libres, en orden de declaración.
+    const conns = [...out, ...att].sort((a, b) => a.index - b.index);
+    for (const e of conns) {
       const o = overrides.get(`${e.from}\u0000${e.to}`);
-      if (o) take(e, o.dir, o.line);
+      if (o) take(e, e.attached ? OPPOSITE[o.dir] : o.dir, o.line);
     }
+    // Un nodo sin padre real (p. ej. el primero de un subgraph) toma su primera referencia
+    // entrante como padre: va arriba y el flujo sigue hacia abajo, como en "iArr --> S1 --> S2".
+    const hasRealParent = edges.some((e) => !e.attached && e.to === node.id && e.from !== node.id);
+    const firstAtt = att.find((e) => !e.dir);
+    if (!hasRealParent && firstAtt && !used.has("up")) take(firstAtt, "up", firstAtt.line);
+
     const defaults = DEFAULT_DIRS[node.shape === "diamond" ? "diamond" : "other"];
-    const free = defaults.filter((d) => ![...used.keys()].includes(d));
-    for (const e of out) {
-      if (!e.dir) take(e, free.shift(), e.line);
+    const free = defaults.filter((d) => !used.has(d));
+    let pendingOut = out.filter((e) => !e.dir).length;
+    for (const e of conns) {
+      if (e.dir) continue;
+      if (!e.attached) {
+        take(e, free.shift(), e.line);
+        pendingOut--;
+      } else if (free.length > pendingOut) {
+        // Una referencia solo toma un hueco si quedan suficientes para las salidas reales.
+        take(e, free.shift(), e.line);
+      } else deferred.push({ e, node, used });
+    }
+  }
+
+  // Referencias sin hueco: prueban cualquier lado libre (también arriba, si no llega por ahí
+  // ninguna arista); si no queda ninguno, se dibujan sueltas como antes.
+  for (const { e, node, used } of deferred) {
+    const busy = new Set(used.keys());
+    for (const x of edges) if (!x.attached && x.to === node.id && x.dir) busy.add(OPPOSITE[x.dir]);
+    for (const x of edges) if (x.attached && x.to === node.id && x.slot) busy.add(x.slot);
+    const side = ["down", "right", "left", "up"].find((d) => !busy.has(d));
+    if (side) {
+      e.slot = side;
+      e.dir = OPPOSITE[side];
+    } else {
+      e.attached = false;
+      const o = overrides.get(`${e.from}\u0000${e.to}`);
+      e.dir = o ? o.dir : "down";
     }
   }
 }
 
+const nodeLabel = (n) => (n.ref ? `la referencia a '${n.text.replace(/\n/g, " ")}'` : `'${n.id}'`);
+
 // ---------------------------------------------------------------- rejilla
 
 function placeInGrid(nodes, edges, warnings) {
-  const occupied = new Map(); // "col,row" -> id
-  const hasIncoming = new Set(edges.map((e) => e.to));
+  const occupied = new Map(); // "col,row" -> nodo
+  // Las referencias pegadas no son raíces ni cuentan como entrada: se colocan junto a su destino.
+  const hasIncoming = new Set(edges.filter((e) => !e.attached).map((e) => e.to));
+  const attachedRefs = new Set(edges.filter((e) => e.attached).map((e) => e.from));
   let nextComponentCol = 0;
 
   const place = (node, col, row) => {
@@ -272,16 +322,16 @@ function placeInGrid(nodes, edges, warnings) {
       // TODO (SPEC): resolver choques entre ramas. Por ahora solo se avisa.
       warnings.push({
         line: node.line,
-        message: `Choque: '${node.id}' ocupa la misma posición que '${occupied.get(key)}'`,
+        message: `Choque: ${nodeLabel(node)} ocupa la misma posición que ${nodeLabel(occupied.get(key))}`,
       });
     } else {
-      occupied.set(key, node.id);
+      occupied.set(key, node);
     }
   };
 
   // Raíces: primero los nodos sin aristas entrantes (en orden de declaración), luego el resto,
   // por si queda algún ciclo sin alcanzar.
-  const all = [...nodes.values()];
+  const all = [...nodes.values()].filter((n) => !attachedRefs.has(n.id));
   const roots = [...all.filter((n) => !hasIncoming.has(n.id)), ...all];
 
   for (const root of roots) {
@@ -293,7 +343,13 @@ function placeInGrid(nodes, edges, warnings) {
     while (queue.length) {
       const parent = queue.shift();
       for (const e of edges) {
-        if (e.from !== parent.id) continue;
+        if (e.attached && e.to === parent.id) {
+          const ref = nodes.get(e.from);
+          const v = DIR_VECTORS[e.slot];
+          if (ref.col === undefined) place(ref, parent.col + v.dc, parent.row + v.dr);
+          continue;
+        }
+        if (e.from !== parent.id || e.attached) continue;
         const child = nodes.get(e.to);
         if (child.col !== undefined) continue; // TODO (SPEC): bucles / varios padres
         const v = DIR_VECTORS[e.dir];
@@ -303,7 +359,7 @@ function placeInGrid(nodes, edges, warnings) {
     }
 
     // El siguiente componente desconectado va a la derecha de todo lo colocado.
-    const maxCol = Math.max(...all.filter((n) => n.col !== undefined).map((n) => n.col));
+    const maxCol = Math.max(...[...nodes.values()].filter((n) => n.col !== undefined).map((n) => n.col));
     nextComponentCol = maxCol + 2;
   }
 }

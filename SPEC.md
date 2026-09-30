@@ -77,6 +77,17 @@ end
 - **Aristas entre diagramas:** se dibujan en los dos. En cada uno, el extremo ajeno se sustituye por
   un **nodo de referencia**: paralelogramo con borde discontinuo y el texto del nodo real. Hay una
   referencia por arista. La copia conserva etiqueta, estilo y `@dir`.
+- **Colocación de las referencias entrantes** (la referencia apunta a un nodo del diagrama): se
+  dibujan pegadas a su nodo destino, no sueltas.
+  - Si el nodo no tiene padre real en su diagrama, su primera referencia entrante hace de padre y va
+    **arriba** (así `iArr --> S1 --> S2` sigue bajando).
+  - Si no, cuenta como una salida más del nodo: todas sus conexiones (salidas reales y referencias
+    entrantes) toman abajo, derecha, izquierda (rombo: derecha, izquierda, abajo) **en el orden de
+    declaración de las aristas**.
+  - Una referencia nunca quita el hueco a una salida real: si no cabe, prueba cualquier lado libre y,
+    si no queda ninguno, se dibuja suelta.
+  - Con `@dir`, la dirección es la de la flecha (`%% @dir iOds -> S2 : left` → S2 queda a la izquierda
+    de la referencia, es decir, la referencia a la derecha de S2).
 - **Arista hacia o desde un subgraph entero** (`a --> APP`): solo se dibuja en el diagrama del nodo,
   con una referencia que lleva el título del subgraph. Entre dos subgraphs enteros se ignora con aviso.
 - `direction` dentro de un subgraph se ignora con aviso; `style` de un subgraph, como todos los estilos.
