@@ -27,6 +27,15 @@ test("formas y texto sin comillas", () => {
   assert.strictEqual(g.nodes.get("C").shape, "diamond");
 });
 
+test("estadio ([...]) con paréntesis dentro del texto", () => {
+  const g = parseDiagram('flowchart TD\nA(["Avisa y sale<br/>(supuesto: o trae la otra al frente)"]):::app --> B([Corto])');
+  assert.strictEqual(g.nodes.get("A").shape, "stadium");
+  assert.strictEqual(g.nodes.get("A").text, "Avisa y sale\n(supuesto: o trae la otra al frente)");
+  assert.strictEqual(g.nodes.get("B").shape, "stadium");
+  assert.strictEqual(g.nodes.get("B").text, "Corto");
+  assert.strictEqual(g.edges.length, 1);
+});
+
 test("cadenas de aristas y nodos sin forma", () => {
   const g = parseDiagram("a --> b --> c");
   assert.deepStrictEqual(g.edges.map((e) => [e.from, e.to]), [["a", "b"], ["b", "c"]]);

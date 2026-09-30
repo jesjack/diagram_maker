@@ -151,7 +151,7 @@ function nodeShape(n, style, stroke, strokeWidth) {
       break;
     }
     default: {
-      const rx = n.shape === "round" ? 12 : 2;
+      const rx = n.shape === "stadium" ? hh : n.shape === "round" ? 12 : 2;
       shape = `<rect x="${fmt(n.x - hw)}" y="${fmt(n.y - hh)}" width="${fmt(n.w)}" height="${fmt(n.h)}" rx="${rx}" ${style}/>`;
     }
   }

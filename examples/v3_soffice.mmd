@@ -1,0 +1,41 @@
+flowchart LR
+    iArr[/"IN arrancar_soffice"/]:::sof
+    iOds[/"IN main_ods"/]:::sof
+    iApi[/"IN api_hoja"/]:::sof
+    iTecl[/"IN teclado_raton"/]:::sof
+
+    subgraph SOF["soffice — LibreOffice Calc"]
+        S1["Arranca<br/>(a medir: perfil propio con -env:UserInstallation)"]:::sof
+        S2["Abre el main.ods del usuario"]:::sof
+        S3["Acepta conexiones URP<br/>en el pipe del usuario"]:::sof
+        S4["Muestra la hoja y los botones"]:::sof
+        S5["Pasa cada tecla a los<br/>XKeyHandler registrados"]:::sof
+        S6["Avisa del clic a los<br/>XActionListener del botón<br/>(supuesto: D3 = b)"]:::sof
+        S7["Ejecuta las llamadas:<br/>celdas, protección, controles,<br/>setModified, terminate"]:::sof
+        S8["Se cierra la ventana, llega<br/>terminate o LibreOffice se cae"]:::sof
+        S9["Termina el proceso"]:::sof
+    end
+
+    oUrp[\"OUT urp_listo"\]:::sof
+    oTecla[\"OUT tecla"\]:::sof
+    oClic[\"OUT clic"\]:::sof
+    oMurio[\"OUT documento_murio"\]:::sof
+    oPant[\"OUT pantalla_hoja"\]:::sof
+    oSalio[\"OUT soffice_salio"\]:::sof
+    oLog[\"OUT log_soffice"\]:::sof
+
+    iArr --> S1 --> S2
+    iOds --> S2
+    S2 --> S3 --> oUrp
+    S2 --> S4 --> oPant
+    iTecl --> S5 --> oTecla
+    iTecl --> S6 --> oClic
+    iApi --> S7 --> S4
+    S7 --> S8
+    iTecl --> S8
+    S8 --> oMurio
+    S8 --> S9 --> oSalio
+    S1 --> oLog
+
+    style SOF fill:#eff6ff,stroke:#1d4ed8,stroke-width:3px,color:#0b1f4d
+    classDef sof fill:#dbeafe,stroke:#1d4ed8,color:#0b1f4d,stroke-width:2px

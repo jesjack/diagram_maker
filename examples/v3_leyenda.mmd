@@ -1,0 +1,19 @@
+flowchart LR
+    L1["App<br/>proceso padre, venv"]:::app
+    L2["soffice<br/>LibreOffice + main.ods"]:::sof
+    L3["UNO<br/>Python de LibreOffice"]:::uno
+    L4["admin_botones<br/>venv, Qt"]:::adm
+    L5["camera_viewer<br/>caja negra"]:::cam
+    L6["camera_viewer.archiver<br/>caja negra"]:::arc
+    L7["No es proceso:<br/>usuario, periférico o archivo"]:::ext
+    P1[/"IN pin de entrada"/]:::app
+    P2[\"OUT pin de salida"\]:::app
+    P3{{"E/S pin de ida y vuelta"}}:::app
+
+    classDef app fill:#dcfce7,stroke:#15803d,color:#0b3d1c,stroke-width:2px
+    classDef sof fill:#dbeafe,stroke:#1d4ed8,color:#0b1f4d,stroke-width:2px
+    classDef uno fill:#ccfbf1,stroke:#0f766e,color:#042f2e,stroke-width:2px
+    classDef adm fill:#ede9fe,stroke:#6d28d9,color:#2e1065,stroke-width:2px
+    classDef cam fill:#fef3c7,stroke:#b45309,color:#451a03,stroke-width:2px
+    classDef arc fill:#ffe4e6,stroke:#be123c,color:#4c0519,stroke-width:2px
+    classDef ext fill:#f3f4f6,stroke:#6b7280,color:#1f2937,stroke-width:1px,stroke-dasharray:4 3

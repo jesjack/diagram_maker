@@ -1,0 +1,141 @@
+flowchart LR
+    iInicio[/"IN inicio"/]:::app
+    iCajaLib[/"IN caja_liberada"/]:::app
+    iPedirCaja[/"IN pedir_caja"/]:::app
+    iUnoListo[/"IN uno_listo"/]:::app
+    iEnter[/"IN enter_pulsado"/]:::app
+    iTab[/"IN tab_pulsado"/]:::app
+    iBoton[/"IN boton_pulsado"/]:::app
+    iDocCerrado[/"IN documento_cerrado"/]:::app
+    iSofSalio[/"IN soffice_salio"/]:::app
+    iUnoSalio[/"IN uno_salio"/]:::app
+    iHijosSalio[/"IN archivador_salio,<br/>camaras_salio, admin_salio"/]:::app
+    iLogs[/"IN log_soffice, log_uno,<br/>log_archivador, log_camaras, log_admin"/]:::app
+
+    ioCandUsr{{"E/S candado_usuario"}}:::app
+    ioCandCaja{{"E/S candado_caja"}}:::app
+    ioDb{{"E/S db"}}:::app
+    ioUi{{"E/S ui_app"}}:::app
+
+    subgraph APP["App — lanzador, lógica y ventanas Qt"]
+        A1["Abre el log de esta ejecución"]:::app
+        A2{"¿Ya hay una App de este usuario?<br/>(D8)"}:::app
+        A2x(["Avisa y sale<br/>(supuesto: o trae la otra al frente)"]):::app
+        A3{"¿Encuentra LibreOffice?<br/>PATH o registro (D9)"}:::app
+        A3x(["Aviso Qt claro y sale"]):::app
+        A4{"¿Otra App tiene la caja<br/>del equipo? (D8)"}:::app
+        A4b["Le pide cierre ordenado y espera<br/>(tiempo máximo: pendiente)"]:::app
+        A5["Toma la caja; registra usuario<br/>y sesión en ventas.db"]:::app
+        A6["Lanza el archivador"]:::app
+        A7["modo = normal (en RAM)"]:::app
+        A8["Prepara main.ods del usuario:<br/>copia la plantilla (D7) y la hornea<br/>(supuesto: D4 = prebake con odfpy)"]:::app
+        A9["Lanza soffice con pipe<br/>por usuario y --norestore"]:::app
+        A10["Lanza el proceso UNO<br/>(pipe, dirección y token)"]:::app
+        A11["Espera uno_listo; publica botones<br/>y manda el modo y las filas"]:::app
+        V1["ControladorVenta: agregar, cobrar,<br/>registrar código, abrir caja<br/>(supuesto: D2 = lógica en App)"]:::app
+        V1q["Diálogos Qt: cobro, precio, código"]:::app
+        V2["Busca en el catálogo<br/>y muestra el selector Qt"]:::app
+        V3{"¿Qué botón?"}:::app
+        V4["Cambio de modo:<br/>ventas_dia o normal, relanzar = sí"]:::app
+        V5["Acciones de acciones/*.py<br/>(caja, carrito, códigos…)"]:::app
+        V6["Cada 0.5 s: ¿cambiaron los botones<br/>en ventas.db? (admin_botones)"]:::app
+        C1["Cierre pedido por otra App:<br/>registra la sesión como cerrada y por quién<br/>(carrito a medias: pendiente)"]:::app
+        F1{"¿Por qué terminó soffice?"}:::app
+        F2{"¿Menos de 2 relanzamientos<br/>en 600 s? (contador en RAM)"}:::app
+        U1{"¿soffice sigue vivo?"}:::app
+        F3["Cierra la sesión en ventas.db"]:::app
+        F4["Detiene el archivador,<br/>libera la caja y el candado, y sale"]:::app
+        LG["Escribe cada línea con<br/>proceso, pid y hora"]:::app
+    end
+
+    oLog[\"OUT log"\]:::app
+    oMainOds[\"OUT main_ods"\]:::app
+    oArrSof[\"OUT arrancar_soffice"\]:::app
+    oArrUno[\"OUT arrancar_uno"\]:::app
+    oPublicar[\"OUT publicar_botones"\]:::app
+    oPintar[\"OUT pintar"\]:::app
+    oEscribir[\"OUT escribir_producto"\]:::app
+    oEnfocar[\"OUT enfocar_calc"\]:::app
+    oCerrarLO[\"OUT cerrar_libreoffice"\]:::app
+    oArrArch[\"OUT arrancar_archivador"\]:::app
+    oTermArch[\"OUT terminar_archivador"\]:::app
+    oArrCam[\"OUT arrancar_camaras"\]:::app
+    oArrAdm[\"OUT arrancar_admin"\]:::app
+    oTicket[\"OUT imprimir_ticket"\]:::app
+    oCajon[\"OUT abrir_cajon"\]:::app
+    oEtiqueta[\"OUT imprimir_etiqueta"\]:::app
+    oPedirCaja[\"OUT pedir_caja"\]:::app
+    oCajaLib[\"OUT caja_liberada"\]:::app
+
+    %% Arranque
+    iInicio --> A1 --> A2
+    A1 --> oLog
+    A2 <--> ioCandUsr
+    A2 -- "sí" --> A2x
+    A2 -- "no" --> A3
+    A3 -- "no" --> A3x
+    A3 -- "sí" --> A4
+    A4 <--> ioCandCaja
+    A4 -- "sí" --> A4b --> oPedirCaja
+    iCajaLib --> A5
+    A4 -- "no" --> A5
+    A5 <--> ioDb
+    A5 --> A6 --> oArrArch
+    A6 --> A7 --> A8 --> oMainOds
+    A8 --> A9 --> oArrSof
+    A9 --> A10 --> oArrUno
+    iUnoListo --> A11
+    A11 --> oPublicar
+    A11 --> oPintar
+
+    %% Atención de eventos
+    iEnter --> V1
+    V1 <--> V1q <--> ioUi
+    V1 <--> ioDb
+    V1 --> oTicket
+    V1 --> oCajon
+    V1 --> oPintar
+    V1 --> oEnfocar
+    iTab --> V2 <--> ioUi
+    V2 --> oEscribir
+    V2 --> oEnfocar
+    iBoton --> V3
+    V3 -- "VER CÁMARAS" --> oArrCam
+    V3 -- "ADMINISTRAR ADMINS" --> oArrAdm
+    V3 -- "ver_ventas / REGRESAR" --> V4 --> oCerrarLO
+    V3 -- "otros" --> V5
+    V5 <--> ioDb
+    V5 <--> ioUi
+    V5 --> oPintar
+    V5 --> oCajon
+    V5 --> oEtiqueta
+    V6 <--> ioDb
+    V6 --> oPublicar
+
+    %% Cierre pedido por otra App (D8)
+    iPedirCaja --> C1 --> oCerrarLO
+    C1 <--> ioDb
+
+    %% Fin de soffice o de UNO
+    iDocCerrado --> F1
+    iSofSalio --> F1
+    iUnoSalio --> U1
+    U1 -- "sí: relanza solo UNO" --> A10
+    U1 -- "no" --> F1
+    F1 -- "cambio de modo" --> A8
+    F1 -- "caída" --> F2
+    F2 -- "sí" --> A8
+    F2 -- "no" --> F3
+    F1 -- "cierre normal o caja cedida" --> F3
+    F3 <--> ioDb
+    F3 --> F4
+    F4 --> oTermArch
+    F4 --> oCajaLib
+    F4 <--> ioCandCaja
+
+    %% Log único
+    iLogs --> LG --> oLog
+    iHijosSalio --> LG
+
+    style APP fill:#f0fdf4,stroke:#15803d,stroke-width:3px,color:#0b3d1c
+    classDef app fill:#dcfce7,stroke:#15803d,color:#0b3d1c,stroke-width:2px

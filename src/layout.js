@@ -14,7 +14,7 @@ const LAYOUT_DEFAULTS = {
   colGap: 70,
   rowGap: 60,
   // Ancho máximo del texto antes de partirlo en líneas, por forma.
-  wrapWidth: { rect: 170, round: 170, diamond: 110, circle: 90, cylinder: 110 },
+  wrapWidth: { rect: 170, round: 170, stadium: 170, diamond: 110, circle: 90, cylinder: 110 },
   // Si no hay función para medir texto (p. ej. en Node), se estima por carácter.
   measure: null,
 };
@@ -95,6 +95,11 @@ function sizeNode(node, measure, opts) {
       h = Math.max(th + 20, 40) + 2 * ry;
       break;
     }
+    case "stadium":
+      // Los extremos son semicírculos: se deja medio alto a cada lado para que el texto no toque la curva.
+      h = Math.max(th + 20, 40);
+      w = Math.max(tw + h * 0.8 + 16, 90);
+      break;
     default:
       w = Math.max(tw + 32, 90);
       h = Math.max(th + 20, 40);

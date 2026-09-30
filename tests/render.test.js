@@ -15,6 +15,13 @@ test("genera un nodo por cada forma y una línea por arista", () => {
   for (const tag of ["<rect", "<circle", "<polygon", "<path"]) assert.ok(svg.includes(tag), tag);
 });
 
+test("estadio: rectángulo con extremos semicirculares", () => {
+  const layout = layoutDiagram(parseDiagram('a(["Estadio"])'));
+  const n = layout.nodes.find((x) => x.id === "a");
+  const svg = renderSvg(layout, undefined, { shadow: false });
+  assert.ok(svg.includes(`rx="${Number((n.h / 2).toFixed(2))}"`));
+});
+
 test("escapa el texto", () => {
   const svg = render('a["<b> & \'x\'"] -->|"<y>"| b');
   assert.ok(svg.includes("&lt;b&gt; &amp; &#39;x&#39;"));

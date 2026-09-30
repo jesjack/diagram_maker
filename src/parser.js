@@ -18,6 +18,7 @@ const DIRECTIONS = ["down", "right", "left", "up"];
 const SHAPES = [
   { open: "((", close: "))", shape: "circle" },
   { open: "[(", close: ")]", shape: "cylinder" },
+  { open: "([", close: "])", shape: "stadium" },
   { open: "[", close: "]", shape: "rect" },
   { open: "(", close: ")", shape: "round" },
   { open: "{", close: "}", shape: "diamond" },

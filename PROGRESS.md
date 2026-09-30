@@ -66,6 +66,9 @@ Notas:
   sombra una sola vez en un <canvas> debajo (`renderShadowSvg`); durante los gestos pone
   `will-change: transform`. Los SVG/PNG exportados sí llevan el filtro. Se probó una sombra sin
   desenfoque (copia gris desplazada) y al usuario no le gustó.
+- `examples/v3_*.mmd`: diagramas reales de un proyecto del usuario (de `~/prueba.md`) que todavía
+  no se pueden dibujar. Faltan: `subgraph`, hexágono `{{}}`, paralelogramos `[/ /]` y `[\ \]`,
+  más de 3 salidas, colores (`classDef`/`:::`) y `flowchart LR`. El estadio `([ ])` ya funciona.
 - El CLI abre la página con un mini servidor en 127.0.0.1 que sirve una sola vez y termina, porque el
   navegador del usuario (Edge por flatpak) no tiene acceso a carpetas fuera de Descargas/Documentos.
   El HTML también se guarda en disco (junto al .mmd, o con `-o`).

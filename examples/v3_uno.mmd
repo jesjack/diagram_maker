@@ -1,0 +1,63 @@
+flowchart LR
+    iArr[/"IN arrancar_uno"/]:::uno
+    iUrp[/"IN urp_listo"/]:::uno
+    iTecla[/"IN tecla"/]:::uno
+    iClic[/"IN clic"/]:::uno
+    iMurio[/"IN documento_murio"/]:::uno
+    iPintar[/"IN pintar"/]:::uno
+    iEscribir[/"IN escribir_producto"/]:::uno
+    iPublicar[/"IN publicar_botones"/]:::uno
+    iEnfocar[/"IN enfocar_calc"/]:::uno
+    iCerrar[/"IN cerrar_libreoffice"/]:::uno
+
+    subgraph UNOP["UNO — puente con Calc"]
+        U1["Lee los argumentos:<br/>pipe, dirección y token"]:::uno
+        U2["Se conecta a soffice por el pipe<br/>(con reintentos mientras abre)"]:::uno
+        U3["Busca main.ods y se conecta<br/>al socket de App con el token"]:::uno
+        U4["Registra el XKeyHandler<br/>(Enter, Tab, escáner)"]:::uno
+        K1["Anota la hora de llegada de la tecla<br/>y la suma al tramo<br/>(un hueco mayor de 100 ms lo reinicia)"]:::uno
+        K2{"¿Qué tecla?"}:::uno
+        K3["Regla D1: al menos 3 caracteres<br/>y promedio ≤ 40 ms → escaneo<br/>(supuesto: la regla corre en UNO)"]:::uno
+        K4["Lee la fila de entrada<br/>y devuelve el cursor a B4"]:::uno
+        K5["Deja pasar la tecla a Calc"]:::uno
+        P1["Desprotege, escribe y protege<br/>(SheetAdmin + Table)"]:::uno
+        B1["Crea los botones y un<br/>XActionListener por botón<br/>(supuesto: D3 = b)"]:::uno
+        B2["Traduce el control a su id"]:::uno
+        W1["Cada 1 s: lee Title<br/>y hace setModified(False)<br/>(supuesto: como en la V2)"]:::uno
+        W2["Clasifica: cierre normal<br/>o caída"]:::uno
+        T1["desktop.terminate()"]:::uno
+        X1["Sale"]:::uno
+    end
+
+    oListo[\"OUT uno_listo"\]:::uno
+    oEnter[\"OUT enter_pulsado"\]:::uno
+    oTab[\"OUT tab_pulsado"\]:::uno
+    oBoton[\"OUT boton_pulsado"\]:::uno
+    oDoc[\"OUT documento_cerrado"\]:::uno
+    oApi[\"OUT api_hoja"\]:::uno
+    oSalio[\"OUT uno_salio"\]:::uno
+    oLog[\"OUT log_uno"\]:::uno
+
+    iArr --> U1 --> U2
+    iUrp --> U2
+    U2 --> U3 --> U4 --> oApi
+    U4 --> oListo
+    iTecla --> K1 --> K2
+    K2 -- "Tab" --> oTab
+    K2 -- "Enter" --> K3 --> K4 --> oEnter
+    K4 --> oApi
+    K2 -- "otra" --> K5
+    iPintar --> P1
+    iEscribir --> P1
+    iEnfocar --> P1
+    P1 --> oApi
+    iPublicar --> B1 --> oApi
+    iClic --> B2 --> oBoton
+    U4 --> W1 --> oApi
+    iMurio --> W2 --> oDoc
+    W2 --> X1 --> oSalio
+    iCerrar --> T1 --> oApi
+    U1 --> oLog
+
+    style UNOP fill:#f0fdfa,stroke:#0f766e,stroke-width:3px,color:#042f2e
+    classDef uno fill:#ccfbf1,stroke:#0f766e,color:#042f2e,stroke-width:2px

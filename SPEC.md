@@ -35,6 +35,7 @@ diagrama.mmd ──► CLI (Python) ──► genera HTML autocontenido ──�
 |--------------------|---------------------------|
 | `id["texto"]`      | Rectángulo                |
 | `id("texto")`      | Rectángulo redondeado     |
+| `id(["texto"])`    | Estadio (píldora)         |
 | `id(("texto"))`    | Círculo                   |
 | `id{"texto"}`      | Rombo (IF / decisión)     |
 | `id[("texto")]`    | Cilindro (base de datos)  |
