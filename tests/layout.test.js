@@ -492,3 +492,22 @@ test("historia del paso a paso: cada paso muestra el diagrama como estaba entonc
   // Cada paso tiene un nodo más que el anterior y el último es el diagrama final.
   for (let i = 0; i < L.nodes.length; i++) assert.strictEqual(L.snapshotAt(i).nodes.length, i + 1);
 });
+
+test("hacer sitio desplaza solo el bloque necesario, no toda la fila (v3_app, empalme de V6)", () => {
+  const src = fs.readFileSync(path.join(__dirname, "../examples/v3_app.mmd"), "utf8");
+  const L = layoutDiagram(parseDiagram(src));
+  const pushed = L.nodes.find((n) => /no había sitio cerca/.test(n.why));
+  assert.ok(pushed, "hay un desplazamiento");
+  const k = pushed.step;
+  const before = new Map(L.snapshotAt(k - 1).nodes.map((n) => [n.id, `${n.col},${n.row}`]));
+  const after = new Map(L.snapshotAt(k).nodes.map((n) => [n.id, `${n.col},${n.row}`]));
+  const moved = [...before].filter(([id, pos]) => after.get(id) !== pos).map(([id]) => id);
+  const n = Number(pushed.why.match(/(\d+) nodos?/)[1]);
+  // El paso de la extensión coloca empalme y nodo en el mismo paso: puede que el desplazamiento se
+  // vea en el paso del empalme; se comprueba en la ventana de dos pasos.
+  const before2 = new Map(L.snapshotAt(k - 2).nodes.map((x) => [x.id, `${x.col},${x.row}`]));
+  const moved2 = [...before2].filter(([id, pos]) => after.get(id) !== pos).map(([id]) => id);
+  assert.ok(moved.length === n || moved2.length === n, `${n} anunciados, movidos ${moved.length}/${moved2.length}`);
+  // El bloque de A9/A10 (morado en la captura) no se mueve.
+  for (const id of ["A9", "A10"]) assert.ok(!moved2.includes(id), `${id} no debería moverse`);
+});

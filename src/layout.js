@@ -606,7 +606,6 @@ function placeInGrid(nodes, edges, warnings, ctx) {
   //  2. Si ninguna dirección sirve: se inserta una fila o columna junto al padre (la que menos
   //     flechas alarga) y el nodo va directamente a la celda que queda libre. Siempre funciona.
   const MAX_REACH = 8;
-  const LINE = "\u2500"; // celda atravesada por una extensión: nadie puede ocuparla
   const conns = (id) => edges.filter((x) => x.from === id || x.to === id);
   const makeRoom = (parent, node, e, wanted) => {
     const isFree = (key, ...ok) => !occupied.has(key) && (!pending.has(key) || ok.includes(pending.get(key))) && !crossedBy(key);
@@ -647,7 +646,6 @@ function placeInGrid(nodes, edges, warnings, ctx) {
       sib.col = undefined;
     }
     const v = DIR_VECTORS[d];
-    for (let i = 1; i < k; i++) pending.set(`${parent.col + v.dc * i},${parent.row + v.dr * i}`, LINE);
     place(j, jc.col, jc.row, `extensión desde ${who(parent)} hacia ${SIDE_NAME[d]}${k > 1 ? ` (${k} celdas)` : ""}: ${who(node)} no tenía lado libre`);
     if (sib) {
       moveEnd(sibEdge, parent.id, j.id);
@@ -670,88 +668,144 @@ function placeInGrid(nodes, edges, warnings, ctx) {
     place(node, j.col + sv.dc, j.row + sv.dr, `${kind} ${who(parent)} a través de su extensión, ${SIDE_AT[nodeSide]} del empalme (el lado de ${SIDE_NAME[wanted]} estaba ocupado)`);
     return [j];
   };
-  // Inserta una fila o columna vacía junto a parent: todo lo que queda más allá se desplaza una
-  // celda (las líneas que la cruzan se alargan y siguen rectas). Se elige el lado que menos
-  // flechas cruzan y el nodo va a la celda que queda libre.
+  // Hace sitio junto a parent cuando no queda nada más (último paso de la cascada). Se desplaza
+  // una celda hacia un lado el **mínimo bloque de nodos** necesario para liberar las celdas que
+  // hacen falta: los que las ocupan, los que estos empujan en cadena, los unidos a un nodo movido
+  // por una flecha perpendicular al desplazamiento (si no, quedaría en diagonal) y los extremos de
+  // las líneas sobre las que caería un nodo movido. Las flechas paralelas solo se alargan. Gana el
+  // lado que mueve menos nodos; si ninguno sirve sin mover al propio padre, se desplaza todo lo que
+  // queda más allá (como insertar una fila o columna entera).
   const insertLine = (parent, node, e, wanted) => {
     closeStep();
-    const placedNodes = [...nodes.values()].filter((n) => n.col !== undefined);
+    const key = (c, r) => `${c},${r}`;
+    const isPlaced = (n) => n && n.col !== undefined;
+    const placedEdges = edges.filter((x) => isPlaced(nodes.get(x.from)) && isPlaced(nodes.get(x.to)));
+    const ends = (x) => [nodes.get(x.from), nodes.get(x.to)];
+    const linesAt = (c, r) =>
+      placedEdges.filter((x) => {
+        const [a, b] = ends(x);
+        if (a.col === b.col && a.col === c) return r > Math.min(a.row, b.row) && r < Math.max(a.row, b.row);
+        if (a.row === b.row && a.row === r) return c > Math.min(a.col, b.col) && c < Math.max(a.col, b.col);
+        return false;
+      });
     const beyond = (n, d) =>
       d === "down" ? n.row > parent.row : d === "up" ? n.row < parent.row : d === "right" ? n.col > parent.col : n.col < parent.col;
-    // Para cada lado: qué flechas cruzarían la línea nueva, por qué celdas de ella pasarían (las
-    // rectas) y si alguna flecha del padre sale justo hacia ese lado (atravesaría la celda nueva).
-    const plan = (d) => {
+    const throughOf = (d) => {
       const v = DIR_VECTORS[d];
-      const crossing = edges.filter((x) => {
-        const a = nodes.get(x.from);
-        const b = nodes.get(x.to);
-        return a.col !== undefined && b.col !== undefined && beyond(a, d) !== beyond(b, d);
-      });
-      const vertical = v.dr !== 0;
-      const lineAt = vertical ? parent.row + v.dr : parent.col + v.dc; // fila/columna nueva
-      const crossed = new Set();
-      for (const x of crossing) {
-        const a = nodes.get(x.from);
-        const b = nodes.get(x.to);
-        if (vertical && a.col === b.col) crossed.add(`${a.col},${lineAt}`);
-        if (!vertical && a.row === b.row) crossed.add(`${lineAt},${a.row}`);
-      }
-      const through = edges.find((x) => {
+      return edges.find((x) => {
         if (x === e || (x.from !== parent.id && x.to !== parent.id)) return false;
         const o = nodes.get(x.from === parent.id ? x.to : x.from);
-        if (o.col === undefined) return false;
+        if (!isPlaced(o)) return false;
         return Math.sign(o.col - parent.col) === v.dc && Math.sign(o.row - parent.row) === v.dr && (v.dc ? o.row === parent.row : o.col === parent.col);
       });
-      // Con una flecha atravesando, el nodo va a un lado del empalme, dentro de la línea nueva y
-      // en una celda que no cruce ninguna otra flecha.
-      const jc = { col: parent.col + v.dc, row: parent.row + v.dr };
-      const lateral = through
-        ? (vertical ? ["right", "left"] : ["down", "up"]).find(
-            (x) => !crossed.has(`${jc.col + DIR_VECTORS[x].dc},${jc.row + DIR_VECTORS[x].dr}`)
-          )
-        : null;
-      return { d, v, crossing: crossing.length, through, lateral, ok: !through || !!lateral };
     };
-    const plans = ["down", "right", "left", "up"].map(plan).sort((a, b) => b.ok - a.ok || a.crossing - b.crossing);
-    const { d, v, through, lateral } = plans[0];
-    for (const n of placedNodes) {
-      if (!beyond(n, d)) continue;
+    // Conjunto mínimo a desplazar hacia d para dejar libres `cells` (sin nodos ni líneas); null si
+    // haría falta mover algo que no está más allá del padre.
+    const pushPlan = (d, cells, ignore) => {
+      const v = DIR_VECTORS[d];
+      const vertical = v.dr !== 0;
+      const S = new Set();
+      const queue = [];
+      const add = (n) => {
+        if (!n || S.has(n.id)) return true;
+        if (!beyond(n, d)) return false;
+        S.add(n.id);
+        queue.push(n);
+        return true;
+      };
+      for (const [c, r] of cells) {
+        if (!add(occupied.get(key(c, r)))) return null;
+        for (const x of linesAt(c, r)) {
+          if (x === ignore) continue;
+          const [a, b] = ends(x);
+          if (!add(a) || !add(b)) return null;
+        }
+      }
+      while (queue.length) {
+        const n = queue.shift();
+        const nc = n.col + v.dc;
+        const nr = n.row + v.dr;
+        if (!add(occupied.get(key(nc, nr)))) return null; // empuje en cadena
+        for (const x of linesAt(nc, nr)) {
+          // caería encima de una línea: sus extremos se mueven con él
+          const [a, b] = ends(x);
+          if (!add(a) || !add(b)) return null;
+        }
+        for (const x of placedEdges) {
+          if (x.from !== n.id && x.to !== n.id) continue;
+          const o = nodes.get(x.from === n.id ? x.to : x.from);
+          const perpendicular = vertical ? o.row === n.row : o.col === n.col;
+          if (perpendicular && !add(o)) return null;
+        }
+      }
+      return S;
+    };
+    const plans = [];
+    for (const d of ["down", "right", "left", "up"]) {
+      const v = DIR_VECTORS[d];
+      const through = throughOf(d);
+      const jc = { col: parent.col + v.dc, row: parent.row + v.dr };
+      const laterals = through ? (v.dr ? ["right", "left"] : ["down", "up"]) : [null];
+      for (const lateral of laterals) {
+        const cells = [[jc.col, jc.row]];
+        if (lateral) cells.push([jc.col + DIR_VECTORS[lateral].dc, jc.row + DIR_VECTORS[lateral].dr]);
+        const S = pushPlan(d, cells, through);
+        if (S) plans.push({ d, v, through, lateral, S });
+      }
+    }
+    plans.sort((a, b) => a.S.size - b.S.size);
+    let plan = plans[0];
+    let whole = false;
+    if (!plan) {
+      // Ningún bloque local sirve: todo lo que queda más allá del padre (fila o columna entera).
+      whole = true;
+      const d = "down";
+      const through = throughOf(d);
+      const S = new Set([...nodes.values()].filter((n) => isPlaced(n) && beyond(n, d)).map((n) => n.id));
+      plan = { d, v: DIR_VECTORS[d], through, lateral: through ? "right" : null, S };
+    }
+    const { d, v, through, lateral, S } = plan;
+    const moved = [...S].map((id) => nodes.get(id));
+    // Las reservas de celdas de hijos aún sin colocar se mueven con su padre.
+    const parentOf = (id) => {
+      const x = edges.find((y) => (id.startsWith("copy:") ? `copy:${y.index}` === id : y.from === id || y.to === id));
+      if (!x) return null;
+      return id.startsWith("copy:") ? nodes.get(x.from) : nodes.get(x.from === id ? x.to : x.from);
+    };
+    const pend = [...pending];
+    pending.clear();
+    for (const [k, id] of pend) {
+      const par = parentOf(id);
+      const [c, r] = k.split(",").map(Number);
+      pending.set(par && S.has(par.id) ? key(c + v.dc, r + v.dr) : k, id);
+    }
+    for (const n of moved) occupied.delete(key(n.col, n.row));
+    for (const n of moved) {
       n.col += v.dc;
       n.row += v.dr;
+      occupied.set(key(n.col, n.row), n);
     }
-    occupied.clear();
-    for (const n of placedNodes) occupied.set(`${n.col},${n.row}`, n);
-    const shifted = new Map();
-    for (const [key, id] of pending) {
-      const [c, r] = key.split(",").map(Number);
-      shifted.set(beyond({ col: c, row: r }, d) ? `${c + v.dc},${r + v.dr}` : key, id);
-    }
-    pending.clear();
-    for (const [key, id] of shifted) pending.set(key, id);
-    const line = d === "down" || d === "up" ? "fila" : "columna";
+    const what = whole
+      ? `se desplazó todo lo que quedaba ${SIDE_AT[d] === "debajo" ? "debajo" : SIDE_AT[d]} (${moved.length} nodos)`
+      : `se desplazaron ${moved.length} nodo${moved.length === 1 ? "" : "s"} ${SIDE_NAME[d] === "abajo" ? "hacia abajo" : SIDE_NAME[d] === "arriba" ? "hacia arriba" : `hacia ${SIDE_NAME[d]}`}`;
     const kind = node.copyOf ? `copia de ${who(nodes.get(node.copyOf))}, hija de` : e.attached ? "pegado a" : "hijo de";
     if (through) {
       const j = addJunction(nodes, edges, parent, Math.min(e.index, through.index) - 0.5, e.line, parent.lineHeight);
       edges[edges.length - 1].dir = d;
-      place(j, parent.col + v.dc, parent.row + v.dr, `empalme en la ${line} insertada junto a ${who(parent)}: ${who(node)} no tenía sitio`);
+      place(j, parent.col + v.dc, parent.row + v.dr, `empalme junto a ${who(parent)}: ${who(node)} no tenía sitio y ${what}`);
       moveEnd(through, parent.id, j.id);
       setSide(through, j, d);
       moveEnd(e, parent.id, j.id);
-      const side = lateral || (v.dc ? "down" : "right");
-      setSide(e, j, side);
-      const sv = DIR_VECTORS[side];
-      place(node, j.col + sv.dc, j.row + sv.dr, `${kind} ${who(parent)} a través de un empalme, ${SIDE_AT[side]} de él: no había sitio cerca, así que se insertó una ${line}`);
+      setSide(e, j, lateral);
+      const sv = DIR_VECTORS[lateral];
+      place(node, j.col + sv.dc, j.row + sv.dr, `${kind} ${who(parent)} a través de un empalme, ${SIDE_AT[lateral]} de él (no había sitio cerca: ${what})`);
       return [j];
     }
     setSide(e, parent, d);
-    place(
-      node,
-      parent.col + v.dc,
-      parent.row + v.dr,
-      `${kind} ${who(parent)}, ${SIDE_AT[d]}: no había sitio cerca, así que se insertó una ${line} (el lado de ${SIDE_NAME[wanted]} estaba ocupado)`
-    );
+    place(node, parent.col + v.dc, parent.row + v.dr, `${kind} ${who(parent)}, ${SIDE_AT[d]} (no había sitio cerca: ${what}; el lado de ${SIDE_NAME[wanted]} estaba ocupado)`);
     return [];
   };
+
 
 
 
@@ -894,7 +948,20 @@ function placeInGrid(nodes, edges, warnings, ctx) {
       }
     };
     visit(start);
-    return { pos, sides, collisions };
+    // Diagonales que dejaría: flechas entre el grupo y lo ya colocado que no quedan en la misma
+    // fila o columna (salvo hacia hojas o empalmes, que luego se copian junto al padre).
+    let diagonals = 0;
+    for (const x of edges) {
+      const inA = pos.get(x.from);
+      const inB = pos.get(x.to);
+      if (!!inA === !!inB) continue;
+      const other = nodes.get(inA ? x.to : x.from);
+      if (other.col === undefined) continue;
+      if (inA && farLeaf({ col: inA.col, row: inA.row }, other)) continue;
+      const p = inA || inB;
+      if (p.col !== other.col && p.row !== other.row) diagonals++;
+    }
+    return { pos, sides, collisions, diagonals };
   };
   const placeGroupByLink = (root) => {
     const group = groupOf(root);
@@ -911,10 +978,11 @@ function placeInGrid(nodes, edges, warnings, ctx) {
         if (blocked(cellAt(partner, cell), start.id)) continue;
         const v = DIR_VECTORS[cell];
         const sim = simulateGroup(group, start, partner.col + v.dc, partner.row + v.dr);
-        if (!best || sim.collisions < best.sim.collisions) best = { sim, link, start, cell };
-        if (best.sim.collisions === 0) break;
+        const better = (a, b) => a.collisions < b.collisions || (a.collisions === b.collisions && a.diagonals < b.diagonals);
+        if (!best || better(sim, best.sim)) best = { sim, link, start, cell };
+        if (best.sim.collisions === 0 && best.sim.diagonals === 0) break;
       }
-      if (best && best.sim.collisions === 0) break;
+      if (best && best.sim.collisions === 0 && best.sim.diagonals === 0) break;
     }
     // Si ninguna opción encaja sin pisar nodos, se vuelve a la primera conexión y se extiende la
     // línea de su pareja hasta un empalme (como en addJunctions), que da 3 lados libres para el

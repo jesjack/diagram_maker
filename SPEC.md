@@ -176,11 +176,14 @@ Sintaxis de Mermaid: `classDef nombre props`, `id:::nombre`, `class id1,id2 nomb
        El empalme va a 1, 2… hasta 8 celdas, por celdas libres, en la primera posición donde quepan
        el hermano y el nodo: el hermano sigue recto si puede (si no, a otro lado libre del
        empalme) y el nodo va a un lado libre.
-    3. Si ninguna dirección sirve: se **inserta una fila o columna** junto al padre (la que menos
-       flechas cruzan, y donde el nodo no quede sobre una línea). Todo lo que hay más allá se
-       desplaza una celda; las líneas que la cruzan se alargan y siguen rectas. Si una flecha del
-       padre ya salía hacia ese lado, la celda nueva es un empalme por el que sigue recta y el nodo
-       va a un lado del empalme. Este paso siempre funciona.
+    3. Si ninguna dirección sirve: se **hace sitio desplazando una celda el mínimo bloque de
+       nodos**: los que ocupan las celdas necesarias, los que estos empujan en cadena, los unidos
+       a un nodo movido por una flecha perpendicular al desplazamiento (para que no quede en
+       diagonal) y los extremos de las líneas sobre las que caería un nodo movido. Las flechas
+       paralelas solo se alargan. Gana el lado que mueve menos nodos. Si una flecha del padre ya
+       salía hacia ese lado, la celda liberada es un empalme por el que sigue recta y el nodo va a
+       un lado del empalme. Si ningún bloque sirve sin mover al propio padre, se desplaza todo lo
+       que queda más allá (una fila o columna entera). Este paso siempre funciona.
     Una dirección fijada con `@dir` no se mueve (si choca, queda el aviso).
 11. Si un nodo recibe más referencias de las que caben en sus lados, las que sobran se dibujan
     sueltas a la derecha, al final, y nunca hacen de padre.
