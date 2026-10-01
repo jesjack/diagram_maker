@@ -173,7 +173,7 @@ function renderIdPills(nodes, theme) {
     const x = n.x - n.w / 2;
     const y = n.y - n.h / 2;
     parts.push(
-      `<g class="id-pill"><rect x="${fmt(x - 4)}" y="${fmt(y - p.height / 2)}" width="${fmt(w)}" height="${p.height}" ` +
+      `<g class="id-pill" data-id="${escapeXml(n.id)}"><rect x="${fmt(x - 4)}" y="${fmt(y - p.height / 2)}" width="${fmt(w)}" height="${p.height}" ` +
         `rx="${p.height / 2}" fill="${p.fill}"/>` +
         `<text x="${fmt(x - 4 + w / 2)}" y="${fmt(y)}" text-anchor="middle" dominant-baseline="central" fill="${p.text}">` +
         `${escapeXml(id)}</text></g>`
@@ -285,7 +285,7 @@ function renderText(lines, x, y, color, lineHeight, css) {
 function renderLabel(e, theme) {
   const b = e.labelBox;
   return (
-    `<g class="label"><rect x="${fmt(b.x - b.w / 2)}" y="${fmt(b.y - b.h / 2)}" width="${fmt(b.w)}" height="${fmt(b.h)}" ` +
+    `<g class="label" data-from="${escapeXml(e.from)}" data-to="${escapeXml(e.to)}"><rect x="${fmt(b.x - b.w / 2)}" y="${fmt(b.y - b.h / 2)}" width="${fmt(b.w)}" height="${fmt(b.h)}" ` +
     `rx="3" fill="${theme.labelBackground}"/>` +
     `<text x="${fmt(b.x)}" y="${fmt(b.y)}" text-anchor="middle" dominant-baseline="central" fill="${theme.labelText}"` +
     `${styleAttr(splitCss(e.css).text)}>` +

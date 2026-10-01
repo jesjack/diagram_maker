@@ -151,6 +151,54 @@ const DiagramViewer = (() => {
     document.getElementById("btn-fit").onclick = fit;
     document.getElementById("btn-zoom-in").onclick = () => zoomAt(1.2, ...center());
     document.getElementById("btn-zoom-out").onclick = () => zoomAt(1 / 1.2, ...center());
+    // ---- depuración: ver cómo se construye el diagrama, nodo a nodo, en el orden en que el layout
+    // los colocó (n.step) y con el motivo (n.why). Una flecha aparece cuando sus dos extremos están.
+    const order = [...result.nodes].sort((a, b) => a.step - b.step);
+    const total = order.length;
+    let shown = total;
+    const stepLabel = document.getElementById("step-label");
+    const stepWhy = document.getElementById("step-why");
+    const shadowCanvas = () => canvas.querySelector("canvas.shadow");
+    const showStep = (k) => {
+      shown = Math.max(1, Math.min(total, k));
+      const all = shown === total;
+      const visible = new Set(order.slice(0, shown).map((n) => n.id));
+      const current = all ? null : order[shown - 1];
+      for (const el of svg.querySelectorAll("[data-id]")) {
+        el.classList.toggle("step-hidden", !visible.has(el.dataset.id));
+        el.classList.toggle("step-current", !!current && el.dataset.id === current.id && !el.classList.contains("id-pill"));
+      }
+      for (const el of svg.querySelectorAll("[data-from]")) {
+        el.classList.toggle("step-hidden", !(visible.has(el.dataset.from) && visible.has(el.dataset.to)));
+      }
+      const sh = shadowCanvas();
+      if (sh) sh.style.display = all ? "" : "none"; // la sombra es de todo el diagrama
+      stepLabel.textContent = all ? `${total} / ${total}` : `${shown} / ${total}`;
+      stepWhy.textContent = current ? `${current.realId || current.junctionOf || current.id}: ${current.why}` : "";
+      if (current) keepVisible(current);
+    };
+    // Si el nodo del paso actual queda fuera de la pantalla, se centra en él.
+    const keepVisible = (n) => {
+      const vb = svg.viewBox.baseVal;
+      const r = stage.getBoundingClientRect();
+      const sx = view.tx + (n.x - vb.x) * view.s;
+      const sy = view.ty + (n.y - vb.y) * view.s;
+      if (sx < 40 || sx > r.width - 40 || sy < 120 || sy > r.height - 60) {
+        view.tx = r.width / 2 - (n.x - vb.x) * view.s;
+        view.ty = r.height / 2 - (n.y - vb.y) * view.s;
+        apply();
+      }
+    };
+    document.getElementById("btn-step-prev").onclick = () => showStep(shown - 1);
+    document.getElementById("btn-step-next").onclick = () => showStep(shown + 1);
+    window.addEventListener("keydown", (ev) => {
+      if (ev.key === "ArrowLeft") showStep(shown - 1);
+      else if (ev.key === "ArrowRight") showStep(shown + 1);
+      else if (ev.key === "Home") showStep(1);
+      else if (ev.key === "End") showStep(total);
+    });
+    showStep(total);
+
     // Pastillas con el id de cada nodo: se muestran u ocultan con el botón ID (o la tecla i).
     // Lo exportado sale como se está viendo, con la sombra difuminada real dentro del SVG.
     let showIds = true;

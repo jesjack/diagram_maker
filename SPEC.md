@@ -26,6 +26,11 @@ diagrama.mmd ──► CLI (Python) ──► genera HTML autocontenido ──�
 - **Scroll**: zoom.
 - **Arrastre**: desplazamiento por el lienzo.
 - **Descarga** del diagrama como imagen (PNG y SVG).
+- **Táctil**: un dedo arrastra, dos dedos hacen zoom, doble toque ajusta.
+- **ID**: pastilla con el id de cada nodo (botón ID o tecla `i`).
+- **Paso a paso** (depuración del layout): ◀ ▶ arriba a la izquierda (o ← →, Inicio, Fin) muestran
+  los nodos en el orden en que el layout los colocó, con el motivo de cada colocación; el nodo del
+  paso actual se resalta y, si queda fuera de la pantalla, la vista se centra en él.
 
 ## Sintaxis soportada
 

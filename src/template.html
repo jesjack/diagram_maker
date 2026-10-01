@@ -43,6 +43,39 @@
   #canvas svg { position: relative; display: block; overflow: visible; }
   #canvas .shadow { position: absolute; top: 0; left: 0; pointer-events: none; }
   #canvas.no-ids .ids { display: none; }
+
+  /* Depuración paso a paso del layout */
+  .stepper {
+    position: fixed;
+    top: max(12px, env(safe-area-inset-top));
+    left: 12px;
+    max-width: min(420px, calc(100vw - 24px));
+    padding: 4px;
+    background: var(--panel-translucent);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+    z-index: 10;
+    touch-action: manipulation;
+  }
+  .stepper .row { display: flex; gap: 4px; align-items: center; }
+  .stepper button {
+    min-width: 36px;
+    height: 32px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
+  }
+  .stepper button:hover { background: rgba(0, 0, 0, .06); }
+  #step-label { min-width: 64px; text-align: center; color: var(--muted); font-variant-numeric: tabular-nums; }
+  #step-why { padding: 2px 8px 4px; font-size: 13px; }
+  #step-why:empty { display: none; }
+  #canvas .step-hidden { display: none; }
+  #canvas .step-current > :first-child { stroke: #e11d48 !important; stroke-width: 3px !important; }
+  #canvas .junction.step-current circle { fill: #e11d48 !important; }
   .toolbar button[aria-pressed="false"] { color: var(--muted); text-decoration: line-through; }
 
   .toolbar {
@@ -112,7 +145,7 @@
       transform: translateX(50%);
     }
     #warnings {
-      top: max(12px, env(safe-area-inset-top));
+      top: calc(max(12px, env(safe-area-inset-top)) + 56px);
       bottom: auto;
       left: 12px;
       max-height: 30vh;
@@ -170,6 +203,15 @@
   <span class="sep"></span>
   <button id="btn-svg" title="Descargar como SVG">SVG</button>
   <button id="btn-png" title="Descargar como PNG">PNG</button>
+</div>
+
+<div class="stepper">
+  <div class="row">
+    <button id="btn-step-prev" title="Paso anterior de la construcción (←)">◀</button>
+    <span id="step-label"></span>
+    <button id="btn-step-next" title="Paso siguiente de la construcción (→)">▶</button>
+  </div>
+  <div id="step-why"></div>
 </div>
 
 <div id="warnings" hidden></div>

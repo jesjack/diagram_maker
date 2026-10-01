@@ -128,7 +128,7 @@ test("pastillas de id: solo con { ids: true }, id real en referencias, sin pasti
   const layout = layoutDiagram(parseDiagram(src));
   assert.ok(!renderSvg(layout).includes('class="ids"'));
   const svg = renderSvg(layout, undefined, { shadow: false, ids: true });
-  const ids = [...svg.matchAll(/<g class="id-pill">.*?<text[^>]*>([^<]*)<\/text><\/g>/g)].map((m) => m[1]);
+  const ids = [...svg.matchAll(/<g class="id-pill"[^>]*>.*?<text[^>]*>([^<]*)<\/text><\/g>/g)].map((m) => m[1]);
   assert.ok(ids.includes("a") && ids.includes("e") && ids.includes("q"));
   assert.ok(!ids.some((id) => /[↗●]/.test(id)), JSON.stringify(ids)); // ni ids internos de referencias ni empalmes
   assert.strictEqual(ids.filter((id) => id === "e").length, 2); // e y su referencia dentro de S

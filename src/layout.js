@@ -69,8 +69,14 @@ function layoutDiagram(graph, options = {}) {
   const titles = [];
   let bounds = null;
   let cursor = 0;
+  let stepOffset = 0; // los pasos de colocación siguen la numeración entre diagramas
   for (const part of parts) {
     const r = layoutSingle(part, measure, opts, warnings);
+    for (const n of r.nodes) {
+      if (n.step === 0) n.why = `${part.title ? `diagrama «${part.title}»` : "nivel superior"}: ${n.why}`;
+      n.step += stepOffset;
+    }
+    stepOffset += r.nodes.length;
     const titleH = part.title ? opts.lineHeight + opts.titleGap : 0;
     const titleW = part.title ? measure(part.title, { ...baseFont(opts), weight: "600", bold: true }) : 0;
     const dx = cursor - r.bounds.minX;
@@ -463,9 +469,17 @@ function placeInGrid(nodes, edges, warnings, ctx) {
   const isAttachedRef = (n) => edges.some((e) => e.attached && e.from === n.id);
   let nextComponentCol = 0;
 
-  const place = (node, col, row) => {
+  // Para depurar el layout en el visor: cada nodo guarda en qué orden se colocó (step) y por qué (why).
+  let step = 0;
+  const SIDE_NAME = { down: "abajo", right: "la derecha", left: "la izquierda", up: "arriba" };
+  const SIDE_AT = { down: "debajo", right: "a la derecha", left: "a la izquierda", up: "encima" };
+  const who = (n) =>
+    n.junctionOf ? `empalme de '${n.junctionOf}'` : n.ref && !n.absorbed ? `ref. a '${n.realId}'` : `'${n.realId || n.id}'`;
+  const place = (node, col, row, why = "") => {
     node.col = col;
     node.row = row;
+    node.step = step++;
+    node.why = why;
     const key = `${col},${row}`;
     if (occupied.has(key)) {
       // TODO (SPEC): resolver choques entre ramas. Por ahora solo se avisa.
@@ -485,6 +499,7 @@ function placeInGrid(nodes, edges, warnings, ctx) {
   const cellAt = (n, side) => `${n.col + DIR_VECTORS[side].dc},${n.row + DIR_VECTORS[side].dr}`;
   const placeNextTo = (parent, node, e) => {
     let side = sideOf(e);
+    const wanted = side;
     if (occupied.has(cellAt(parent, side)) && !e.explicit) {
       const reserved = new Set(
         edges.filter((x) => x !== e && (x.from === parent.id || (x.attached && x.to === parent.id))).map(sideOf)
@@ -499,7 +514,9 @@ function placeInGrid(nodes, edges, warnings, ctx) {
       }
     }
     const v = DIR_VECTORS[side];
-    place(node, parent.col + v.dc, parent.row + v.dr);
+    const kind = e.attached ? "pegado a" : e.from === parent.id ? "hijo de" : "padre de";
+    const moved = side !== wanted ? ` (el lado de ${SIDE_NAME[wanted]} estaba ocupado)` : "";
+    place(node, parent.col + v.dc, parent.row + v.dr, `${kind} ${who(parent)}, ${SIDE_AT[side]}${moved}`);
   };
 
   // Un nodo sin padre real que no es el primero en colocarse no forma un grupo desconectado si
@@ -526,13 +543,19 @@ function placeInGrid(nodes, edges, warnings, ctx) {
   const real = all.filter((n) => !n.ref);
   const roots = [...real.filter((n) => !hasIncoming.has(n.id)), ...real, ...all.filter((n) => n.ref)];
 
-  const placeRoot = (root, anchor) => {
+  const placeRoot = (root, anchor, retry = false) => {
+    const later = retry ? " (aplazado y reintentado)" : "";
     if (anchor) {
       const v = DIR_VECTORS[anchor.cell];
-      place(root, anchor.child.col + v.dc, anchor.child.row + v.dr);
+      place(
+        root,
+        anchor.child.col + v.dc,
+        anchor.child.row + v.dr,
+        `sin padre: pegado a su hijo ${who(anchor.child)}, ${SIDE_AT[anchor.cell]}${later}`
+      );
       assignSlots(root, ctx, { edge: anchor.edge, side: OPPOSITE[anchor.cell] }).forEach((d) => resolveDeferred(d, ctx));
     } else {
-      place(root, nextComponentCol, 0);
+      place(root, nextComponentCol, 0, step ? `inicio de un grupo nuevo, aparte${later}` : "nodo inicial");
     }
 
     // Recorrido en anchura siguiendo las salidas en orden de declaración.
@@ -645,7 +668,8 @@ function placeInGrid(nodes, edges, warnings, ctx) {
       }
       return ext ? applyExtension(ext) : false;
     }
-    for (const [id, p] of best.sim.pos) place(nodes.get(id), p.col, p.row);
+    const how = `grupo reconstruido desde la conexión ${who(best.start)} – ${who(nodes.get(best.link.from === best.start.id ? best.link.to : best.link.from))}`;
+    for (const [id, p] of best.sim.pos) place(nodes.get(id), p.col, p.row, id === best.start.id ? how : `${how}: sigue el recorrido`);
     setSide(best.link, best.start, OPPOSITE[best.cell]);
     for (const [e, u, d] of best.sim.sides) setSide(e, u, d);
     const maxCol = Math.max(...[...nodes.values()].filter(isPlaced).map((n) => n.col));
@@ -678,7 +702,7 @@ function placeInGrid(nodes, edges, warnings, ctx) {
     }
     return best && { ...best, link, start, partner };
   };
-  const applyExtension = ({ sim, d, jc, s2, link, partner }) => {
+  const applyExtension = ({ sim, d, jc, s2, link, partner, start }) => {
     // Empalme nuevo de la pareja; la conexión pasa a salir de él.
     let jid = `${partner.id}\u25cf`;
     while (nodes.has(jid)) jid += "\u25cf";
@@ -700,8 +724,11 @@ function placeInGrid(nodes, edges, warnings, ctx) {
     edges.push(bus);
     if (link.from === partner.id) link.from = jid;
     else link.to = jid;
-    place(junction, jc.col, jc.row);
-    for (const [id, p] of sim.pos) place(nodes.get(id), p.col, p.row);
+    const k = Math.abs(jc.col - partner.col) + Math.abs(jc.row - partner.row);
+    place(junction, jc.col, jc.row, `extensión desde ${who(partner)} hacia ${SIDE_NAME[d]} (${k} celda${k > 1 ? "s" : ""}): el grupo no cabía`);
+    for (const [id, p] of sim.pos) {
+      place(nodes.get(id), p.col, p.row, id === start.id ? `junto al empalme de ${who(partner)}` : `grupo unido por la extensión de ${who(partner)}: sigue el recorrido`);
+    }
     setSide(link, junction, s2);
     for (const [e, u, side] of sim.sides) setSide(e, u, side);
     const maxCol = Math.max(...[...nodes.values()].filter(isPlaced).map((n) => n.col));
@@ -737,12 +764,12 @@ function placeInGrid(nodes, edges, warnings, ctx) {
     for (const root of waiting) {
       if (root.col !== undefined) continue;
       const anchor = findAnchor(root);
-      if (anchor) placeRoot(root, anchor);
+      if (anchor) placeRoot(root, anchor, true);
       else if (!placeGroupByLink(root)) continue;
       progress = true;
     }
   }
-  for (const root of waiting) if (root.col === undefined) placeRoot(root, null);
+  for (const root of waiting) if (root.col === undefined) placeRoot(root, null, true);
   for (const root of roots) {
     if (root.col !== undefined || isAttachedRef(root)) continue;
     placeRoot(root, findAnchor(root));
