@@ -526,9 +526,7 @@ function placeInGrid(nodes, edges, warnings, ctx) {
   const real = all.filter((n) => !n.ref);
   const roots = [...real.filter((n) => !hasIncoming.has(n.id)), ...real, ...all.filter((n) => n.ref)];
 
-  for (const root of roots) {
-    if (root.col !== undefined || isAttachedRef(root)) continue;
-    const anchor = findAnchor(root);
+  const placeRoot = (root, anchor) => {
     if (anchor) {
       const v = DIR_VECTORS[anchor.cell];
       place(root, anchor.child.col + v.dc, anchor.child.row + v.dr);
@@ -558,6 +556,36 @@ function placeInGrid(nodes, edges, warnings, ctx) {
     // El siguiente componente desconectado va a la derecha de todo lo colocado.
     const maxCol = Math.max(...[...nodes.values()].filter((n) => n.col !== undefined).map((n) => n.col));
     nextComponentCol = maxCol + 2;
+  };
+
+  // Un nodo sin padre que todavía no puede pegarse a ningún hijo se aplaza: quizá otro grupo
+  // coloque después alguno de sus hijos. Al final se reintenta hasta que no haya avances, y los
+  // que sigan sin poder pegarse empiezan un grupo nuevo, en su orden.
+  // Los nodos con padre que no se alcanzaron (ciclos) y las referencias sueltas van después de los
+  // aplazados: un aplazado puede ser justo el padre que los alcanza.
+  const waiting = [];
+  const starts = roots.filter((n) => !n.ref && !hasIncoming.has(n.id));
+  for (const root of starts) {
+    if (root.col !== undefined || isAttachedRef(root)) continue;
+    const anchor = findAnchor(root);
+    if (!anchor && occupied.size) waiting.push(root);
+    else placeRoot(root, anchor);
+  }
+  for (let progress = true; progress; ) {
+    progress = false;
+    for (const root of waiting) {
+      if (root.col !== undefined) continue;
+      const anchor = findAnchor(root);
+      if (anchor) {
+        placeRoot(root, anchor);
+        progress = true;
+      }
+    }
+  }
+  for (const root of waiting) if (root.col === undefined) placeRoot(root, null);
+  for (const root of roots) {
+    if (root.col !== undefined || isAttachedRef(root)) continue;
+    placeRoot(root, findAnchor(root));
   }
 }
 

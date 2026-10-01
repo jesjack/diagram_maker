@@ -147,6 +147,8 @@ Sintaxis de Mermaid: `classDef nombre props`, `id:::nombre`, `class id1,id2 nomb
    (que no es el inicial) con algún hijo ya colocado no está desconectado: se pega al primero de
    esos hijos, en orden de declaración, en su primer lado libre (abajo, derecha, izquierda, arriba;
    `@dir` en esa arista lo elige). El hijo hace de padre sin cambiar el sentido de la flecha.
+   Si todavía no tiene ningún hijo colocado, se aplaza y se reintenta cuando los demás grupos ya
+   están colocados; solo si sigue sin poder pegarse empieza un grupo nuevo.
 
 10. Si al colocar un hijo (o una referencia) su celda ya está ocupada, se prueba otro lado del padre
     que no esté reservado para otra de sus conexiones y cuya celda esté libre, en el orden abajo,

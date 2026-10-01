@@ -329,3 +329,12 @@ test("empalme también para entradas: las flechas que sobran terminan en el empa
   assert.deepStrictEqual(L.edges.filter((e) => e.to === j && !e.bus).map((e) => e.from).sort(), ["d", "e"]);
   assert.ok(L.edges.find((e) => e.from === "db" && e.to === j).bus);
 });
+
+test("un inicio que aún no puede pegarse se aplaza y se pega cuando otro grupo coloca a su hijo", () => {
+  // t llega antes que u, pero su hijo k solo lo coloca u (que se pega a b).
+  const L = layout(["a --> b", "t --> k", "u --> b", "u --> k"].join("\n"));
+  const at = (id) => L.nodes.find((n) => n.id === id);
+  const [t, k] = [at("t"), at("k")];
+  assert.strictEqual(Math.abs(t.col - k.col) + Math.abs(t.row - k.row), 1, "t es vecino de k");
+  assert.ok(!L.warnings.some((w) => /Choque/.test(w.message)));
+});
