@@ -25,7 +25,7 @@ diagrama.mmd ──► CLI (Python) ──► genera HTML autocontenido ──�
 - **Apertura**: el HTML se guarda junto al `.mmd` (o en `-o`) y se abre sirviéndolo **una sola vez**
   desde un mini servidor en 127.0.0.1 (los navegadores en sandbox, como Edge en flatpak, no leen
   cualquier carpeta); en Termux se abre con `termux-open-url`. `--no-open` solo genera el HTML.
-- **Recarga en vivo** (`python3 diagram.py archivo.mmd --watch`): el servidor sigue abierto hasta
+- **Recarga en vivo** (`dmk archivo.mmd --watch`): el servidor sigue abierto hasta
   Ctrl+C y vigila el `.mmd` (sondeo del mtime cada 0,5 s). La página servida pregunta cada segundo
   `GET /source?v=N`: `204` si sigue en la versión `N`, o `{"version", "source"}` si el archivo
   cambió, y vuelve a hacer parse → layout → render sin recargar la pestaña (sondeo corto en lugar
