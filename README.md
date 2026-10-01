@@ -23,7 +23,7 @@ Este es el propio proyecto, dibujado con él ([`examples/proyecto.mmd`](examples
 `subgraph` se dibuja como un diagrama aparte y las flechas entre ellos usan nodos de referencia
 (paralelogramos discontinuos).
 
-![Diagrama de flujo de Diagram Maker, dibujado con Diagram Maker](docs/diagrama-del-proyecto.png)
+![Diagrama de flujo de Diagram Maker, dibujado con Diagram Maker](https://raw.githubusercontent.com/jesjack/diagram_maker/main/docs/diagrama-del-proyecto.png)
 
 Mermaid se usa solo como **sintaxis** (la conocen bien los modelos de IA y el archivo sigue siendo
 compatible con Mermaid); el dibujo lo hace este proyecto.
@@ -31,6 +31,12 @@ compatible con Mermaid); el dibujo lo hace este proyecto.
 ## Instalación
 
 Requisitos: [Node.js](https://nodejs.org) 18 o superior.
+
+```sh
+npm install -g @jesjack/diagram-maker
+```
+
+O desde el código:
 
 ```sh
 git clone https://github.com/jesjack/diagram_maker.git
