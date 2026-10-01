@@ -357,3 +357,22 @@ test("grupo sin ninguna conexión con lo colocado: sigue aparte", () => {
   const [a, x] = ["a", "x"].map((id) => L.nodes.find((n) => n.id === id));
   assert.ok(x.col - a.col >= 2);
 });
+
+test("si el grupo no cabe por ninguna conexión, se extiende la línea de la pareja hasta un empalme (v3_uno)", () => {
+  const src = fs.readFileSync(path.join(__dirname, "../examples/v3_uno.mmd"), "utf8");
+  const L = layoutDiagram(parseDiagram(src));
+  const at = (id) => L.nodes.find((n) => n.id === id);
+  // El grupo de teclas (K1..K5) se une por K4 --> oApi, a través de un empalme nuevo de oApi.
+  const link = L.edges.find((e) => e.from === "K4" && at(e.to).shape === "junction");
+  assert.ok(link, "K4 apunta a un empalme");
+  const j = at(link.to);
+  assert.strictEqual(j.junctionOf, "oApi");
+  assert.ok(L.edges.some((e) => e.bus && e.to === j.id), "el empalme cuelga de una extensión");
+  const k4 = at("K4");
+  assert.strictEqual(Math.abs(k4.col - j.col) + Math.abs(k4.row - j.row), 1, "K4 junto al empalme");
+  // La extensión es una línea recta (misma fila o misma columna que su origen).
+  const bus = L.edges.find((e) => e.bus && e.to === j.id);
+  const o = at(bus.from);
+  assert.ok(o.col === j.col || o.row === j.row);
+  assert.ok(L.warnings.filter((w) => /Choque/.test(w.message)).length <= 2);
+});

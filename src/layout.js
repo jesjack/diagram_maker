@@ -581,8 +581,8 @@ function placeInGrid(nodes, edges, warnings, ctx) {
   };
   // Simula la reconstrucción del grupo desde start, colocado en la celda (col, row): devuelve las
   // posiciones y aristas resultantes y cuántos choques habría, sin tocar nada.
-  const simulateGroup = (group, start, col, row) => {
-    const taken = new Set(occupied.keys());
+  const simulateGroup = (group, start, col, row, extraTaken = []) => {
+    const taken = new Set([...occupied.keys(), ...extraTaken]);
     const pos = new Map([[start.id, { col, row }]]);
     const sides = []; // [arista, nodo u, lado de u donde queda el otro extremo]
     let collisions = taken.has(`${col},${row}`) ? 1 : 0;
@@ -630,9 +630,21 @@ function placeInGrid(nodes, edges, warnings, ctx) {
       }
       if (best && best.sim.collisions === 0) break;
     }
-    // Si ninguna opción encaja sin pisar nodos, el grupo se queda aparte: un bloque encajado
-    // encima de otro se lee peor que una línea larga.
-    if (!best || best.sim.collisions > 0) return false;
+    // Si ninguna opción encaja sin pisar nodos, se vuelve a la primera conexión y se extiende la
+    // línea de su pareja hasta un empalme (como en addJunctions), que da 3 lados libres para el
+    // grupo. La extensión puede cruzar varias celdas vacías en línea recta hasta un sitio donde
+    // el grupo quepa: gana la opción con menos choques (dirección en orden, luego más corta).
+    // Si la pareja de la primera conexión no tiene ningún lado libre por donde sacar la extensión,
+    // se usa la siguiente conexión, y así; a igualdad de choques gana la conexión anterior.
+    if (!best || best.sim.collisions > 0) {
+      let ext = null;
+      for (const link of links) {
+        const opt = planExtension(group, link);
+        if (opt && (!ext || opt.sim.collisions < ext.sim.collisions)) ext = opt;
+        if (ext && ext.sim.collisions === 0) break;
+      }
+      return ext ? applyExtension(ext) : false;
+    }
     for (const [id, p] of best.sim.pos) place(nodes.get(id), p.col, p.row);
     setSide(best.link, best.start, OPPOSITE[best.cell]);
     for (const [e, u, d] of best.sim.sides) setSide(e, u, d);
@@ -640,6 +652,63 @@ function placeInGrid(nodes, edges, warnings, ctx) {
     nextComponentCol = maxCol + 2;
     return true;
   };
+  const MAX_EXTENSION = 8; // celdas que puede cruzar una extensión
+  const planExtension = (group, link) => {
+    const start = nodes.get(group.has(link.from) ? link.from : link.to);
+    const partner = nodes.get(group.has(link.from) ? link.to : link.from);
+    let best = null;
+    for (const d of sidesOf(partner)) {
+      const v = DIR_VECTORS[d];
+      const path = [];
+      for (let k = 1; k <= MAX_EXTENSION; k++) {
+        const jc = { col: partner.col + v.dc * k, row: partner.row + v.dr * k };
+        const key = `${jc.col},${jc.row}`;
+        if (occupied.has(key)) break; // la línea no puede atravesar un nodo
+        path.push(key);
+        for (const s2 of ["down", "right", "left", "up"]) {
+          if (s2 === OPPOSITE[d]) continue; // por ahí llega la extensión
+          const sv = DIR_VECTORS[s2];
+          const sim = simulateGroup(group, start, jc.col + sv.dc, jc.row + sv.dr, path);
+          if (!best || sim.collisions < best.sim.collisions) best = { sim, d, jc, s2 };
+          if (best.sim.collisions === 0) break;
+        }
+        if (best && best.sim.collisions === 0) break;
+      }
+      if (best && best.sim.collisions === 0) break;
+    }
+    return best && { ...best, link, start, partner };
+  };
+  const applyExtension = ({ sim, d, jc, s2, link, partner }) => {
+    // Empalme nuevo de la pareja; la conexión pasa a salir de él.
+    let jid = `${partner.id}\u25cf`;
+    while (nodes.has(jid)) jid += "\u25cf";
+    const junction = {
+      id: jid,
+      shape: "junction",
+      text: "",
+      lines: [],
+      w: JUNCTION_SIZE,
+      h: JUNCTION_SIZE,
+      lineHeight: partner.lineHeight,
+      line: link.line,
+      group: partner.group,
+      junctionOf: partner.junctionOf || partner.realId || partner.id,
+    };
+    nodes.set(jid, junction);
+    const bus = { index: link.index - 0.5, from: partner.id, to: jid, label: null, arrowStart: false,
+      arrowEnd: false, style: "solid", bus: true, line: link.line, dir: d };
+    edges.push(bus);
+    if (link.from === partner.id) link.from = jid;
+    else link.to = jid;
+    place(junction, jc.col, jc.row);
+    for (const [id, p] of sim.pos) place(nodes.get(id), p.col, p.row);
+    setSide(link, junction, s2);
+    for (const [e, u, side] of sim.sides) setSide(e, u, side);
+    const maxCol = Math.max(...[...nodes.values()].filter(isPlaced).map((n) => n.col));
+    nextComponentCol = maxCol + 2;
+    return true;
+  };
+
   // Fija la geometría de una arista sabiendo en qué lado de u está el otro extremo.
   const setSide = (e, u, side) => {
     if (e.attached) {

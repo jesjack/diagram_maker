@@ -153,7 +153,11 @@ Sintaxis de Mermaid: `classDef nombre props`, `id:::nombre`, `class id1,id2 nomb
    grupo se recorre desde ahí siguiendo las aristas en cualquier sentido (las flechas no cambian),
    cada nodo en el primer lado libre del anterior. Con `a->b->c` colocado, `A->B->C` y `C->c`
    queda `a,b,c,C,B,A`. Se usa la primera conexión, en orden de declaración, con la que el grupo
-   cabe sin pisar ningún nodo; si no cabe con ninguna, o no hay conexión, el grupo empieza aparte.
+   cabe sin pisar ningún nodo. Si no cabe con ninguna, se vuelve a la primera conexión y se
+   **extiende** la línea de su pareja hasta un empalme (como en la regla 4), que da 3 lados libres
+   para el grupo; la extensión puede cruzar celdas vacías en línea recta (hasta 8) hasta donde el
+   grupo quepa. Si la pareja no tiene ningún lado libre, se prueba con la siguiente conexión. Solo
+   un grupo sin ninguna conexión con lo colocado empieza aparte.
 
 10. Si al colocar un hijo (o una referencia) su celda ya está ocupada, se prueba otro lado del padre
     que no esté reservado para otra de sus conexiones y cuya celda esté libre, en el orden abajo,
