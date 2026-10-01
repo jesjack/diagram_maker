@@ -17,6 +17,7 @@ Uso:
   dmk archivo.mmd --html        solo genera el HTML
   dmk                           escribe el diagrama en la terminal (termina con Ctrl+D)
   cat archivo.mmd | dmk --svg   también por tubería
+  dmk --png -o d.png <<'EOF'     o escrito en el propio comando (hasta la línea EOF)
 
 Opciones:
   -o, --salida RUTA     dónde guardar el resultado (.html, .svg o .png)

@@ -59,6 +59,20 @@ dmk                             # escribe el diagrama en la terminal (termina co
 cat archivo.mmd | dmk --svg -o diagrama.svg
 ```
 
+También se puede escribir el diagrama en el propio comando, sin crear un archivo:
+
+```sh
+dmk --png -o pedido.png <<'EOF'
+flowchart TD
+    a["Pedido"] --> b{"¿Hay stock?"}
+    b -->|sí| c(["Enviar"])
+    b -->|no| d(["Avisar"])
+EOF
+```
+
+Pon `'EOF'` entre comillas para que la terminal no toque el texto (`$`, `` ` ``, `\`). Sin `--svg`,
+`--png` ni `-o`, el diagrama se abre en el navegador sin guardarse.
+
 `dmk --ayuda` muestra todas las opciones.
 
 - **HTML**: es un único archivo con parser, layout y visor incrustados; se puede abrir o compartir
