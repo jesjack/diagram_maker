@@ -425,11 +425,14 @@ test("flecha a un empalme lejano: copia del empalme junto al padre, aunque su du
   const src = fs.readFileSync(path.join(__dirname, "../examples/v3_app.mmd"), "utf8");
   const L = layoutDiagram(parseDiagram(src));
   const byId = Object.fromEntries(L.nodes.map((n) => [n.id, n]));
-  const e = L.edges.find((x) => x.from === "F2" && byId[x.to].junctionOf === "A8");
+  // La flecha sale de F2 o de un empalme de F2 (si F2 tuvo que hacer sitio).
+  const fromF2 = (id) => id === "F2" || byId[id].junctionOf === "F2";
+  const e = L.edges.find((x) => fromF2(x.from) && byId[x.to].junctionOf === "A8");
   assert.ok(e, "F2 apunta a un empalme de A8");
   const j = byId[e.to];
   assert.ok(j.copyOf && j.shape === "junction", "es una copia del empalme");
-  assert.strictEqual(Math.abs(j.col - byId.F2.col) + Math.abs(j.row - byId.F2.row), 1);
+  const src2 = byId[e.from];
+  assert.strictEqual(Math.abs(j.col - src2.col) + Math.abs(j.row - src2.row), 1);
 });
 
 test("ninguna flecha se pierde por el camino (copias, empalmes, extensiones)", () => {
@@ -441,4 +444,34 @@ test("ninguna flecha se pierde por el camino (copias, empalmes, extensiones)", (
     const ids = new Set(L.nodes.map((n) => n.id));
     for (const e of L.edges) assert.ok(ids.has(e.from) && ids.has(e.to), `${f}: ${e.from} -> ${e.to}`);
   }
+});
+
+test("sin diagonales ni líneas que pasen por encima de un nodo (salvo varios padres)", () => {
+  for (const f of ["v3_uno", "v3_soffice", "inicio_app", "prueba_movil"]) {
+    const L = layoutDiagram(parseDiagram(fs.readFileSync(path.join(__dirname, `../examples/${f}.mmd`), "utf8")));
+    const byId = Object.fromEntries(L.nodes.map((n) => [n.id, n]));
+    const occ = new Set(L.nodes.map((n) => `${n.col},${n.row}`));
+    for (const e of L.edges) {
+      const a = byId[e.from];
+      const b = byId[e.to];
+      assert.ok(a.col === b.col || a.row === b.row, `${f}: diagonal ${e.from} -> ${e.to}`);
+      const n = Math.abs(a.col - b.col) + Math.abs(a.row - b.row);
+      const dc = Math.sign(b.col - a.col);
+      const dr = Math.sign(b.row - a.row);
+      for (let i = 1; i < n; i++) assert.ok(!occ.has(`${a.col + dc * i},${a.row + dr * i}`), `${f}: ${e.from} -> ${e.to} pisa un nodo`);
+    }
+    assert.ok(!L.warnings.some((w) => /Choque/.test(w.message)), f);
+  }
+});
+
+test("nodo sin sitio cerca: se inserta una fila o columna y nadie queda encima de una línea", () => {
+  // x tiene 4 conexiones ocupando sus 4 lados con hijos que a su vez tienen hijos (no se pueden
+  // mover); su 5ª conexión obliga a hacer sitio.
+  const L = layout(
+    ["p --> x", "x --> a --> a2", "x --> b --> b2", "x --> c --> c2", "x --> d", "d --> d2"].join("\n")
+  );
+  const occ = new Map(L.nodes.map((n) => [`${n.col},${n.row}`, n]));
+  assert.strictEqual(occ.size, L.nodes.length, "ningún nodo comparte celda");
+  assert.ok(!L.warnings.some((w) => /Choque/.test(w.message)));
+  assert.strictEqual(L.edges.filter((e) => !e.bus).length, 9);
 });

@@ -164,22 +164,33 @@ Sintaxis de Mermaid: `classDef nombre props`, `id:::nombre`, `class id1,id2 nomb
    grupo quepa. Si la pareja no tiene ningún lado libre, se prueba con la siguiente conexión. Solo
    un grupo sin ninguna conexión con lo colocado empieza aparte.
 
-10. Si al colocar un hijo (o una referencia) su celda ya está ocupada, se prueba otro lado del padre
-    que no esté reservado para otra de sus conexiones y cuya celda esté libre, en el orden abajo,
-    derecha, izquierda, arriba. Una dirección fijada con `@dir` no se mueve. **No pisar un nodo
-    está por encima del orden de las salidas**: si no hay ningún lado libre sin reservar, se saca
-    una extensión hasta un empalme por un lado libre aunque esté reservado para un hermano; el
-    hermano sigue recto desde el empalme (misma dirección) y el nodo va a un lado libre del
-    empalme. Solo si el padre no tiene ningún lado libre queda el aviso de choque.
+10. **Nunca se pisa un nodo ni una línea.** Una celda está ocupada si tiene un nodo, si está
+    reservada para otro hijo o si la atraviesa una flecha recta ya trazada. Si la celda que le toca
+    a un nodo está ocupada, se aplica una cascada **finita**, de lo más local a lo más global:
+    1. Otro lado libre del padre que no esté reservado para otra conexión (abajo, derecha,
+       izquierda, arriba).
+    2. **Extensión** en línea recta hasta un empalme, por el lado de un hermano (que aún no esté
+       colocado, o que sea una hoja con una sola conexión, que se puede mover) o por un lado libre.
+       El empalme va a 1, 2… hasta 8 celdas, por celdas libres, en la primera posición donde quepan
+       el hermano y el nodo: el hermano sigue recto si puede (si no, a otro lado libre del
+       empalme) y el nodo va a un lado libre.
+    3. Si ninguna dirección sirve: se **inserta una fila o columna** junto al padre (la que menos
+       flechas cruzan, y donde el nodo no quede sobre una línea). Todo lo que hay más allá se
+       desplaza una celda; las líneas que la cruzan se alargan y siguen rectas. Si una flecha del
+       padre ya salía hacia ese lado, la celda nueva es un empalme por el que sigue recta y el nodo
+       va a un lado del empalme. Este paso siempre funciona.
+    Una dirección fijada con `@dir` no se mueve (si choca, queda el aviso).
 11. Si un nodo recibe más referencias de las que caben en sus lados, las que sobran se dibujan
     sueltas a la derecha, al final, y nunca hacen de padre.
 12. **Copias de hojas:** cuando un padre, en su turno, tiene como hijo una hoja (nodo sin hijos)
     ya colocada lejos (no en una celda vecina), se le pone una **copia** de la hoja como un hijo
     más, en el lado que le tocaba a esa flecha o en el primero libre; así no hay líneas largas
-    cruzando el diagrama. Si la flecha va a un **empalme** lejano, se copia el empalme (un punto
+    cruzando el diagrama (si el padre no tiene sitio, se hace con la cascada de la regla 10). Si
+    la flecha va a un **empalme** lejano, se copia el empalme (un punto
     con su pastilla `● dueño`), tenga o no hijos su dueño; si el dueño es una hoja se copia el
-    nodo completo. Al final, una pasada de respaldo hace lo mismo con las flechas que no pasaron
-    por el recorrido. La copia es idéntica (forma, estilo, id). Una flecha hacia un empalme de una hoja
+    nodo completo. Una extensión hacia un empalme propio nunca se copia, y un nodo cuenta como
+    hoja solo si ni él ni sus empalmes tienen salidas. Al final, una pasada de respaldo hace lo
+    mismo con las flechas que no pasaron por el recorrido. La copia es idéntica (forma, estilo, id). Una flecha hacia un empalme de una hoja
     cuenta como flecha hacia la hoja, y un empalme que se queda sin ramas se quita. Si el padre no
     tiene ningún lado libre, se queda la línea larga.
 
