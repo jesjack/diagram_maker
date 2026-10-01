@@ -42,7 +42,6 @@
   }
   #canvas svg { position: relative; display: block; overflow: visible; }
   #canvas .shadow { position: absolute; top: 0; left: 0; pointer-events: none; }
-  #canvas.no-ids .ids { display: none; }
 
   /* Depuración paso a paso del layout */
   .stepper {
@@ -74,8 +73,7 @@
   #step-why { padding: 2px 8px 4px; font-size: 13px; }
   #step-why:empty { display: none; }
   #canvas .step-current > :first-child { stroke: #e11d48 !important; stroke-width: 3px !important; }
-  #canvas .junction.step-current circle { fill: #e11d48 !important; }
-  .toolbar button[aria-pressed="false"] { color: var(--muted); text-decoration: line-through; }
+  #canvas .junction.step-current rect { fill: #e11d48 !important; }
 
   .toolbar {
     position: fixed;
@@ -198,7 +196,6 @@
   <span id="status">100%</span>
   <button id="btn-zoom-in" title="Acercar (+)">+</button>
   <button id="btn-fit" title="Ajustar a la pantalla (0, doble clic o doble toque)">Ajustar</button>
-  <button id="btn-ids" title="Mostrar u ocultar el id de cada nodo (i)" aria-pressed="true">ID</button>
   <span class="sep"></span>
   <button id="btn-svg" title="Descargar como SVG">SVG</button>
   <button id="btn-png" title="Descargar como PNG">PNG</button>

@@ -116,21 +116,24 @@ test("hexágono: polígono de 6 puntos con el texto dentro", () => {
   assert.ok(n.skew > 0 && n.w > n.skew * 2);
 });
 
-test("empalme: punto del color de las líneas y extensión sin flecha", () => {
-  const svg = renderSvg(layoutDiagram(parseDiagram("p --> x\nx --> a\nx --> b\nx --> c\nx --> d")), undefined, { shadow: false });
-  assert.match(svg, /<g class="junction" data-id="x●"><circle [^>]*r="5" fill="#1f2328"\/><\/g>/);
+test("empalme: pastilla con el id de su dueño y extensión sin flecha", () => {
+  const layout = layoutDiagram(parseDiagram("p --> x\nx --> a\nx --> b\nx --> c\nx --> d"));
+  const svg = renderSvg(layout, undefined, { shadow: false });
+  const j = layout.nodes.find((n) => n.shape === "junction");
+  assert.match(svg, /<g class="junction" data-id="x●"><rect [^>]*rx="9" fill="#57606a"\/><text [^>]*>● x<\/text><\/g>/);
+  assert.ok(j.w > j.h, "mide lo que su texto");
   assert.match(svg, /<line data-from="x" data-to="x●"[^>]*stroke-width="1.5"\/>/); // sin marker
   assert.match(svg, /<line data-from="x●" data-to="d"[^>]*marker-end="url\(#arrow\)"/);
 });
 
-test("pastillas de id: solo con { ids: true }, id real en referencias, dueño en empalmes", () => {
+test("pastillas de id: solo con { ids: true }, id real en referencias; los empalmes son su propia pastilla", () => {
   const src = 'e["E"]\nsubgraph S\n  a["A"]\nend\ne --> a\ne --> x\np --> q\nq --> r1\nq --> r2\nq --> r3\nq --> r4';
   const layout = layoutDiagram(parseDiagram(src));
   assert.ok(!renderSvg(layout).includes('class="ids"'));
   const svg = renderSvg(layout, undefined, { shadow: false, ids: true });
   const ids = [...svg.matchAll(/<g class="id-pill"[^>]*>.*?<text[^>]*>([^<]*)<\/text><\/g>/g)].map((m) => m[1]);
   assert.ok(ids.includes("a") && ids.includes("e") && ids.includes("q"));
-  assert.ok(!ids.some((id) => /↗|●●|q●/.test(id)), JSON.stringify(ids)); // sin ids internos
-  assert.ok(ids.includes("● q"), "el empalme de q muestra a su dueño");
+  assert.ok(!ids.some((id) => /[↗●]/.test(id)), JSON.stringify(ids)); // sin ids internos ni empalmes
   assert.strictEqual(ids.filter((id) => id === "e").length, 2); // e y su referencia dentro de S
+  assert.match(svg, /<g class="junction"[^>]*>.*?>● q<\/text>/);
 });

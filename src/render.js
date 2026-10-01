@@ -13,7 +13,9 @@ const THEME = {
   title: "#656d76", // título de cada subgraph, encima de su diagrama
   refDash: "5 3", // borde de los nodos de referencia a otro diagrama
   // Pastilla con el id de cada nodo, en su esquina superior izquierda (renderSvg con { ids: true }).
-  idPill: { fill: "#57606a", text: "#ffffff", fontSize: 10, height: 14 },
+  // (las medidas deben coincidir con PILL_FONT / PILL_HEIGHT de layout.js, que reserva el sitio de
+  // los empalmes)
+  idPill: { fill: "#57606a", text: "#ffffff", fontSize: 12, height: 18 },
   padding: 40,
   // Sombra difuminada bajo todas las formas. null = sin sombra.
   shadow: { dx: 0, dy: 1, blur: 1.5, color: "#000000", opacity: 0.18 },
@@ -162,17 +164,16 @@ function renderShadows({ nodes, edges }, theme) {
 }
 
 // Pastillas encima de todo, centradas en la esquina superior izquierda de la caja de cada nodo.
-// Referencias y nodos absorbidos muestran el id del nodo real; los empalmes, el de su dueño.
+// Referencias y nodos absorbidos muestran el id del nodo real. Los empalmes no llevan: son ellos
+// mismos una pastilla con el id de su dueño.
 function renderIdPills(nodes, theme) {
   const p = theme.idPill;
   const parts = [`<g class="ids" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="${p.fontSize}">`];
   for (const n of nodes) {
-    // Un empalme muestra el id de su nodo dueño con un punto delante, arriba a su izquierda para
-    // no tapar el punto.
-    const junction = n.shape === "junction";
-    const id = junction ? `\u25cf ${n.junctionOf}` : n.realId || n.id;
+    if (n.shape === "junction") continue; // el empalme ya es una pastilla (renderNode)
+    const id = n.realId || n.id;
     const w = id.length * p.fontSize * 0.62 + 8; // monoespaciada: ancho fijo por carácter
-    const x = junction ? n.x - n.w / 2 - w + 2 : n.x - n.w / 2;
+    const x = n.x - n.w / 2;
     const y = n.y - n.h / 2;
     parts.push(
       `<g class="id-pill" data-id="${escapeXml(n.id)}"><rect x="${fmt(x - 4)}" y="${fmt(y - p.height / 2)}" width="${fmt(w)}" height="${p.height}" ` +
@@ -200,9 +201,15 @@ function renderEdge(e, theme, marker = "arrow") {
 }
 
 function renderNode(n, theme, opts) {
-  // Empalme: un punto del color de las líneas, sin texto.
+  // Empalme: una pastilla con el id de su dueño ("● A8"); las flechas llegan a su borde.
   if (n.shape === "junction") {
-    return `<g class="junction" data-id="${escapeXml(n.id)}">${nodeShape(n, `fill="${theme.edge}"`, "")}</g>`;
+    const p = theme.idPill;
+    return (
+      `<g class="junction" data-id="${escapeXml(n.id)}">${nodeShape(n, `fill="${p.fill}"`, "")}` +
+      `<text x="${fmt(n.x)}" y="${fmt(n.y)}" text-anchor="middle" dominant-baseline="central" fill="${p.text}" ` +
+      `font-family="ui-monospace, Menlo, Consolas, monospace" font-size="${p.fontSize}">` +
+      `${escapeXml(`\u25cf ${n.junctionOf}`)}</text></g>`
+    );
   }
   const css = splitCss(n.css);
   // Las referencias siempre llevan borde discontinuo, aunque su clase diga otra cosa.
@@ -223,9 +230,11 @@ function nodeShape(n, style, arcStyle) {
   const hh = n.h / 2;
   let shape;
   switch (n.shape) {
-    case "junction":
     case "circle":
       shape = `<circle cx="${fmt(n.x)}" cy="${fmt(n.y)}" r="${fmt(hw)}" ${style}/>`;
+      break;
+    case "junction":
+      shape = `<rect x="${fmt(n.x - hw)}" y="${fmt(n.y - hh)}" width="${fmt(n.w)}" height="${fmt(n.h)}" rx="${fmt(hh)}" ${style}/>`;
       break;
     case "diamond":
       shape =

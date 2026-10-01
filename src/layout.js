@@ -48,7 +48,12 @@ const DEFAULT_DIRS = {
 };
 
 const MAX_CONNECTIONS = 4; // un nodo solo tiene 4 lados: padres + hijos (incluidas referencias)
-const JUNCTION_SIZE = 10; // diámetro del punto de empalme
+// Un empalme se dibuja como una pastilla con el id de su dueño ("● A8"): mide lo que su texto. Las
+// medidas deben coincidir con THEME.idPill de render.js (texto monoespaciado).
+const PILL_FONT = 12;
+const PILL_HEIGHT = 18;
+const pillWidth = (text) => text.length * PILL_FONT * 0.62 + 12;
+const junctionLabel = (owner) => `\u25cf ${owner}`;
 const OPPOSITE = { down: "up", up: "down", left: "right", right: "left" };
 
 function layoutDiagram(graph, options = {}) {
@@ -272,8 +277,8 @@ function addJunction(nodes, edges, owner, index, line, lineHeight) {
     shape: "junction",
     text: "",
     lines: [],
-    w: JUNCTION_SIZE,
-    h: JUNCTION_SIZE,
+    w: pillWidth(junctionLabel(owner.junctionOf || owner.realId || owner.id)),
+    h: PILL_HEIGHT,
     lineHeight,
     line,
     group: owner.group,
@@ -1157,8 +1162,8 @@ function placeInGrid(nodes, edges, warnings, ctx) {
         shape: "junction",
         text: "",
         lines: [],
-        w: JUNCTION_SIZE,
-        h: JUNCTION_SIZE,
+        w: pillWidth(junctionLabel(owner)),
+        h: PILL_HEIGHT,
         lineHeight: target.lineHeight,
         line: x.line,
         group: target.group,
@@ -1287,7 +1292,6 @@ function borderDistance(node, ux, uy) {
   const ay = Math.abs(uy);
   switch (node.shape) {
     case "circle":
-    case "junction":
       return hw;
     case "diamond":
       return 1 / (ax / hw + ay / hh);

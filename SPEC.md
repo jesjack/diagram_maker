@@ -27,7 +27,8 @@ diagrama.mmd ──► CLI (Python) ──► genera HTML autocontenido ──�
 - **Arrastre**: desplazamiento por el lienzo.
 - **Descarga** del diagrama como imagen (PNG y SVG).
 - **Táctil**: un dedo arrastra, dos dedos hacen zoom, doble toque ajusta.
-- **ID**: pastilla con el id de cada nodo (botón ID o tecla `i`).
+- **Pastillas de id**: cada nodo lleva su id en una pastilla en la esquina; siempre visibles, también
+  en lo exportado, porque los empalmes y conectores se refieren a los nodos por su id.
 - **Paso a paso** (depuración del layout): ◀ ▶ arriba a la izquierda (o ← →, Inicio, Fin) muestran
   los nodos en el orden en que el layout los colocó, con el motivo de cada colocación; el nodo del
   paso actual se resalta y, si queda fuera de la pantalla, la vista se centra en él. Cada paso se
@@ -141,7 +142,8 @@ Sintaxis de Mermaid: `classDef nombre props`, `id:::nombre`, `class id1,id2 nomb
    1ª → **abajo**, 2ª → **derecha**, 3ª → **izquierda**.
 4. **Más de 4 conexiones** (padres + hijos, contando las referencias de su diagrama): un nodo solo
    tiene 4 lados, así que conserva las 3 primeras en orden de declaración y la 4ª es una
-   **extensión**: una línea sin flecha hasta un **empalme** (un punto), del que salen las demás.
+   **extensión**: una línea sin flecha hasta un **empalme**, del que salen las demás. Un empalme se
+   dibuja como una **pastilla con el id de su dueño** (`● A8`) y ocupa ese tamaño en la rejilla.
    El empalme tiene 3 lados libres; si no le bastan, se queda con 2 y encadena otro empalme. Las
    ramas conservan su flecha y su etiqueta (si la flecha entraba al nodo, termina en el empalme) y
    un `@dir` de una conexión movida pasa a su rama. Con 4 salidas y sin padre, la 4ª va arriba.
@@ -191,8 +193,7 @@ Sintaxis de Mermaid: `classDef nombre props`, `id:::nombre`, `class id1,id2 nomb
     ya colocada lejos (no en una celda vecina), se le pone una **copia** de la hoja como un hijo
     más, en el lado que le tocaba a esa flecha o en el primero libre; así no hay líneas largas
     cruzando el diagrama (si el padre no tiene sitio, se hace con la cascada de la regla 10). Si
-    la flecha va a un **empalme** lejano, se copia el empalme (un punto
-    con su pastilla `● dueño`), tenga o no hijos su dueño; si el dueño es una hoja se copia el
+    la flecha va a un **empalme** lejano, se copia el empalme (la pastilla `● dueño`), tenga o no hijos su dueño; si el dueño es una hoja se copia el
     nodo completo. Una extensión hacia un empalme propio nunca se copia, y un nodo cuenta como
     hoja solo si ni él ni sus empalmes tienen salidas. Al final, una pasada de respaldo hace lo
     mismo con las flechas que no pasaron por el recorrido. La copia es idéntica (forma, estilo, id). Una flecha hacia un empalme de una hoja
@@ -200,8 +201,8 @@ Sintaxis de Mermaid: `classDef nombre props`, `id:::nombre`, `class id1,id2 nomb
     tiene ningún lado libre, se queda la línea larga.
 13. **Conectores:** al terminar, una flecha que haya quedado en diagonal o pasando por encima de un
     nodo (típicamente la del segundo padre de un nodo con hijos, colocado junto al primero)
-    termina en un **punto junto a su origen** con la pastilla de su destino (`● F3`), como una
-    copia de empalme; si el origen no tiene sitio, se usa la cascada de la regla 10. En el paso a
+    termina en una **pastilla junto a su origen** con el id de su destino (`● F3`), como una copia
+    de empalme; si el origen no tiene sitio, se usa la cascada de la regla 10. En el paso a
     paso, una flecha provisional que luego se reconduce no se dibuja mientras esté en diagonal o
     sobre un nodo.
 

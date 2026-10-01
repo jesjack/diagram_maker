@@ -222,20 +222,9 @@ const DiagramViewer = (() => {
     });
     showStep(total);
 
-    // Pastillas con el id de cada nodo: se muestran u ocultan con el botón ID (o la tecla i).
-    // Lo exportado sale como se está viendo, con la sombra difuminada real dentro del SVG.
-    let showIds = true;
-    const btnIds = document.getElementById("btn-ids");
-    const toggleIds = () => {
-      showIds = !showIds;
-      canvas.classList.toggle("no-ids", !showIds);
-      btnIds.setAttribute("aria-pressed", String(showIds));
-    };
-    btnIds.onclick = toggleIds;
-    window.addEventListener("keydown", (ev) => {
-      if (ev.key === "i") toggleIds();
-    });
-    const exportSvg = () => renderSvg(result, THEME, { ids: showIds });
+    // Lo exportado sale como se ve (pastillas incluidas: los empalmes se refieren a los nodos por su
+    // id), con la sombra difuminada real dentro del SVG.
+    const exportSvg = () => renderSvg(result, THEME, { ids: true });
     document.getElementById("btn-svg").onclick = () =>
       download(new Blob([exportSvg()], { type: "image/svg+xml" }), `${title}.svg`);
     document.getElementById("btn-png").onclick = () => exportPng(exportSvg(), size, title);
