@@ -841,8 +841,19 @@ function placeInGrid(nodes, edges, warnings, ctx) {
     if (!child) return null;
     const o = ctx.overrides.get(`${edge.from}\u0000${edge.to}`);
     if (o) return { edge, child, cell: OPPOSITE[o.dir] };
+    // Lados del nodo comprometidos por sus otros @dir: el hijo no puede quedar en ninguno de ellos.
+    const committed = new Set();
+    for (const x of edges) {
+      if (x === edge) continue;
+      const ox = ctx.overrides.get(`${x.from}\u0000${x.to}`);
+      if (!ox) continue;
+      if (x.from === node.id) committed.add(ox.dir);
+      else if (x.attached && x.to === node.id) committed.add(OPPOSITE[ox.dir]);
+    }
     const order = [...DEFAULT_DIRS[child.shape === "diamond" ? "diamond" : "other"], "up"];
-    const cell = order.find((d) => !blocked(`${child.col + DIR_VECTORS[d].dc},${child.row + DIR_VECTORS[d].dr}`, node.id));
+    const cell = order.find(
+      (d) => !committed.has(OPPOSITE[d]) && !blocked(`${child.col + DIR_VECTORS[d].dc},${child.row + DIR_VECTORS[d].dr}`, node.id)
+    );
     return cell ? { edge, child, cell } : null;
   };
 

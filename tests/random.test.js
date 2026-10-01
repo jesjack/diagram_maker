@@ -28,7 +28,7 @@ const CONOCIDOS = new Map(
   (
     "4:F 13:DP 36:DFP 43:DP 53:DP 55:DP 57:DP 76:DFP 78:DP 81:DP 83:F 89:F 102:DP 104:DFP 107:F " +
     "111:DFP 116:F 119:DP 120:F 125:F 130:DP 134:DP 145:DP 162:DP 163:DP 167:F 170:DFP 179:DP 182:F " +
-    "195:DP 199:DP 206:E 209:DP 210:F 223:DP 231:DP 260:F 266:DP 273:N 276:CX 277:DP 286:DP 300:DP " +
+    "195:DP 199:DP 206:DP 209:DP 210:F 223:DP 231:DP 260:F 266:DP 273:N 276:CX 277:DP 286:DP 300:DP " +
     "302:F 303:CDPX 306:DP 308:DP 315:F 349:F 354:DP 357:DP 358:F 362:F 368:DP 370:DP 371:DP 373:F " +
     "391:DP 398:FP"
   )
@@ -130,8 +130,7 @@ test(
 );
 
 test(
-  "un nodo sin padre pegado a su hijo ignora sus propios @dir: error fatal con una entrada válida (semillas 206, 1330, 1547)",
-  { todo: "regla 9 / findAnchor: b se pega debajo de c (su flecha b -> c sale hacia arriba) y choca con '@dir b -> d : up'" },
+  "un nodo sin padre pegado a su hijo respeta sus propios @dir (antes: error fatal; semillas 206, 1330, 1547)",
   () => sinProblemas(["a --> c", "b --> c", "b --> d", "%% @dir b -> d : up"].join("\n"))
 );
 
