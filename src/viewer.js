@@ -1,28 +1,24 @@
 // Visor: monta el diagrama en la página, zoom con la rueda, arrastre, gestos táctiles y exportación.
+// Con `live` (diagram.py --watch) pide al servidor el código nuevo cuando cambia el .mmd y vuelve
+// a dibujar sin recargar la pestaña.
 
 const DiagramViewer = (() => {
   const MIN_SCALE = 0.1;
   const MAX_SCALE = 8;
 
-  function start({ source, title }) {
+  function start({ source: initialSource, title, live }) {
     const stage = document.getElementById("stage");
     const canvas = document.getElementById("canvas");
     const status = document.getElementById("status");
     document.title = title;
 
-    let result;
-    try {
-      const graph = parseDiagram(source);
-      result = layoutDiagram(graph, { measure: makeMeasure() });
-    } catch (err) {
-      showError(err, source);
-      return;
-    }
-    canvas.innerHTML = renderSvg(result, THEME, { shadow: false, ids: true });
-    const svg = canvas.querySelector("svg");
-    const size = { w: parseFloat(svg.getAttribute("width")), h: parseFloat(svg.getAttribute("height")) };
-    if (THEME.shadow) paintShadow(renderShadowSvg(result), size, canvas);
-    showWarnings(result.warnings);
+    // Estado del diagrama montado; mount() lo reemplaza entero cuando llega código nuevo.
+    // Si el código tiene un error, result queda en null y los controles no hacen nada.
+    let source = initialSource;
+    let result = null;
+    let svg = null;
+    let size = null;
+    let generation = 0; // para descartar la sombra de un montaje anterior que llegue tarde
 
     // ---- vista: translate(tx, ty) scale(s) con origen arriba a la izquierda
     const view = { s: 1, tx: 0, ty: 0 };
@@ -35,6 +31,7 @@ const DiagramViewer = (() => {
       status.textContent = `${Math.round(view.s * 100)}%`;
     };
     const fit = () => {
+      if (!size) return;
       const r = stage.getBoundingClientRect();
       view.s = Math.min(r.width / size.w, r.height / size.h, 1);
       view.tx = (r.width - size.w * view.s) / 2;
@@ -151,18 +148,18 @@ const DiagramViewer = (() => {
     document.getElementById("btn-mermaid").onclick = () => openInMermaid(source, title);
     // ---- depuración: ver cómo se construye el diagrama, nodo a nodo, en el orden en que el layout
     // los colocó (n.step) y con el motivo (n.why). Una flecha aparece cuando sus dos extremos están.
-    const order = [...result.nodes].sort((a, b) => a.step - b.step);
-    const total = order.length;
-    let shown = total;
+    let order = [];
+    let total = 0;
+    let shown = 0;
     const stepLabel = document.getElementById("step-label");
     const stepWhy = document.getElementById("step-why");
     const shadowCanvas = () => canvas.querySelector("canvas.shadow");
     // En un paso intermedio se dibuja el diagrama tal como estaba al terminar ese paso
     // (result.snapshotAt): las inserciones de filas/columnas y los nodos movidos aparecen en el
     // paso que los provocó. Para que el dibujo no salte, el primer nodo se mantiene fijo en pantalla.
-    let shownSvg = svg;
-    let shownLayout = result;
-    const anchorId = order[0] && order[0].id;
+    let shownSvg = null;
+    let shownLayout = null;
+    let anchorId = null;
     const localPos = (layout, el, id) => {
       const n = layout.nodes.find((x) => x.id === id);
       const vb = el.viewBox.baseVal;
@@ -181,6 +178,7 @@ const DiagramViewer = (() => {
       shownLayout = layout;
     };
     const showStep = (k) => {
+      if (!result) return;
       shown = Math.max(1, Math.min(total, k));
       const all = shown === total;
       const current = all ? null : order[shown - 1];
@@ -218,7 +216,6 @@ const DiagramViewer = (() => {
       else if (ev.key === "Home") showStep(1);
       else if (ev.key === "End") showStep(total);
     });
-    showStep(total);
 
     // ---- tocar la pastilla de un empalme (o conector) lleva, con una animación, hasta su nodo
     // dueño, que parpadea. Si hay copias de ese nodo, va al original. Un arrastre no cuenta.
@@ -230,7 +227,7 @@ const DiagramViewer = (() => {
       if (downAt && Math.hypot(ev.clientX - downAt.x, ev.clientY - downAt.y) > 6) return;
       const t = downAt && downAt.target;
       const pill = t && t.closest && t.closest("g.junction");
-      if (!pill) return;
+      if (!pill || !shownLayout) return;
       const j = shownLayout.nodes.find((n) => n.id === pill.dataset.id);
       if (!j) return;
       const owner = j.junctionOf;
@@ -271,8 +268,8 @@ const DiagramViewer = (() => {
     // id), con la sombra difuminada real dentro del SVG.
     const exportSvg = () => renderSvg(result, THEME, { ids: true });
     document.getElementById("btn-svg").onclick = () =>
-      download(new Blob([exportSvg()], { type: "image/svg+xml" }), `${title}.svg`);
-    document.getElementById("btn-png").onclick = () => exportPng(exportSvg(), size, title);
+      result && download(new Blob([exportSvg()], { type: "image/svg+xml" }), `${title}.svg`);
+    document.getElementById("btn-png").onclick = () => result && exportPng(exportSvg(), size, title);
 
     // En móvil "resize" salta cada vez que aparece o se oculta la barra del navegador:
     // se conserva el punto que estaba en el centro en lugar de volver a ajustar.
@@ -284,12 +281,109 @@ const DiagramViewer = (() => {
       stageSize = r;
       apply();
     });
-    fit();
+
+    // ---- montar (o volver a montar) el diagrama a partir de su código.
+    // Al volver a montar se conserva la vista (zoom y desplazamiento) sin re-ajustar; para que el
+    // dibujo no salte si el diagrama crece por arriba o por la izquierda, el primer nodo colocado
+    // se mantiene en el mismo punto de la pantalla (como en el paso a paso). Si se estaba en un
+    // paso intermedio se vuelve al diagrama completo: con otro código los pasos ya no son los
+    // mismos (cambian el orden y el número de nodos) y conservar el número confundiría.
+    let fitted = false;
+    const mount = (src) => {
+      source = src;
+      let next;
+      try {
+        const graph = parseDiagram(src);
+        next = layoutDiagram(graph, { measure: makeMeasure() });
+      } catch (err) {
+        result = null;
+        showError(err, src);
+        return;
+      }
+      hideError();
+      const nextOrder = [...next.nodes].sort((a, b) => a.step - b.step);
+      const nextAnchor = nextOrder[0] && nextOrder[0].id;
+      const before = shownSvg && shownSvg.isConnected ? localPos(shownLayout, shownSvg, nextAnchor) : null;
+
+      result = next;
+      generation++;
+      canvas.innerHTML = renderSvg(result, THEME, { shadow: false, ids: true });
+      svg = canvas.querySelector("svg");
+      size = { w: parseFloat(svg.getAttribute("width")), h: parseFloat(svg.getAttribute("height")) };
+      if (THEME.shadow) {
+        const gen = generation;
+        paintShadow(renderShadowSvg(result), size, canvas, () => gen === generation);
+      }
+      showWarnings(result.warnings);
+
+      order = nextOrder;
+      total = order.length;
+      anchorId = nextAnchor;
+      shownSvg = svg;
+      shownLayout = result;
+      const after = before && localPos(result, svg, anchorId);
+      if (after) {
+        view.tx += (before.x - after.x) * view.s;
+        view.ty += (before.y - after.y) * view.s;
+      }
+      showStep(total);
+      if (!fitted) fit();
+      else apply();
+      fitted = true;
+    };
+    mount(initialSource);
+    if (live) watchSource(live.version, mount);
+  }
+
+  // ---- recarga en vivo: se pregunta al servidor cada segundo si hay una versión nueva del código
+  // (GET /source?v=N responde 204 si sigue igual, o {version, source} si cambió). Es un sondeo
+  // corto y no SSE ni una petición larga porque es lo más robusto en móvil: si el navegador
+  // congela la pestaña en segundo plano o el servidor se reinicia, la siguiente petición sin más
+  // vuelve a funcionar. Con la pestaña oculta no se pregunta; al volver se pregunta enseguida.
+  function watchSource(version, onChange) {
+    const badge = document.getElementById("live");
+    const POLL_MS = 1000;
+    let timer = 0;
+    let busy = false;
+    const setOnline = (ok) => {
+      badge.hidden = false;
+      badge.classList.toggle("off", !ok);
+      badge.textContent = ok ? "● en vivo" : "○ sin conexión";
+      badge.title = ok
+        ? "Recarga en vivo: el diagrama se actualiza al guardar el .mmd"
+        : "No se puede contactar con diagram.py --watch; se sigue intentando";
+    };
+    const check = async () => {
+      clearTimeout(timer);
+      if (busy) return;
+      busy = true;
+      try {
+        const res = await fetch(`source?v=${version}`, { cache: "no-store" });
+        if (res.status === 200) {
+          const data = await res.json();
+          version = data.version;
+          onChange(data.source);
+        } else if (res.status !== 204) throw new Error(`HTTP ${res.status}`);
+        setOnline(true);
+      } catch (err) {
+        setOnline(false);
+      } finally {
+        busy = false;
+        if (!document.hidden) timer = setTimeout(check, POLL_MS);
+      }
+    };
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) check();
+      else clearTimeout(timer);
+    });
+    setOnline(true);
+    check();
   }
 
   // Pinta la sombra una sola vez en un <canvas> debajo del SVG (ver renderShadowSvg en render.js).
   // Resolución: hasta 3 px por unidad, limitada a ~6 Mpx para no gastar memoria en diagramas grandes.
-  function paintShadow(shadowSvg, size, parent) {
+  // isCurrent: si ya se montó otro diagrama cuando la imagen termina de cargar, no se añade.
+  function paintShadow(shadowSvg, size, parent, isCurrent = () => true) {
     const k = Math.min(3, Math.sqrt(6e6 / (size.w * size.h)));
     const c = document.createElement("canvas");
     c.className = "shadow";
@@ -302,7 +396,7 @@ const DiagramViewer = (() => {
     img.onload = () => {
       c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
       URL.revokeObjectURL(url);
-      parent.prepend(c);
+      if (isCurrent()) parent.prepend(c);
     };
     img.src = url;
   }
@@ -381,6 +475,7 @@ const DiagramViewer = (() => {
     panel.hidden = false;
     panel.querySelector(".message").textContent = err.message;
     const pre = panel.querySelector(".source");
+    pre.textContent = ""; // con recarga en vivo el panel puede mostrarse varias veces
     source.split(/\r?\n/).forEach((text, i) => {
       const row = document.createElement("div");
       row.className = i + 1 === err.line ? "line bad" : "line";
@@ -392,10 +487,14 @@ const DiagramViewer = (() => {
     if (!(err instanceof DiagramError)) console.error(err);
   }
 
+  function hideError() {
+    document.getElementById("error").hidden = true;
+  }
+
   function showWarnings(warnings) {
-    if (!warnings.length) return;
     const box = document.getElementById("warnings");
-    box.hidden = false;
+    box.hidden = !warnings.length;
+    if (!warnings.length) return;
     box.textContent = warnings.map((w) => (w.line ? `Línea ${w.line}: ${w.message}` : w.message)).join("\n");
   }
 
