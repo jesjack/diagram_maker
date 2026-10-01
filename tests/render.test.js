@@ -155,3 +155,12 @@ test("pastilla anclada al contorno: en rombos y círculos va centrada sobre su l
   const pc = pill("c");
   assert.ok(Math.abs(pc.x + pc.w / 2 - (c.x - (c.w / 2) * Math.SQRT1_2)) < 0.1);
 });
+
+test("ningún script del visor contiene '</script' (se incrustan dentro de <script> en el HTML)", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  for (const f of ["parser.js", "layout.js", "render.js", "viewer.js"]) {
+    const src = fs.readFileSync(path.join(__dirname, "../src", f), "utf8");
+    assert.ok(!/<\/script/i.test(src), `${f} contiene '</script': escríbelo como '<\\/script'`);
+  }
+});

@@ -331,7 +331,7 @@ const DiagramViewer = (() => {
   } catch (err) {
     msg.textContent = "No se pudo cargar o dibujar con Mermaid (¿sin internet?): " + err.message;
   }
-</script></body></html>`;
+<\/script></body></html>`; // <\/script: si no, cerraría el <script> del HTML generado
     const url = URL.createObjectURL(new Blob([page], { type: "text/html" }));
     window.open(url, "_blank");
     setTimeout(() => URL.revokeObjectURL(url), 60000);
