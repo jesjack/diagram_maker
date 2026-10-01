@@ -148,7 +148,12 @@ Sintaxis de Mermaid: `classDef nombre props`, `id:::nombre`, `class id1,id2 nomb
    esos hijos, en orden de declaración, en su primer lado libre (abajo, derecha, izquierda, arriba;
    `@dir` en esa arista lo elige). El hijo hace de padre sin cambiar el sentido de la flecha.
    Si todavía no tiene ningún hijo colocado, se aplaza y se reintenta cuando los demás grupos ya
-   están colocados; solo si sigue sin poder pegarse empieza un grupo nuevo.
+   están colocados. Si aun así no puede, el grupo entero se **reconstruye desde su conexión** con
+   lo ya colocado: el nodo del grupo que tiene esa conexión va junto a su pareja y el resto del
+   grupo se recorre desde ahí siguiendo las aristas en cualquier sentido (las flechas no cambian),
+   cada nodo en el primer lado libre del anterior. Con `a->b->c` colocado, `A->B->C` y `C->c`
+   queda `a,b,c,C,B,A`. Se usa la primera conexión, en orden de declaración, con la que el grupo
+   cabe sin pisar ningún nodo; si no cabe con ninguna, o no hay conexión, el grupo empieza aparte.
 
 10. Si al colocar un hijo (o una referencia) su celda ya está ocupada, se prueba otro lado del padre
     que no esté reservado para otra de sus conexiones y cuya celda esté libre, en el orden abajo,

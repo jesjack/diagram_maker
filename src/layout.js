@@ -558,6 +558,96 @@ function placeInGrid(nodes, edges, warnings, ctx) {
     nextComponentCol = maxCol + 2;
   };
 
+  // Grupo que no se puede pegar por su inicio: se busca la primera conexión (en orden de
+  // declaración) entre cualquier nodo del grupo y un nodo ya colocado, y el grupo se reconstruye
+  // desde ese punto: su nodo va junto a la pareja ya colocada y el resto se recorre desde ahí
+  // siguiendo las aristas en cualquier sentido (las flechas no cambian), cada nodo en el primer
+  // lado libre del anterior. Con a->b->c ya colocado, A->B->C y C->c queda a,b,c,C,B,A.
+  const isPlaced = (n) => n.col !== undefined;
+  const sidesOf = (n) => [...DEFAULT_DIRS[n.shape === "diamond" ? "diamond" : "other"], "up"];
+  const groupOf = (root) => {
+    const group = new Set([root.id]);
+    const queue = [root];
+    while (queue.length) {
+      const u = queue.shift();
+      for (const e of edges) {
+        const w = e.attached && e.to === u.id ? nodes.get(e.from) : !e.attached && e.from === u.id ? nodes.get(e.to) : null;
+        if (!w || isPlaced(w) || group.has(w.id)) continue;
+        group.add(w.id);
+        if (!w.ref) queue.push(w);
+      }
+    }
+    return group;
+  };
+  // Simula la reconstrucción del grupo desde start, colocado en la celda (col, row): devuelve las
+  // posiciones y aristas resultantes y cuántos choques habría, sin tocar nada.
+  const simulateGroup = (group, start, col, row) => {
+    const taken = new Set(occupied.keys());
+    const pos = new Map([[start.id, { col, row }]]);
+    const sides = []; // [arista, nodo u, lado de u donde queda el otro extremo]
+    let collisions = taken.has(`${col},${row}`) ? 1 : 0;
+    taken.add(`${col},${row}`);
+    const free = (p, d) => !taken.has(`${p.col + DIR_VECTORS[d].dc},${p.row + DIR_VECTORS[d].dr}`);
+    const queue = [start];
+    while (queue.length) {
+      const u = queue.shift();
+      const pu = pos.get(u.id);
+      const conns = edges
+        .filter((e) => (e.from === u.id || e.to === u.id) && e.from !== e.to)
+        .sort((a, b) => a.index - b.index);
+      for (const e of conns) {
+        const w = nodes.get(e.from === u.id ? e.to : e.from);
+        if (!group.has(w.id) || pos.has(w.id)) continue;
+        const side = sidesOf(u).find((d) => free(pu, d));
+        const d = side || sidesOf(u)[0];
+        const p = { col: pu.col + DIR_VECTORS[d].dc, row: pu.row + DIR_VECTORS[d].dr };
+        if (!side) collisions++;
+        taken.add(`${p.col},${p.row}`);
+        pos.set(w.id, p);
+        sides.push([e, u, d]);
+        if (!w.ref) queue.push(w);
+      }
+    }
+    return { pos, sides, collisions };
+  };
+  const placeGroupByLink = (root) => {
+    const group = groupOf(root);
+    const links = edges
+      .filter((e) => !e.refEdge && (group.has(e.from) ? isPlaced(nodes.get(e.to)) : group.has(e.to) && isPlaced(nodes.get(e.from))))
+      .sort((a, b) => a.index - b.index);
+    // Se prueban todas las conexiones y todos los lados libres de su pareja; gana la opción con
+    // menos choques y, a igualdad, la primera (en orden de declaración y de lados).
+    let best = null;
+    for (const link of links) {
+      const start = nodes.get(group.has(link.from) ? link.from : link.to);
+      const partner = nodes.get(group.has(link.from) ? link.to : link.from);
+      for (const cell of sidesOf(partner)) {
+        if (occupied.has(cellAt(partner, cell))) continue;
+        const v = DIR_VECTORS[cell];
+        const sim = simulateGroup(group, start, partner.col + v.dc, partner.row + v.dr);
+        if (!best || sim.collisions < best.sim.collisions) best = { sim, link, start, cell };
+        if (best.sim.collisions === 0) break;
+      }
+      if (best && best.sim.collisions === 0) break;
+    }
+    // Si ninguna opción encaja sin pisar nodos, el grupo se queda aparte: un bloque encajado
+    // encima de otro se lee peor que una línea larga.
+    if (!best || best.sim.collisions > 0) return false;
+    for (const [id, p] of best.sim.pos) place(nodes.get(id), p.col, p.row);
+    setSide(best.link, best.start, OPPOSITE[best.cell]);
+    for (const [e, u, d] of best.sim.sides) setSide(e, u, d);
+    const maxCol = Math.max(...[...nodes.values()].filter(isPlaced).map((n) => n.col));
+    nextComponentCol = maxCol + 2;
+    return true;
+  };
+  // Fija la geometría de una arista sabiendo en qué lado de u está el otro extremo.
+  const setSide = (e, u, side) => {
+    if (e.attached) {
+      e.slot = e.to === u.id ? side : OPPOSITE[side];
+      e.dir = OPPOSITE[e.slot];
+    } else e.dir = e.from === u.id ? side : OPPOSITE[side];
+  };
+
   // Un nodo sin padre que todavía no puede pegarse a ningún hijo se aplaza: quizá otro grupo
   // coloque después alguno de sus hijos. Al final se reintenta hasta que no haya avances, y los
   // que sigan sin poder pegarse empiezan un grupo nuevo, en su orden.
@@ -571,15 +661,16 @@ function placeInGrid(nodes, edges, warnings, ctx) {
     if (!anchor && occupied.size) waiting.push(root);
     else placeRoot(root, anchor);
   }
+  // Primero se reintenta el anclaje simple (el inicio junto a un hijo ya colocado); si no basta,
+  // se reconstruye el grupo desde su primera conexión con lo ya colocado (placeGroupByLink).
   for (let progress = true; progress; ) {
     progress = false;
     for (const root of waiting) {
       if (root.col !== undefined) continue;
       const anchor = findAnchor(root);
-      if (anchor) {
-        placeRoot(root, anchor);
-        progress = true;
-      }
+      if (anchor) placeRoot(root, anchor);
+      else if (!placeGroupByLink(root)) continue;
+      progress = true;
     }
   }
   for (const root of waiting) if (root.col === undefined) placeRoot(root, null);

@@ -338,3 +338,22 @@ test("un inicio que aún no puede pegarse se aplaza y se pega cuando otro grupo 
   assert.strictEqual(Math.abs(t.col - k.col) + Math.abs(t.row - k.row), 1, "t es vecino de k");
   assert.ok(!L.warnings.some((w) => /Choque/.test(w.message)));
 });
+
+test("grupo aparte: se reconstruye desde su primera conexión (a,b,c + A,B,C con C->c queda a,b,c,C,B,A)", () => {
+  const L = layout(["a --> b --> c", "A --> B --> C", "C --> c"].join("\n"));
+  const at = (id) => {
+    const n = L.nodes.find((x) => x.id === id);
+    return [n.col, n.row];
+  };
+  const [c0, r0] = at("a");
+  assert.deepStrictEqual(["a", "b", "c", "C", "B", "A"].map(at), [0, 1, 2, 3, 4, 5].map((i) => [c0, r0 + i]));
+  // Las flechas no cambian de sentido: A->B y B->C apuntan hacia arriba, C->c también.
+  assert.deepStrictEqual(["B", "C", "c"].map((to) => L.edges.find((e) => e.to === to && /^[A-C]$/.test(e.from)).dir), ["up", "up", "up"]);
+  assert.ok(!L.warnings.some((w) => /Choque/.test(w.message)));
+});
+
+test("grupo sin ninguna conexión con lo colocado: sigue aparte", () => {
+  const L = layout(["a --> b", "x --> y"].join("\n"));
+  const [a, x] = ["a", "x"].map((id) => L.nodes.find((n) => n.id === id));
+  assert.ok(x.col - a.col >= 2);
+});
