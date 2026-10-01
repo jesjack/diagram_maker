@@ -26,7 +26,7 @@ const INICIAL = {
 };
 const CONOCIDOS = new Map(
   (
-    "4:F 83:F 104:CFX 107:F 111:F 116:F 182:F 195:F 260:F 266:CX 276:CX 303:F 315:F 349:F 383:CX"
+    "111:F"
   )
     .split(" ")
     .map((x) => x.split(":"))
@@ -73,8 +73,8 @@ test("generador: determinista y con entradas válidas y variadas", () => {
 });
 
 test("reductor: deja un caso mínimo que sigue fallando igual", () => {
-  const min = reducir(generarDiagrama(107));
-  assert.ok(min.split("\n").length < generarDiagrama(107).split("\n").length, min);
+  const min = reducir(generarDiagrama(111));
+  assert.ok(min.split("\n").length < generarDiagrama(111).split("\n").length, min);
   assert.ok(revisar(min).some((p) => p.inv === "flecha sobre un nodo"));
 });
 
@@ -100,8 +100,7 @@ test(
 );
 
 test(
-  "hacer sitio: el nodo nuevo cae sobre una flecha que el desplazamiento alargó (semillas 89, 107)",
-  { todo: "regla 10.3: tras desplazar n9 y n30 hacia arriba, el conector de n30 va a la celda que cruza n30 -> n23" },
+  "hacer sitio: el plan se comprueba con las posiciones finales (antes: el nodo caía sobre una flecha alargada; semillas 89, 107)",
   () =>
     sinProblemas(
       [
@@ -112,8 +111,7 @@ test(
 );
 
 test(
-  "hacer sitio con dos flechas paralelas al mismo hijo: solo una pasa por el empalme (semilla 83)",
-  { todo: "regla 10.3: con n5 --> n7 y n5 --- n7, el empalme de la celda liberada recoge una; la otra cruza el empalme" },
+  "hacer sitio con dos flechas paralelas al mismo hijo (semilla 83)",
   () =>
     sinProblemas(
       [
@@ -141,8 +139,7 @@ test(
 );
 
 test(
-  "grupo reconstruido desde su conexión: se acepta aunque un nodo no quepa (semillas 276, 303, 636, 920)",
-  { todo: "regla 9 / simulateGroup: n17 tiene sus 4 lados ocupados y n36 cae sobre n20; la extensión se aplica con choques" },
+  "grupo reconstruido: un nodo sin sitio se coloca después con la cascada (antes: choque; semillas 276, 303, 636, 920)",
   () =>
     sinProblemas(
       [
@@ -164,8 +161,7 @@ test(
 );
 
 test(
-  "paso a paso: una flecha en diagonal que un desplazamiento posterior endereza se ve en los pasos intermedios (semilla 398)",
-  { todo: "historia: n13 se coloca en diagonal con su hijo n10 ya colocado; solo se ocultan las flechas reconducidas" },
+  "paso a paso: sin diagonales intermedias (semilla 398)",
   () =>
     sinProblemas(
       [

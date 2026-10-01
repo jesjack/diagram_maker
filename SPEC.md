@@ -187,7 +187,9 @@ Sintaxis de Mermaid: `classDef nombre props`, `id:::nombre`, `class id1,id2 nomb
    grupo se recorre desde ahí siguiendo las aristas en cualquier sentido (las flechas no cambian),
    cada nodo en el primer lado libre del anterior. Con `a->b->c` colocado, `A->B->C` y `C->c`
    queda `a,b,c,C,B,A`. Se usa la primera conexión, en orden de declaración, con la que el grupo
-   cabe sin pisar ningún nodo. Si no cabe con ninguna, se vuelve a la primera conexión y se
+   cabe sin pisar ningún nodo; un nodo del grupo que no tiene ningún lado libre no se fuerza: se
+   deja fuera y se coloca después por el recorrido normal, con la cascada de la regla 10. Si no
+   cabe con ninguna, se vuelve a la primera conexión y se
    **extiende** la línea de su pareja hasta un empalme (como en la regla 4), que da 3 lados libres
    para el grupo; la extensión puede cruzar celdas vacías en línea recta (hasta 8) hasta donde el
    grupo quepa. Si la pareja no tiene ningún lado libre, se prueba con la siguiente conexión. Solo
@@ -207,7 +209,9 @@ Sintaxis de Mermaid: `classDef nombre props`, `id:::nombre`, `class id1,id2 nomb
        nodos**: los que ocupan las celdas necesarias, los que estos empujan en cadena, los unidos
        a un nodo movido por una flecha perpendicular al desplazamiento (para que no quede en
        diagonal) y los extremos de las líneas sobre las que caería un nodo movido. Las flechas
-       paralelas solo se alargan. Gana el lado que mueve menos nodos. Si una flecha del padre ya
+       paralelas solo se alargan. Cada plan se comprueba con las posiciones finales (una flecha que
+       se alarga sobre la celda que deja un nodo movido también cuenta). Gana el lado que mueve
+       menos nodos. Si una flecha del padre ya
        salía hacia ese lado, la celda liberada es un empalme por el que sigue recta y el nodo va a
        un lado del empalme. Si ningún bloque sirve sin mover al propio padre, se desplaza todo lo
        que queda más allá (una fila o columna entera). Este paso siempre funciona.

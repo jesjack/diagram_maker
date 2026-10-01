@@ -358,19 +358,18 @@ test("grupo sin ninguna conexión con lo colocado: sigue aparte", () => {
   assert.ok(x.col - a.col >= 2);
 });
 
-test("si el grupo no cabe por ninguna conexión, se extiende la línea de la pareja hasta un empalme", () => {
-  // P solo tiene libre la derecha y encima de ese hueco está AR: y (que necesita 3 lados además del
-  // de P) no cabe pegado a P, así que P saca una extensión y y va junto al empalme.
+test("reconstrucción de grupo: el nodo que no cabe se coloca después con la cascada (extensión)", () => {
+  // P solo tiene libre la derecha y encima de ese hueco está AR: y se pega a P y, como a y le
+  // faltan lados para c1 y c2, su último hijo sale por una extensión de y.
   const L = layout(
     ["a --> P", "a --> AR", "P --> D", "P --> L", "%% @dir P -> L : left", "x --> y", "y --> c1", "y --> c2", "y --> P"].join("\n")
   );
   const at = (id) => L.nodes.find((n) => n.id === id);
-  const j = L.nodes.find((n) => n.shape === "junction" && n.junctionOf === "P");
-  assert.ok(j, "P tiene un empalme nuevo");
-  assert.ok(L.edges.some((e) => e.bus && e.from === "P" && e.to === j.id));
-  assert.ok(L.edges.some((e) => e.from === "y" && e.to === j.id), "la conexión y -> P sale del empalme");
-  const y = at("y");
-  assert.strictEqual(Math.abs(y.col - j.col) + Math.abs(y.row - j.row), 1);
+  const near = (a, b) => Math.abs(a.col - b.col) + Math.abs(a.row - b.row) === 1;
+  assert.ok(near(at("y"), at("P")), "y junto a P");
+  const j = L.nodes.find((n) => n.shape === "junction" && n.junctionOf === "y");
+  assert.ok(j && near(j, at("y")), "y saca una extensión");
+  assert.ok(L.edges.some((e) => e.from === j.id && (e.to === "c1" || e.to === "c2")));
   assert.ok(!L.warnings.some((w) => /Choque/.test(w.message)));
 });
 

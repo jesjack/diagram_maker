@@ -759,6 +759,24 @@ function placeInGrid(nodes, edges, warnings, ctx) {
       }
       return S;
     };
+    // Comprueba un plan con las posiciones finales: al mover un extremo de una flecha paralela al
+    // desplazamiento, esa flecha se alarga sobre la celda que deja libre; ninguna celda necesaria
+    // puede quedar ocupada ni cruzada por una línea (salvo la flecha del padre que se reconduce).
+    const cellsFreeAfter = (S, v, cells, ignore) => {
+      const at = (n) => (S.has(n.id) ? { col: n.col + v.dc, row: n.row + v.dr } : n);
+      const occ = new Set([...nodes.values()].filter(isPlaced).map((n) => `${at(n).col},${at(n).row}`));
+      return cells.every(([c, r]) => {
+        if (occ.has(`${c},${r}`)) return false;
+        return !placedEdges.some((x) => {
+          if (x === ignore) return false;
+          const a = at(nodes.get(x.from));
+          const b = at(nodes.get(x.to));
+          if (a.col === b.col && a.col === c) return r > Math.min(a.row, b.row) && r < Math.max(a.row, b.row);
+          if (a.row === b.row && a.row === r) return c > Math.min(a.col, b.col) && c < Math.max(a.col, b.col);
+          return false;
+        });
+      });
+    };
     const plans = [];
     for (const d of ["down", "right", "left", "up"]) {
       const v = DIR_VECTORS[d];
@@ -769,7 +787,7 @@ function placeInGrid(nodes, edges, warnings, ctx) {
         const cells = [[jc.col, jc.row]];
         if (lateral) cells.push([jc.col + DIR_VECTORS[lateral].dc, jc.row + DIR_VECTORS[lateral].dr]);
         const S = pushPlan(d, cells, through);
-        if (S) plans.push({ d, v, through, lateral, S });
+        if (S && cellsFreeAfter(S, v, cells, through)) plans.push({ d, v, through, lateral, S });
       }
     }
     plans.sort((a, b) => a.S.size - b.S.size);
@@ -1008,10 +1026,11 @@ function placeInGrid(nodes, edges, warnings, ctx) {
         const w = nodes.get(e.from === u.id ? e.to : e.from);
         if (!group.has(w.id) || pos.has(w.id)) continue;
         if (w.shape === "junction" && !e.bus) continue; // lo coloca su dueño, por su extensión
-        const side = sidesOf(u).find((d) => free(pu, d));
-        const d = side || sidesOf(u)[0];
+        const d = sidesOf(u).find((x) => free(pu, x));
+        // Sin lado libre no se fuerza (sería un choque): el nodo se queda fuera de la reconstrucción
+        // y lo coloca después el recorrido normal, con la cascada para hacer sitio (regla 10).
+        if (!d) continue;
         const p = { col: pu.col + DIR_VECTORS[d].dc, row: pu.row + DIR_VECTORS[d].dr };
-        if (!side) collisions++;
         taken.add(`${p.col},${p.row}`);
         pos.set(w.id, p);
         sides.push([e, u, d]);
