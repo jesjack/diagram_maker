@@ -473,12 +473,23 @@ function assignSlots(node, ctx, anchor = null) {
   // ref -> nodo, así que la referencia va al lado opuesto); luego el resto recibe los
   // valores por defecto libres, en orden de declaración.
   const conns = [...out, ...att].sort((a, b) => a.index - b.index);
+  // Un @dir solo es obligatorio entre nodos escritos por el usuario. Si un extremo lo genera el
+  // layout (referencia, copia o empalme), es una preferencia: se usa si el lado está libre y,
+  // si no, la conexión toma un lado por defecto como cualquier otra (nunca error ni choque).
+  const generated = (id) => {
+    const n = nodes.get(id);
+    return !n || n.ref || n.copyOf || n.shape === "junction";
+  };
   for (const e of conns) {
     const o = overrides.get(`${e.from}\u0000${e.to}`);
-    if (o && !e.dir) {
-      take(e, e.attached ? OPPOSITE[o.dir] : o.dir, o.line);
-      e.explicit = true;
+    if (!o || e.dir) continue;
+    const side = e.attached ? OPPOSITE[o.dir] : o.dir;
+    if (generated(e.from) || generated(e.to)) {
+      if (!used.has(side)) take(e, side, o.line);
+      continue;
     }
+    take(e, side, o.line);
+    e.explicit = true;
   }
   // Un nodo sin padre real (p. ej. el primero de un subgraph) toma su primera referencia
   // entrante como padre: va arriba y el flujo sigue hacia abajo, como en "iArr --> S1 --> S2".

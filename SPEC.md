@@ -266,6 +266,9 @@ El prefijo `@` distingue los metadatos de los comentarios normales.
 ```
 
 Sobreescribe la dirección por defecto de la arista `origen -> destino`.
+Solo es **obligatorio** entre nodos escritos por el usuario. Cuando la arista acaba en un nodo que
+genera el layout (una referencia a otro subgraph, una copia o un empalme), el `@dir` es una
+**preferencia**: se usa si ese lado está libre y, si no, la conexión se coloca como cualquier otra.
 Con `up` y `left` el diagrama puede crecer hacia cualquier dirección.
 
 Si dos salidas de un mismo nodo terminan con la misma dirección → **error fatal**.

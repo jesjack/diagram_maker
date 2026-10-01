@@ -127,8 +127,7 @@ test(
 );
 
 test(
-  "lo mismo con una referencia de subgraph: dos conexiones hacia el mismo lado (semilla 943)",
-  { todo: "regla 9 + referencias: el @dir de la referencia entrante y el ancla de n13 piden el mismo lado" },
+  "@dir hacia una referencia de subgraph: preferencia, no obligación (antes: error fatal y luego choque; semilla 943)",
   () =>
     sinProblemas(
       [
