@@ -216,7 +216,7 @@ Sintaxis de Mermaid: `classDef nombre props`, `id:::nombre`, `class id1,id2 nomb
        salía hacia ese lado, la celda liberada es un empalme por el que sigue recta y el nodo va a
        un lado del empalme. Si ningún bloque sirve sin mover al propio padre, se desplaza todo lo
        que queda más allá (una fila o columna entera). Este paso siempre funciona.
-    Una dirección fijada con `@dir` no se mueve (si choca, queda el aviso).
+    Una dirección pedida con `@dir` también puede moverse así (con un aviso: es una preferencia).
 11. Si un nodo recibe más referencias de las que caben en sus lados, las que sobran se dibujan
     sueltas a la derecha, al final, y nunca hacen de padre.
 12. **Copias de hojas:** cuando un padre, en su turno, tiene como hijo una hoja (nodo sin hijos)
@@ -265,13 +265,12 @@ El prefijo `@` distingue los metadatos de los comentarios normales.
 %% @dir <origen> -> <destino> : down|right|left|up
 ```
 
-Sobreescribe la dirección por defecto de la arista `origen -> destino`.
-Solo es **obligatorio** entre nodos escritos por el usuario. Cuando la arista acaba en un nodo que
-genera el layout (una referencia a otro subgraph, una copia o un empalme), el `@dir` es una
-**preferencia**: se usa si ese lado está libre y, si no, la conexión se coloca como cualquier otra.
-Con `up` y `left` el diagrama puede crecer hacia cualquier dirección.
+Indica la dirección preferida de la arista `origen -> destino`. Es una **preferencia**: se respeta
+siempre que ese lado esté libre; si otra conexión del nodo ya pedía ese lado o la celda está
+ocupada, la arista se coloca como cualquier otra (con la cascada de la regla 10) y se avisa:
+`@dir a -> b : left no se pudo respetar (…)`. Nunca produce un error ni un choque.
 
-Si dos salidas de un mismo nodo terminan con la misma dirección → **error fatal**.
+Si dos `@dir` de un mismo nodo piden el mismo lado, se respeta el primero y el segundo se avisa.
 
 ## Ejemplo
 

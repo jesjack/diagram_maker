@@ -47,11 +47,11 @@ test("4 salidas sin padre caben (la 4ª va arriba)", () => {
   assert.ok(!L.nodes.some((n) => n.shape === "junction"));
 });
 
-test("dos salidas en la misma dirección es error fatal", () => {
-  assert.throws(
-    () => layout("a --> b\na --> c\n%% @dir a -> b : down\n%% @dir a -> c : down"),
-    /dos salidas hacia 'down'/
-  );
+test("dos @dir hacia el mismo lado: el segundo se ignora con aviso (nunca error)", () => {
+  const L = layout("a --> b\na --> c\n%% @dir a -> b : down\n%% @dir a -> c : down");
+  assert.strictEqual(L.edges.find((e) => e.to === "b").dir, "down");
+  assert.notStrictEqual(L.edges.find((e) => e.to === "c").dir, "down");
+  assert.ok(L.warnings.some((w) => w.line === 4 && /@dir a -> c : down no se pudo respetar/.test(w.message)));
 });
 
 test("<--> cuenta como salida del nodo que la declara", () => {
@@ -72,9 +72,10 @@ test("las posiciones son deterministas y sin solapes en el ejemplo", () => {
   }
 });
 
-test("choque de ramas genera aviso (TODO)", () => {
+test("@dir hacia la celda del padre: se ignora con aviso en vez de chocar", () => {
   const L = layout("a --> b\nb --> c\n%% @dir b -> c : up");
-  assert.ok(L.warnings.some((w) => /Choque/.test(w.message)));
+  assert.ok(!L.warnings.some((w) => /Choque/.test(w.message)));
+  assert.ok(L.warnings.some((w) => /@dir b -> c : up no se pudo respetar/.test(w.message)));
 });
 
 test("subgraphs: un diagrama por grupo, en fila, con referencias en ambos lados", () => {
@@ -227,10 +228,10 @@ test("si el lado asignado ya está ocupado, se usa otro lado libre del padre", (
   assert.ok(!L.warnings.some((w) => /Choque/.test(w.message)));
 });
 
-test("un @dir explícito no se mueve aunque choque", () => {
+test("un @dir que chocaría se mueve como cualquier conexión, con aviso", () => {
   const L = layout(["a --> b", "b --> c", "%% @dir a -> b : left", "%% @dir b -> c : right"].join("\n"));
-  assert.strictEqual(L.edges.find((e) => e.to === "c").dir, "right");
-  assert.ok(L.warnings.some((w) => /Choque/.test(w.message)));
+  assert.ok(!L.warnings.some((w) => /Choque/.test(w.message)));
+  assert.ok(L.warnings.some((w) => /@dir b -> c : right no se pudo respetar/.test(w.message)));
 });
 
 test("nodos de fuera conectados solo con subgraphs: se absorben y su diagrama desaparece", () => {

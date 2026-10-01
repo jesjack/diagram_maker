@@ -237,7 +237,7 @@ function layoutSingle(graph, measure, opts, warnings) {
   const edges = graph.edges.map((e) => ({ ...e }));
   const dirs = graph.meta.dirs.map((d) => ({ ...d }));
   addJunctions(nodes, edges, dirs, opts);
-  const ctx = assignDirections(nodes, edges, dirs);
+  const ctx = assignDirections(nodes, edges, dirs, warnings);
   const history = placeInGrid(nodes, edges, warnings, ctx);
   const bounds = computeCoordinates(nodes, edges, measure, opts);
   for (const e of edges) routeEdge(e, nodes.get(e.from), nodes.get(e.to), measure, opts);
@@ -428,8 +428,8 @@ function sizeNode(node, rawMeasure, opts) {
 // Las referencias entrantes (arista "attached": ref -> nodo) ocupan un hueco del nodo destino como si
 // fueran una salida más, en el orden de declaración de las aristas (salvo la que hace de padre, arriba).
 // e.slot es el lado del nodo donde va la referencia; e.dir sigue siendo la dirección de la flecha.
-function assignDirections(nodes, edges, metaDirs) {
-  const ctx = { nodes, edges, overrides: new Map(metaDirs.map((d) => [`${d.from}\u0000${d.to}`, d])) };
+function assignDirections(nodes, edges, metaDirs, warnings = []) {
+  const ctx = { nodes, edges, warnings, overrides: new Map(metaDirs.map((d) => [`${d.from}\u0000${d.to}`, d])) };
   const deferred = [];
   for (const node of nodes.values()) {
     if (node.ref && edges.some((e) => e.attached && e.from === node.id)) continue;
@@ -473,23 +473,16 @@ function assignSlots(node, ctx, anchor = null) {
   // ref -> nodo, así que la referencia va al lado opuesto); luego el resto recibe los
   // valores por defecto libres, en orden de declaración.
   const conns = [...out, ...att].sort((a, b) => a.index - b.index);
-  // Un @dir solo es obligatorio entre nodos escritos por el usuario. Si un extremo lo genera el
-  // layout (referencia, copia o empalme), es una preferencia: se usa si el lado está libre y,
-  // si no, la conexión toma un lado por defecto como cualquier otra (nunca error ni choque).
-  const generated = (id) => {
-    const n = nodes.get(id);
-    return !n || n.ref || n.copyOf || n.shape === "junction";
-  };
+  // Un @dir es una preferencia: se usa si ese lado está libre y, si no, la conexión toma un lado
+  // por defecto como cualquier otra, con un aviso. Nunca es error ni provoca un choque (al colocar,
+  // la cascada de la regla 10 puede moverla igual que a las demás).
   for (const e of conns) {
     const o = overrides.get(`${e.from}\u0000${e.to}`);
     if (!o || e.dir) continue;
+    e.prefDir = o;
     const side = e.attached ? OPPOSITE[o.dir] : o.dir;
-    if (generated(e.from) || generated(e.to)) {
-      if (!used.has(side)) take(e, side, o.line);
-      continue;
-    }
-    take(e, side, o.line);
-    e.explicit = true;
+    if (!used.has(side)) take(e, side, o.line);
+    else dirIgnored(ctx, o, "otra conexión de ese nodo ya pedía ese lado");
   }
   // Un nodo sin padre real (p. ej. el primero de un subgraph) toma su primera referencia
   // entrante como padre: va arriba y el flujo sigue hacia abajo, como en "iArr --> S1 --> S2".
@@ -514,6 +507,14 @@ function assignSlots(node, ctx, anchor = null) {
     } else deferred.push({ e, node, used });
   }
   return deferred;
+}
+
+// Aviso (una vez por @dir) cuando no se puede respetar.
+function dirIgnored(ctx, o, why) {
+  ctx.ignoredDirs = ctx.ignoredDirs || new Set();
+  if (ctx.ignoredDirs.has(o)) return;
+  ctx.ignoredDirs.add(o);
+  ctx.warnings.push({ line: o.line, message: `@dir ${o.from} -> ${o.to} : ${o.dir} no se pudo respetar (${why})` });
 }
 
 // Referencia sin hueco: prueba cualquier lado libre (también arriba, si no llega por ahí
@@ -612,7 +613,7 @@ function placeInGrid(nodes, edges, warnings, ctx) {
   const placeNextTo = (parent, node, e) => {
     let side = sideOf(e);
     const wanted = side;
-    if (blocked(cellAt(parent, side), node.id) && !e.explicit) {
+    if (blocked(cellAt(parent, side), node.id)) {
       const reserved = new Set(
         edges.filter((x) => x !== e && (x.from === parent.id || (x.attached && x.to === parent.id))).map(sideOf)
       );
@@ -623,8 +624,12 @@ function placeInGrid(nodes, edges, warnings, ctx) {
           e.slot = alt;
           e.dir = OPPOSITE[alt];
         } else e.dir = alt;
-      } else return makeRoom(parent, node, e, wanted);
+      } else {
+        if (e.prefDir) dirIgnored(ctx, e.prefDir, "ese lado estaba ocupado");
+        return makeRoom(parent, node, e, wanted);
+      }
     }
+    if (side !== wanted && e.prefDir) dirIgnored(ctx, e.prefDir, "ese lado estaba ocupado");
     const v = DIR_VECTORS[side];
     const kind = node.copyOf
       ? `copia de ${who(nodes.get(node.copyOf))} (el original está lejos${node.shape === "junction" ? "" : " y no tiene hijos"}), hija de`
@@ -1264,7 +1269,6 @@ function placeInGrid(nodes, edges, warnings, ctx) {
       };
       nodes.set(dot.id, dot);
       x.to = dot.id;
-      x.explicit = false;
       placeNextTo(u, dot, x);
       dot.why = `conector hacia '${owner}': la flecha desde ${who(u)} quedaba en diagonal o pasaba por encima de un nodo. ${dot.why}`;
     }
