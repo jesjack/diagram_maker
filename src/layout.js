@@ -206,6 +206,35 @@ function layoutSingle(graph, measure, opts, warnings) {
   return { nodes: [...nodes.values()], edges, bounds };
 }
 
+// Crea un empalme de owner y la extensión (línea sin flechas) que los une. Devuelve el empalme.
+// index: posición de la extensión en el orden de declaración (justo antes de la conexión movida).
+function addJunction(nodes, edges, owner, index, line, lineHeight) {
+  let id = `${owner.id}\u25cf`; // no puede chocar con un id escrito (\u25cf no es válido en ids)
+  while (nodes.has(id)) id += "\u25cf";
+  const junction = {
+    id,
+    shape: "junction",
+    text: "",
+    lines: [],
+    w: JUNCTION_SIZE,
+    h: JUNCTION_SIZE,
+    lineHeight,
+    line,
+    group: owner.group,
+    junctionOf: owner.junctionOf || owner.realId || owner.id,
+  };
+  nodes.set(id, junction);
+  edges.push({ index, from: owner.id, to: id, label: null, arrowStart: false, arrowEnd: false, style: "solid", bus: true, line });
+  return junction;
+}
+
+// Cambia el extremo `from` (un nodo) de la arista e por `to` (un empalme), con su @dir si lo hay.
+function moveEnd(e, from, to, dirs = []) {
+  for (const d of dirs) if (d.from === e.from && d.to === e.to) d[e.from === from ? "from" : "to"] = to;
+  if (e.from === from) e.from = to;
+  else e.to = to;
+}
+
 // Un nodo solo tiene 4 lados. Si tiene más conexiones (padres + hijos, contando las referencias
 // de su diagrama), conserva las 3 primeras en orden de declaración y la 4ª es una extensión: una
 // línea sin flecha hasta un punto de empalme, del que salen las demás. El empalme tiene 3 lados
@@ -218,41 +247,12 @@ function addJunctions(nodes, edges, dirs, opts) {
     const id = queue.shift();
     const conns = touching(id);
     if (conns.length <= MAX_CONNECTIONS) continue;
-    const owner = nodes.get(id);
-    const root = owner.junctionOf || owner.realId || id;
-    const jid = `${id}\u25cf`; // no puede chocar con un id escrito (\u25cf no es válido en ids)
     const moved = conns.slice(MAX_CONNECTIONS - 1);
-    nodes.set(jid, {
-      id: jid,
-      shape: "junction",
-      text: "",
-      lines: [],
-      w: JUNCTION_SIZE,
-      h: JUNCTION_SIZE,
-      lineHeight: opts.lineHeight,
-      line: moved[0].line,
-      group: owner.group,
-      junctionOf: root,
-    });
-    // La extensión ocupa el sitio de la 4ª conexión en el orden de declaración.
-    edges.push({
-      index: moved[0].index - 0.5,
-      from: id,
-      to: jid,
-      label: null,
-      arrowStart: false,
-      arrowEnd: false,
-      style: "solid",
-      bus: true,
-      line: moved[0].line,
-    });
-    for (const e of moved) {
-      // Un @dir de una conexión movida pasa a la rama que sale del empalme.
-      for (const d of dirs) if (d.from === e.from && d.to === e.to) d[e.from === id ? "from" : "to"] = jid;
-      if (e.from === id) e.from = jid;
-      else e.to = jid;
-    }
-    queue.push(jid);
+    // La extensión ocupa el sitio de la 4ª conexión en el orden de declaración; un @dir de una
+    // conexión movida pasa a la rama que sale del empalme.
+    const j = addJunction(nodes, edges, nodes.get(id), moved[0].index - 0.5, moved[0].line, opts.lineHeight);
+    for (const e of moved) moveEnd(e, id, j.id, dirs);
+    queue.push(j.id);
   }
 }
 
@@ -511,12 +511,40 @@ function placeInGrid(nodes, edges, warnings, ctx) {
           e.slot = alt;
           e.dir = OPPOSITE[alt];
         } else e.dir = alt;
+      } else {
+        // Ningún lado libre sin reservar: se saca una extensión por un lado libre aunque esté
+        // reservado para un hermano. El hermano sigue recto desde el empalme (misma dirección) y
+        // este nodo va a un lado libre del empalme. Devuelve el empalme para seguir el recorrido.
+        const d = ["down", "right", "left", "up"].find((x) => !occupied.has(cellAt(parent, x)));
+        if (d) return extendForChild(parent, node, e, d, wanted);
       }
     }
     const v = DIR_VECTORS[side];
     const kind = e.attached ? "pegado a" : e.from === parent.id ? "hijo de" : "padre de";
     const moved = side !== wanted ? ` (el lado de ${SIDE_NAME[wanted]} estaba ocupado)` : "";
     place(node, parent.col + v.dc, parent.row + v.dr, `${kind} ${who(parent)}, ${SIDE_AT[side]}${moved}`);
+    return [];
+  };
+  const extendForChild = (parent, node, e, d, wanted) => {
+    const sibling = edges.find(
+      (x) => x !== e && sideOf(x) === d && (x.from === parent.id || (x.attached && x.to === parent.id))
+    );
+    const j = addJunction(nodes, edges, parent, Math.min(e.index, sibling ? sibling.index : e.index) - 0.5, e.line, parent.lineHeight);
+    edges[edges.length - 1].dir = d;
+    const v = DIR_VECTORS[d];
+    place(j, parent.col + v.dc, parent.row + v.dr, `extensión desde ${who(parent)} hacia ${SIDE_NAME[d]}: ${who(node)} no tenía lado libre`);
+    if (sibling) {
+      moveEnd(sibling, parent.id, j.id);
+      setSide(sibling, j, d); // sigue recto
+    }
+    moveEnd(e, parent.id, j.id);
+    const free = ["down", "right", "left", "up"].filter((x) => x !== OPPOSITE[d] && x !== d && !occupied.has(cellAt(j, x)));
+    const side = free[0] || d;
+    setSide(e, j, side);
+    const sv = DIR_VECTORS[side];
+    const kind = e.attached ? "pegado a" : "hijo de";
+    place(node, j.col + sv.dc, j.row + sv.dr, `${kind} ${who(parent)} a través de su extensión, ${SIDE_AT[side]} del empalme (el lado de ${SIDE_NAME[wanted]} estaba ocupado)`);
+    return [j];
   };
 
   // Un nodo sin padre real que no es el primero en colocarse no forma un grupo desconectado si
@@ -565,14 +593,14 @@ function placeInGrid(nodes, edges, warnings, ctx) {
       for (const e of edges) {
         if (e.attached && e.to === parent.id) {
           const ref = nodes.get(e.from);
-          if (ref.col === undefined) placeNextTo(parent, ref, e);
+          if (ref.col === undefined) queue.push(...placeNextTo(parent, ref, e));
           continue;
         }
         if (e.from !== parent.id || e.attached) continue;
         const child = nodes.get(e.to);
         if (child.col !== undefined) continue; // TODO (SPEC): bucles / varios padres
-        placeNextTo(parent, child, e);
-        queue.push(child);
+        const extra = placeNextTo(parent, child, e);
+        queue.push(child, ...extra);
       }
     }
 
@@ -704,26 +732,9 @@ function placeInGrid(nodes, edges, warnings, ctx) {
   };
   const applyExtension = ({ sim, d, jc, s2, link, partner, start }) => {
     // Empalme nuevo de la pareja; la conexión pasa a salir de él.
-    let jid = `${partner.id}\u25cf`;
-    while (nodes.has(jid)) jid += "\u25cf";
-    const junction = {
-      id: jid,
-      shape: "junction",
-      text: "",
-      lines: [],
-      w: JUNCTION_SIZE,
-      h: JUNCTION_SIZE,
-      lineHeight: partner.lineHeight,
-      line: link.line,
-      group: partner.group,
-      junctionOf: partner.junctionOf || partner.realId || partner.id,
-    };
-    nodes.set(jid, junction);
-    const bus = { index: link.index - 0.5, from: partner.id, to: jid, label: null, arrowStart: false,
-      arrowEnd: false, style: "solid", bus: true, line: link.line, dir: d };
-    edges.push(bus);
-    if (link.from === partner.id) link.from = jid;
-    else link.to = jid;
+    const junction = addJunction(nodes, edges, partner, link.index - 0.5, link.line, partner.lineHeight);
+    edges[edges.length - 1].dir = d;
+    moveEnd(link, partner.id, junction.id);
     const k = Math.abs(jc.col - partner.col) + Math.abs(jc.row - partner.row);
     place(junction, jc.col, jc.row, `extensión desde ${who(partner)} hacia ${SIDE_NAME[d]} (${k} celda${k > 1 ? "s" : ""}): el grupo no cabía`);
     for (const [id, p] of sim.pos) {

@@ -376,3 +376,20 @@ test("si el grupo no cabe por ninguna conexión, se extiende la línea de la par
   assert.ok(o.col === j.col || o.row === j.row);
   assert.ok(L.warnings.filter((w) => /Choque/.test(w.message)).length <= 2);
 });
+
+test("hijo sin lado libre: extensión por el lado de un hermano, que sigue recto (v3_app, A4)", () => {
+  const src = fs.readFileSync(path.join(__dirname, "../examples/v3_app.mmd"), "utf8");
+  const L = layoutDiagram(parseDiagram(src));
+  const at = (id) => L.nodes.find((n) => n.id === id);
+  const adj = (a, b) => Math.abs(a.col - b.col) + Math.abs(a.row - b.row) === 1;
+  // A4 tiene a su padre A3 a un lado y A2x (otra rama) en otro: ioCandCaja sale de un empalme de A4.
+  const link = L.edges.find((e) => (e.from === "ioCandCaja" || e.to === "ioCandCaja") && /A4●/.test(e.from + e.to));
+  assert.ok(link, "ioCandCaja conecta con un empalme de A4");
+  const j = at(link.from === "ioCandCaja" ? link.to : link.from);
+  assert.ok(adj(j, at("A4")) && adj(j, at("ioCandCaja")));
+  // El hermano que tenía ese lado sigue recto: A4 -> empalme -> hermano en la misma dirección.
+  const bus = L.edges.find((e) => e.bus && e.to === j.id);
+  const sib = L.edges.find((e) => e.from === j.id && e.to !== "ioCandCaja" && !e.bus);
+  assert.strictEqual(sib.dir, bus.dir);
+  assert.ok(!L.warnings.some((w) => /Choque/.test(w.message)), JSON.stringify(L.warnings.filter((w) => /Choque/.test(w.message))));
+});

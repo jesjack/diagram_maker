@@ -166,8 +166,11 @@ Sintaxis de Mermaid: `classDef nombre props`, `id:::nombre`, `class id1,id2 nomb
 
 10. Si al colocar un hijo (o una referencia) su celda ya está ocupada, se prueba otro lado del padre
     que no esté reservado para otra de sus conexiones y cuya celda esté libre, en el orden abajo,
-    derecha, izquierda, arriba. Una dirección fijada con `@dir` no se mueve. Si no hay ninguno libre,
-    queda el aviso de choque.
+    derecha, izquierda, arriba. Una dirección fijada con `@dir` no se mueve. **No pisar un nodo
+    está por encima del orden de las salidas**: si no hay ningún lado libre sin reservar, se saca
+    una extensión hasta un empalme por un lado libre aunque esté reservado para un hermano; el
+    hermano sigue recto desde el empalme (misma dirección) y el nodo va a un lado libre del
+    empalme. Solo si el padre no tiene ningún lado libre queda el aviso de choque.
 11. Si un nodo recibe más referencias de las que caben en sus lados, las que sobran se dibujan
     sueltas a la derecha, al final, y nunca hacen de padre.
 
