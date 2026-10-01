@@ -240,7 +240,21 @@ function layoutSingle(graph, measure, opts, warnings) {
   const snapshotAt = (k) => {
     const h = history[k];
     const snapNodes = new Map(h.pos.map(([n, col, row]) => [n.id, { ...n, col, row }]));
-    const snapEdges = h.edges.map((x) => ({ ...x }));
+    // Una flecha que más adelante se reconduce (a un empalme, una copia o un conector) no se
+    // dibuja mientras esté en diagonal o pase por encima de un nodo: es provisional.
+    const occ = new Set([...snapNodes.values()].map((n) => `${n.col},${n.row}`));
+    const provisional = (x) => {
+      if (x.orig.from === x.from && x.orig.to === x.to) return false;
+      const a = snapNodes.get(x.from);
+      const b = snapNodes.get(x.to);
+      if (a.col !== b.col && a.row !== b.row) return true;
+      const n = Math.abs(a.col - b.col) + Math.abs(a.row - b.row);
+      for (let i = 1; i < n; i++) {
+        if (occ.has(`${a.col + Math.sign(b.col - a.col) * i},${a.row + Math.sign(b.row - a.row) * i}`)) return true;
+      }
+      return false;
+    };
+    const snapEdges = h.edges.filter((x) => !provisional(x)).map((x) => ({ ...x }));
     const b = computeCoordinates(snapNodes, snapEdges, measure, opts);
     for (const x of snapEdges) routeEdge(x, snapNodes.get(x.from), snapNodes.get(x.to), measure, opts);
     return { nodes: [...snapNodes.values()], edges: snapEdges, bounds: b };
@@ -545,7 +559,7 @@ function placeInGrid(nodes, edges, warnings, ctx) {
     pos: [...nodes.values()].filter((n) => n.col !== undefined).map((n) => [n, n.col, n.row]),
     edges: edges
       .filter((x) => nodes.has(x.from) && nodes.has(x.to) && nodes.get(x.from).col !== undefined && nodes.get(x.to).col !== undefined)
-      .map((x) => ({ ...x })),
+      .map((x) => ({ ...x, orig: x })),
   });
   const closeStep = () => {
     if (step > 0 && !history[step - 1]) history[step - 1] = snapshot();
@@ -1097,6 +1111,9 @@ function placeInGrid(nodes, edges, warnings, ctx) {
       const v = DIR_VECTORS[side];
       place(copy, u.col + v.dc, u.row + v.dr, `copia de ${who(leaf)} junto a ${who(u)}, ${SIDE_AT[side]}: el original está lejos y no tiene hijos`);
     }
+    pruneJunctions();
+  };
+  const pruneJunctions = () => {
     for (let removed = true; removed; ) {
       removed = false;
       for (const j of [...nodes.values()]) {
@@ -1111,6 +1128,50 @@ function placeInGrid(nodes, edges, warnings, ctx) {
         removed = true;
       }
     }
+  };
+
+  // Revisión final: una flecha que haya quedado en diagonal o pasando por encima de un nodo (p. ej.
+  // la del segundo padre de un nodo colocado junto al primero) termina en un punto junto a su
+  // origen con la pastilla de su destino (● F3), como una copia de empalme. Si el origen no tiene
+  // sitio se usa la cascada de siempre (placeNextTo).
+  const badLine = (x) => {
+    const a = nodes.get(x.from);
+    const b = nodes.get(x.to);
+    if (a.col !== b.col && a.row !== b.row) return true;
+    const n = Math.abs(a.col - b.col) + Math.abs(a.row - b.row);
+    const dc = Math.sign(b.col - a.col);
+    const dr = Math.sign(b.row - a.row);
+    for (let i = 1; i < n; i++) if (occupied.has(`${a.col + dc * i},${a.row + dr * i}`)) return true;
+    return false;
+  };
+  const fixLongLinks = () => {
+    let connectors = 0;
+    for (const x of [...edges].sort((a, b) => a.index - b.index)) {
+      if (x.bus || x.attached || !edges.includes(x)) continue;
+      const u = nodes.get(x.from);
+      const target = nodes.get(x.to);
+      if (!u || !target || u.col === undefined || target.col === undefined || !badLine(x)) continue;
+      const owner = target.junctionOf || target.realId || target.id;
+      const dot = {
+        id: `${target.id}\u2192${++connectors}`,
+        shape: "junction",
+        text: "",
+        lines: [],
+        w: JUNCTION_SIZE,
+        h: JUNCTION_SIZE,
+        lineHeight: target.lineHeight,
+        line: x.line,
+        group: target.group,
+        junctionOf: owner,
+        copyOf: target.id,
+      };
+      nodes.set(dot.id, dot);
+      x.to = dot.id;
+      x.explicit = false;
+      placeNextTo(u, dot, x);
+      dot.why = `conector hacia '${owner}': la flecha desde ${who(u)} quedaba en diagonal o pasaba por encima de un nodo. ${dot.why}`;
+    }
+    pruneJunctions();
   };
 
   // Fija la geometría de una arista sabiendo en qué lado de u está el otro extremo.
@@ -1152,6 +1213,7 @@ function placeInGrid(nodes, edges, warnings, ctx) {
     placeRoot(root, findAnchor(root));
   }
   copyLeaves();
+  fixLongLinks();
   history[step - 1] = snapshot(); // el último paso, ya con la limpieza de empalmes
   return history;
 }

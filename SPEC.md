@@ -198,6 +198,12 @@ Sintaxis de Mermaid: `classDef nombre props`, `id:::nombre`, `class id1,id2 nomb
     mismo con las flechas que no pasaron por el recorrido. La copia es idéntica (forma, estilo, id). Una flecha hacia un empalme de una hoja
     cuenta como flecha hacia la hoja, y un empalme que se queda sin ramas se quita. Si el padre no
     tiene ningún lado libre, se queda la línea larga.
+13. **Conectores:** al terminar, una flecha que haya quedado en diagonal o pasando por encima de un
+    nodo (típicamente la del segundo padre de un nodo con hijos, colocado junto al primero)
+    termina en un **punto junto a su origen** con la pastilla de su destino (`● F3`), como una
+    copia de empalme; si el origen no tiene sitio, se usa la cascada de la regla 10. En el paso a
+    paso, una flecha provisional que luego se reconduce no se dibuja mientras esté en diagonal o
+    sobre un nodo.
 
 ### Rejilla
 

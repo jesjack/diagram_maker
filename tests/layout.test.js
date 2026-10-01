@@ -417,8 +417,8 @@ test("hoja colocada lejos: el padre recibe una copia a su lado; un nodo con hijo
   assert.strictEqual(toCopy.from, "k");
   assert.ok(near(byId.k, copies[0]));
   assert.ok(near(byId.b, byId.hoja), "el original sigue junto a su primer padre");
-  // f tiene un hijo (h): no se copia aunque g quede lejos.
-  assert.ok(!L.nodes.some((n) => n.copyOf === "f"));
+  // f tiene un hijo (h): no se copia como nodo aunque g quede lejos (a lo sumo, un conector ● f).
+  assert.ok(!L.nodes.some((n) => n.copyOf === "f" && n.shape !== "junction"));
 });
 
 test("flecha a un empalme lejano: copia del empalme junto al padre, aunque su dueño tenga hijos (v3_app: F2 -> A8)", () => {
@@ -446,8 +446,8 @@ test("ninguna flecha se pierde por el camino (copias, empalmes, extensiones)", (
   }
 });
 
-test("sin diagonales ni líneas que pasen por encima de un nodo (salvo varios padres)", () => {
-  for (const f of ["v3_uno", "v3_soffice", "inicio_app", "prueba_movil"]) {
+test("sin diagonales ni líneas que pasen por encima de un nodo", () => {
+  for (const f of ["v3_app", "v3_uno", "v3_soffice", "inicio_app", "prueba_movil"]) {
     const L = layoutDiagram(parseDiagram(fs.readFileSync(path.join(__dirname, `../examples/${f}.mmd`), "utf8")));
     const byId = Object.fromEntries(L.nodes.map((n) => [n.id, n]));
     const occ = new Set(L.nodes.map((n) => `${n.col},${n.row}`));
@@ -510,4 +510,22 @@ test("hacer sitio desplaza solo el bloque necesario, no toda la fila (v3_app, em
   assert.ok(moved.length === n || moved2.length === n, `${n} anunciados, movidos ${moved.length}/${moved2.length}`);
   // El bloque de A9/A10 (morado en la captura) no se mueve.
   for (const id of ["A9", "A10"]) assert.ok(!moved2.includes(id), `${id} no debería moverse`);
+});
+
+test("varios padres: la flecha que quedaría en diagonal o sobre un nodo termina en un conector (v3_app, F1 -> F3)", () => {
+  const src = fs.readFileSync(path.join(__dirname, "../examples/v3_app.mmd"), "utf8");
+  const L = layoutDiagram(parseDiagram(src));
+  const byId = Object.fromEntries(L.nodes.map((n) => [n.id, n]));
+  const e = L.edges.find((x) => x.label === "cierre normal o caja cedida");
+  const dot = byId[e.to];
+  assert.strictEqual(dot.shape, "junction");
+  assert.strictEqual(dot.junctionOf, "F3", "la pastilla dice adónde va");
+  const src2 = byId[e.from];
+  assert.strictEqual(Math.abs(dot.col - src2.col) + Math.abs(dot.row - src2.row), 1);
+  // En el paso a paso tampoco aparece ninguna diagonal provisional.
+  for (let k = 0; k < L.nodes.length; k++) {
+    const s = L.snapshotAt(k);
+    const m = Object.fromEntries(s.nodes.map((n) => [n.id, n]));
+    for (const x of s.edges) assert.ok(m[x.from].col === m[x.to].col || m[x.from].row === m[x.to].row, `paso ${k + 1}`);
+  }
 });
