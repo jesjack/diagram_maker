@@ -32,12 +32,17 @@ python3 diagram.py archivo.mmd -o x.html   # elige dónde guardar el HTML
 python3 diagram.py                         # escribe el diagrama en la terminal (termina con Ctrl+D)
 cat archivo.mmd | python3 diagram.py       # también por tubería
 python3 diagram.py archivo.mmd --no-open   # solo genera el HTML
+python3 diagram.py archivo.mmd --watch     # recarga en vivo: la página se actualiza al guardar
 ```
 
 El HTML generado es un único archivo: parser, layout y visor van incrustados, así que se puede
 abrir o compartir sin nada más. Para abrirlo, el CLI levanta un mini servidor en `127.0.0.1` que
 sirve la página una vez (los navegadores en sandbox, como flatpak o snap, no suelen poder abrir
 cualquier carpeta). En Android con **Termux** se abre con `termux-open-url`.
+
+Con `--watch` el servidor se queda abierto (Ctrl+C para salir) y vigila el `.mmd`: al guardarlo, la
+página se redibuja sola conservando el zoom y la posición; si el código tiene un error se muestra
+el panel de error y se sigue vigilando.
 
 ## El visor
 
