@@ -81,11 +81,16 @@ function renderSvg(layout, theme = THEME, { shadow = true, ids = false } = {}) {
   parts.push(
     `<defs>` +
       [...markers]
+        // Una punta para el final y otra invertida para el inicio (flechas <-->), con orient="auto":
+        // "auto-start-reverse" es de SVG 2 y algunos programas (p. ej. resvg) no lo entienden.
         .map(
           ([color, id]) =>
             `<marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" ` +
-            `markerUnits="userSpaceOnUse" orient="auto-start-reverse">` +
-            `<path d="M0,0 L10,5 L0,10 z" fill="${escapeXml(color)}"/></marker>`
+            `markerUnits="userSpaceOnUse" orient="auto">` +
+            `<path d="M0,0 L10,5 L0,10 z" fill="${escapeXml(color)}"/></marker>` +
+            `<marker id="${id}-inicio" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="8" markerHeight="8" ` +
+            `markerUnits="userSpaceOnUse" orient="auto">` +
+            `<path d="M10,0 L0,5 L10,10 z" fill="${escapeXml(color)}"/></marker>`
         )
         .join("") +
       (theme.shadow && shadow ? shadowFilter(f, theme.shadow) : "") +
@@ -209,7 +214,7 @@ function renderEdge(e, theme, marker = "arrow") {
   const [p, q] = e.points;
   const width = e.style === "thick" ? theme.edgeWidth * 2 : theme.edgeWidth;
   const dash = e.style === "dotted" ? ` stroke-dasharray="4 4"` : "";
-  const start = e.arrowStart ? ` marker-start="url(#${marker})"` : "";
+  const start = e.arrowStart ? ` marker-start="url(#${marker}-inicio)"` : "";
   const end = e.arrowEnd ? ` marker-end="url(#${marker})"` : "";
   // "color" de linkStyle es el color de la etiqueta, no de la línea.
   const css = (e.css || []).filter(([k]) => k !== "color" && !/^(font|letter|word|text)-/.test(k));

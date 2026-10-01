@@ -1,0 +1,31 @@
+{
+  "name": "diagram-maker",
+  "version": "0.1.0",
+  "description": "Diagramas de flujo a partir de sintaxis Mermaid con un motor de layout propio: rejilla, líneas rectas y sin cruces. Visor web, recarga en vivo y exportación a SVG/PNG.",
+  "bin": {
+    "dmk": "bin/dmk.js"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "src/",
+    "README.md",
+    "SPEC.md"
+  ],
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@resvg/resvg-wasm": "^2.6.2",
+    "dejavu-fonts-ttf": "^2.37.3"
+  },
+  "keywords": ["mermaid", "flowchart", "diagram", "svg", "png", "layout"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jesjack/diagram_maker.git"
+  },
+  "author": "Edgar Jesús Moreno Castañeda"
+}

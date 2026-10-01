@@ -31,7 +31,7 @@ test("escapa el texto", () => {
 
 test("flecha bidireccional usa marcador al inicio y al final", () => {
   const svg = render("a <--> b");
-  assert.match(svg, /marker-start="url\(#arrow\)" marker-end="url\(#arrow\)"/);
+  assert.match(svg, /marker-start="url\(#arrow-inicio\)" marker-end="url\(#arrow\)"/);
 });
 
 test("sombra: difuminada debajo de todo, sin flechas, y se puede omitir o desactivar", () => {

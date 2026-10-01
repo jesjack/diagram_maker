@@ -28,27 +28,45 @@ Este es el propio proyecto, dibujado con él ([`examples/proyecto.mmd`](examples
 Mermaid se usa solo como **sintaxis** (la conocen bien los modelos de IA y el archivo sigue siendo
 compatible con Mermaid); el dibujo lo hace este proyecto.
 
-## Uso
+## Instalación
 
-Requisitos: Python 3 y un navegador. Sin dependencias.
+Requisitos: [Node.js](https://nodejs.org) 18 o superior.
 
 ```sh
-python3 diagram.py archivo.mmd             # genera archivo.html junto al .mmd y lo abre
-python3 diagram.py archivo.mmd -o x.html   # elige dónde guardar el HTML
-python3 diagram.py                         # escribe el diagrama en la terminal (termina con Ctrl+D)
-cat archivo.mmd | python3 diagram.py       # también por tubería
-python3 diagram.py archivo.mmd --no-open   # solo genera el HTML
-python3 diagram.py archivo.mmd --watch     # recarga en vivo: la página se actualiza al guardar
+git clone https://github.com/jesjack/diagram_maker.git
+cd diagram_maker
+npm install -g .      # instala el comando dmk (o `npm link` para desarrollar)
 ```
 
-El HTML generado es un único archivo: parser, layout y visor van incrustados, así que se puede
-abrir o compartir sin nada más. Para abrirlo, el CLI levanta un mini servidor en `127.0.0.1` que
-sirve la página una vez (los navegadores en sandbox, como flatpak o snap, no suelen poder abrir
-cualquier carpeta). En Android con **Termux** se abre con `termux-open-url`.
+En Android funciona en **Termux** (`pkg install nodejs`).
 
-Con `--watch` el servidor se queda abierto (Ctrl+C para salir) y vigila el `.mmd`: al guardarlo, la
-página se redibuja sola conservando el zoom y la posición; si el código tiene un error se muestra
-el panel de error y se sigue vigilando.
+## Uso
+
+```sh
+dmk archivo.mmd                 # genera archivo.html junto al .mmd y lo abre en el navegador
+dmk archivo.mmd --watch         # recarga en vivo: la página se actualiza al guardar el .mmd
+dmk archivo.mmd --svg           # exporta archivo.svg, sin abrir nada
+dmk archivo.mmd --png           # exporta archivo.png (--escala 3 para más resolución)
+dmk archivo.mmd --html          # solo genera el HTML
+dmk archivo.mmd --sin-servidor  # abre el HTML guardado como archivo, sin servidor
+dmk                             # escribe el diagrama en la terminal (termina con Ctrl+D)
+cat archivo.mmd | dmk --svg -o diagrama.svg
+```
+
+`dmk --ayuda` muestra todas las opciones.
+
+- **HTML**: es un único archivo con parser, layout y visor incrustados; se puede abrir o compartir
+  sin nada más. Para abrirlo, `dmk` levanta un mini servidor en `127.0.0.1` que sirve la página una
+  vez (los navegadores en sandbox, como flatpak o snap, no suelen poder abrir cualquier carpeta);
+  si tu navegador sí puede, `--sin-servidor` abre el archivo directamente.
+- **`--watch`**: el servidor se queda abierto (Ctrl+C para salir) y vigila el `.mmd`; al guardarlo,
+  la página se redibuja sola conservando el zoom y la posición. Si el código tiene un error se
+  muestra el panel de error y se sigue vigilando.
+- **SVG y PNG**: se generan sin navegador, con el mismo motor. El texto se mide y se pinta con la
+  fuente DejaVu Sans (incluida como dependencia), así que los nodos tienen el tamaño justo.
+
+`diagram.py` es la versión anterior del comando, en Python y sin dependencias (`python3 diagram.py
+archivo.mmd`, con `--watch` y `--no-open`); no exporta a SVG/PNG.
 
 ## El visor
 
@@ -113,7 +131,9 @@ segundo describe cómo coloca los nodos el layout).
 ## Desarrollo
 
 ```
-diagram.py          CLI: lee el .mmd, incrusta los scripts en la plantilla y abre el navegador
+bin/dmk.js          comando dmk
+lib/                HTML, servidores (una vez / --watch), exportar SVG/PNG, fuentes
+diagram.py          versión anterior del comando, en Python sin dependencias
 src/parser.js       texto Mermaid -> nodos, aristas, subgraphs, estilos y metadatos
 src/layout.js       reglas de colocación -> rejilla -> coordenadas (y la historia del paso a paso)
 src/render.js       SVG (formas, flechas, etiquetas, pastillas, sombra)

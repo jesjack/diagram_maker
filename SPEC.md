@@ -17,7 +17,10 @@ diagrama.mmd ──► CLI (Python) ──► genera HTML autocontenido ──�
                                    └─ visor
 ```
 
-- **CLI en Python, sin dependencias**: recibe un archivo (`python diagram.py archivo.mmd`) o texto introducido en el propio programa, inyecta el código en la plantilla HTML y abre el navegador.
+- **Comando `dmk` (Node.js)**: recibe un archivo o texto por la terminal, genera el HTML con el
+  código inyectado y lo abre, lo sirve con recarga en vivo (`--watch`) o exporta directamente a
+  SVG/PNG con el mismo motor (texto medido y pintado con DejaVu Sans; PNG con resvg en WebAssembly).
+  `diagram.py` es la versión anterior, en Python sin dependencias (sin exportación).
 - **Motor en JavaScript**, embebido en el HTML generado (funciona sin servidor).
 - **Apertura**: el HTML se guarda junto al `.mmd` (o en `-o`) y se abre sirviéndolo **una sola vez**
   desde un mini servidor en 127.0.0.1 (los navegadores en sandbox, como Edge en flatpak, no leen

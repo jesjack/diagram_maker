@@ -8,3 +8,6 @@ __pycache__/
 
 # Copias de trabajo de agentes de Claude Code
 .claude/worktrees/
+
+# Dependencias de npm
+node_modules/
