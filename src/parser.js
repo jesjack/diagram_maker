@@ -361,7 +361,7 @@ function parseEdge(line, pos, lineNo) {
   let m = rest.match(/^(<?)(--|==|-\.)\s+(.+?)\s+(-{2,}|={2,}|\.+-)(>?)/);
   if (m && !/^(<?)(-{2,}|={2,}|-\.+-)>/.test(rest)) {
     return {
-      label: m[3],
+      label: m[3].replace(/^"(.*)"$/, "$1"), // -- "texto" --> : sin las comillas, como en -->|"texto"|
       arrowStart: m[1] === "<",
       arrowEnd: m[5] === ">",
       style: styleOf(m[2] + m[4]),

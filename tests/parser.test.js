@@ -157,3 +157,9 @@ test("hexágono {{...}} (no se confunde con el rombo)", () => {
   assert.strictEqual(g.nodes.get("a").text, "E/S db");
   assert.strictEqual(g.nodes.get("b").shape, "diamond");
 });
+
+test("etiqueta -- \"texto\" --> sin comillas", () => {
+  const g = parseDiagram('a -- "sí: relanza" --> b\nb -- sin comillas --> c');
+  assert.strictEqual(g.edges[0].label, "sí: relanza");
+  assert.strictEqual(g.edges[1].label, "sin comillas");
+});
