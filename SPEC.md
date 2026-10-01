@@ -252,7 +252,8 @@ Cada nodo ocupa una celda (columna, fila); un hijo va a la celda vecina de su pa
 El ancho de cada columna y el alto de cada fila se ajustan al nodo más grande que contienen, así que
 los nodos quedan alineados. El hueco entre celdas crece si la etiqueta de una arista no cabe.
 
-Si dos nodos caen en la misma celda se genera un **aviso** de choque (resolverlo es un TODO).
+Dos nodos nunca deberían compartir celda (regla 10); si aun así ocurre, se genera un **aviso** de
+choque (los tests aleatorios lo vigilan).
 
 ## Metadatos
 
@@ -316,5 +317,9 @@ flowchart TD
       título o como fondo del área de su diagrama.
 - [x] Nodos con más de 3 salidas / 4 conexiones: empalmes automáticos (regla 4). Pendiente: `@bus`
       para elegir a mano qué conexiones comparten empalme.
-- [ ] Bucles y nodos con varios padres (incluye un nuevo tipo de línea para las aristas que regresan). Decidir tras el prototipo.
-- [ ] Choques entre ramas: separación automática. Decidir tras el prototipo.
+- [x] Bucles y nodos con varios padres: copias de hojas (regla 12), conectores (regla 13) y
+      reutilizar representantes al lado (regla 14); no hace falta un tipo de línea nuevo.
+- [x] Choques entre ramas: cascada para hacer sitio (regla 10) y grupos reconstruidos (regla 9).
+- [ ] Rotar subárboles ya colocados ("engranajes") para evitar empalmes, como pasada final.
+- [ ] Diagramas con muchos subgraphs: hoy van todos en una fila (quedan muy anchos).
+- [ ] `flowchart LR` / `direction`: hoy se ignoran (el layout usa sus propias reglas).
