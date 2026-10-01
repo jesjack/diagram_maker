@@ -190,11 +190,15 @@ const DiagramViewer = (() => {
     img.src = url;
   }
 
-  // Mide texto con la misma fuente que usa el SVG.
+  // Mide texto con la fuente con la que se va a pintar (la del nodo si su estilo la cambia).
   function makeMeasure() {
     const ctx = document.createElement("canvas").getContext("2d");
-    ctx.font = `${LAYOUT_DEFAULTS.fontSize}px ${LAYOUT_DEFAULTS.fontFamily}`;
-    return (text) => ctx.measureText(text).width;
+    const base = `${LAYOUT_DEFAULTS.fontSize}px ${LAYOUT_DEFAULTS.fontFamily}`;
+    return (text, font) => {
+      ctx.font = base; // si la fuente del nodo no es válida, el canvas la ignora: que no herede la anterior
+      if (font) ctx.font = `${font.style} ${font.weight} ${font.size}px ${font.family}`;
+      return ctx.measureText(text).width;
+    };
   }
 
   function exportPng(svgText, size, title, scale = 2) {

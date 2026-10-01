@@ -295,3 +295,11 @@ test("nodo sin padre con algún hijo ya colocado: se pega a ese hijo en vez de i
   assert.strictEqual(Math.abs(x.col - t.col) + Math.abs(x.row - t.row), 1, "x es vecino de t");
   assert.ok(!L.warnings.some((w) => /Choque/.test(w.message)));
 });
+
+test("estilos: font-size y font-weight cambian el tamaño medido del nodo", () => {
+  const L = layout(["classDef big font-size:28px", 'a["Texto de prueba"] --> b["Texto de prueba"]:::big'].join("\n"));
+  const [a, b] = ["a", "b"].map((id) => L.nodes.find((n) => n.id === id));
+  assert.ok(b.w > a.w * 1.5, `${b.w} vs ${a.w}`);
+  assert.ok(b.h > a.h);
+  assert.strictEqual(b.lineHeight, 36); // 18 * 28/14
+});

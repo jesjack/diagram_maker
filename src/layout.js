@@ -28,7 +28,8 @@ const LAYOUT_DEFAULTS = {
   },
   diagramGap: 120, // separación horizontal entre los diagramas de cada subgraph
   titleGap: 16, // separación entre el título de un diagrama y sus nodos
-  // Si no hay función para medir texto (p. ej. en Node), se estima por carácter.
+  // measure(texto, fuente) -> ancho en px; fuente = { size, family, weight, style }. Si no hay
+  // (p. ej. en Node), se estima por carácter.
   measure: null,
 };
 
@@ -51,7 +52,8 @@ const OPPOSITE = { down: "up", up: "down", left: "right", right: "left" };
 function layoutDiagram(graph, options = {}) {
   const opts = { ...LAYOUT_DEFAULTS, ...options };
   opts.wrapWidth = { ...LAYOUT_DEFAULTS.wrapWidth, ...options.wrapWidth };
-  const measure = opts.measure || ((text) => text.length * opts.fontSize * 0.52);
+  const measure =
+    opts.measure || ((text, font) => text.length * (font ? font.size : opts.fontSize) * (font && font.bold ? 0.56 : 0.52));
   const warnings = [...(graph.warnings || [])];
 
   if (!graph.subgraphs || !graph.subgraphs.length) {
@@ -68,7 +70,7 @@ function layoutDiagram(graph, options = {}) {
   for (const part of parts) {
     const r = layoutSingle(part, measure, opts, warnings);
     const titleH = part.title ? opts.lineHeight + opts.titleGap : 0;
-    const titleW = part.title ? measure(part.title) : 0;
+    const titleW = part.title ? measure(part.title, { ...baseFont(opts), weight: "600", bold: true }) : 0;
     const dx = cursor - r.bounds.minX;
     const dy = titleH - r.bounds.minY;
     for (const n of r.nodes) {
@@ -148,9 +150,11 @@ function splitBySubgraph(graph, warnings) {
     }
     const id = `${target}\u2197${e.index}`; // no puede chocar con un id escrito (\u2197 no es válido en ids)
     const text = real ? real.text : byId.get(target).title;
+    // Las referencias llevan el estilo del nodo real (si es un subgraph entero, ninguno).
+    const css = real && real.css;
     const node = absorbed.has(target)
-      ? { id, shape: real.shape, text, line: e.line, group: null, ref: true, absorbed: true, realId: target }
-      : { id, shape: "parallelogram", text, line: e.line, group: null, ref: true, realId: target };
+      ? { id, shape: real.shape, text, css, line: e.line, group: null, ref: true, absorbed: true, realId: target }
+      : { id, shape: "parallelogram", text, css, line: e.line, group: null, ref: true, realId: target };
     part.nodes.set(id, node);
     return id;
   };
@@ -212,10 +216,46 @@ function wrapText(text, maxWidth, measure) {
   return lines;
 }
 
-function sizeNode(node, measure, opts) {
-  const lines = wrapText(node.text, opts.wrapWidth[node.shape], measure);
+// ---------------------------------------------------------------- fuentes
+
+const baseFont = (opts) => ({ size: opts.fontSize, family: opts.fontFamily, weight: "normal", style: "normal", bold: false });
+
+// Tamaño en px de un valor CSS de font-size (px, pt, em, rem, %); null si no se entiende.
+function fontSizePx(value, base) {
+  const m = String(value).trim().match(/^(\d*\.?\d+)\s*(px|pt|em|rem|%)?$/);
+  if (!m) return null;
+  const n = parseFloat(m[1]);
+  return { px: n, "": n, pt: (n * 4) / 3, em: n * base, rem: n * base, "%": (n * base) / 100 }[m[2] || ""];
+}
+
+// Medidas de texto según el css de un nodo o arista: el layout tiene que medir con la misma
+// fuente con la que se pinta, o el texto no cabe en la forma.
+function textMetrics(css, measure, opts) {
+  const font = baseFont(opts);
+  let spacing = 0;
+  for (const [k, v] of css || []) {
+    if (k === "font-size") font.size = fontSizePx(v, opts.fontSize) || font.size;
+    else if (k === "font-family") font.family = v;
+    else if (k === "font-weight") font.weight = v;
+    else if (k === "font-style") font.style = v;
+    else if (k === "letter-spacing") spacing = fontSizePx(v, font.size) || 0;
+  }
+  font.bold = /bold|^[6-9]00$/.test(font.weight);
+  const k = font.size / opts.fontSize;
+  return {
+    font,
+    scale: k,
+    lineHeight: opts.lineHeight * k,
+    measure: (text) => measure(text, font) + spacing * text.length,
+  };
+}
+
+function sizeNode(node, rawMeasure, opts) {
+  const tm = textMetrics(node.css, rawMeasure, opts);
+  const measure = tm.measure;
+  const lines = wrapText(node.text, opts.wrapWidth[node.shape] * tm.scale, measure);
   const tw = Math.max(...lines.map((l) => measure(l)), 0);
-  const th = lines.length * opts.lineHeight;
+  const th = lines.length * tm.lineHeight;
   let w;
   let h;
   switch (node.shape) {
@@ -246,13 +286,13 @@ function sizeNode(node, measure, opts) {
       h = Math.max(th + 20, 40);
       const skew = h * 0.35;
       w = Math.max(tw + 32 + skew, 90);
-      return { lines, w, h, skew };
+      return { lines, w, h, skew, lineHeight: tm.lineHeight };
     }
     default:
       w = Math.max(tw + 32, 90);
       h = Math.max(th + 20, 40);
   }
-  return { lines, w, h };
+  return { lines, w, h, lineHeight: tm.lineHeight };
 }
 
 // ---------------------------------------------------------------- direcciones
@@ -488,8 +528,9 @@ function computeCoordinates(nodes, edges, measure, opts) {
     if (!e.label) continue;
     const a = nodes.get(e.from);
     const b = nodes.get(e.to);
-    const labelW = measure(e.label) + 24;
-    const labelH = opts.lineHeight + 16;
+    const tm = textMetrics(e.css, measure, opts);
+    const labelW = tm.measure(e.label) + 24;
+    const labelH = tm.lineHeight + 16;
     if (a.row === b.row && Math.abs(a.col - b.col) === 1) {
       const c = Math.min(a.col, b.col);
       colGapAfter.set(c, Math.max(colGapAfter.get(c) || 0, labelW));
@@ -570,8 +611,8 @@ function routeEdge(edge, a, b, measure, opts) {
     edge.labelBox = {
       x: (p.x + q.x) / 2,
       y: (p.y + q.y) / 2,
-      w: measure(edge.label) + 12,
-      h: opts.lineHeight + 4,
+      w: textMetrics(edge.css, measure, opts).measure(edge.label) + 12,
+      h: textMetrics(edge.css, measure, opts).lineHeight + 4,
     };
   }
 }

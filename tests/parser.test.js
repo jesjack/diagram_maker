@@ -66,9 +66,51 @@ test("errores con número de línea", () => {
   assert.throws(() => parseDiagram('a["sin cerrar] --> b'), /Comilla|cerrar/);
 });
 
-test("estilos se ignoran con aviso", () => {
-  const g = parseDiagram("a --> b\nstyle a fill:#f00");
-  assert.strictEqual(g.warnings.length, 1);
+test("estilos: classDef, :::, class y style con la prioridad de Mermaid", () => {
+  const g = parseDiagram(
+    [
+      "classDef default fill:#eee,color:#111",
+      "classDef azul fill:#00f,stroke:#003",
+      "classDef roja stroke:#f00,stroke-dasharray: 5, 5",
+      'a["A"]:::roja --> b["B"]:::azul',
+      "c --> d",
+      "class a azul", // a tiene azul y roja: gana la definida más tarde (roja) en lo que se pisen
+      "style b fill:#0f0", // style gana a las clases
+    ].join("\n")
+  );
+  const css = (id) => Object.fromEntries(g.nodes.get(id).css);
+  assert.deepStrictEqual(css("a"), { fill: "#00f", color: "#111", stroke: "#f00", "stroke-dasharray": "5,5" });
+  assert.deepStrictEqual(css("b"), { fill: "#0f0", color: "#111", stroke: "#003" });
+  assert.deepStrictEqual(css("c"), { fill: "#eee", color: "#111" });
+  assert.deepStrictEqual(g.warnings, []);
+});
+
+test("estilos: linkStyle por número y default", () => {
+  const g = parseDiagram(["a --> b --> c", "linkStyle default stroke:#999", "linkStyle 1 stroke:#f00,stroke-width:3px"].join("\n"));
+  assert.deepStrictEqual(Object.fromEntries(g.edges[0].css), { stroke: "#999" });
+  assert.deepStrictEqual(Object.fromEntries(g.edges[1].css), { stroke: "#f00", "stroke-width": "3px" });
+});
+
+test("estilos: avisos (propiedad de HTML, clase sin classDef, subgraph, flecha inexistente, click)", () => {
+  const g = parseDiagram(
+    [
+      "classDef x fill:#fff,padding:4px,font-size:20px",
+      "a:::x --> b:::nada",
+      "subgraph S",
+      "  c",
+      "end",
+      "style S fill:#eee",
+      "linkStyle 7 stroke:#f00",
+      "click a callback",
+    ].join("\n")
+  );
+  const msgs = g.warnings.map((w) => w.message).join("\n");
+  assert.match(msgs, /'padding' no tiene efecto en SVG/);
+  assert.match(msgs, /'nada' no tiene classDef/);
+  assert.match(msgs, /subgraph 'S' ignorado/);
+  assert.match(msgs, /no existe la flecha número '7'/);
+  assert.match(msgs, /'click' ignorado/);
+  assert.deepStrictEqual(Object.fromEntries(g.nodes.get("a").css), { fill: "#fff", "font-size": "20px" });
 });
 
 test("subgraphs: pertenencia, anidados, título y referencia al subgraph entero", () => {

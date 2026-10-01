@@ -104,6 +104,27 @@ end
   con una referencia que lleva el título del subgraph. Entre dos subgraphs enteros se ignora con aviso.
 - `direction` dentro de un subgraph se ignora con aviso; `style` de un subgraph, como todos los estilos.
 
+### Estilos
+
+Sintaxis de Mermaid: `classDef nombre props`, `id:::nombre`, `class id1,id2 nombre`,
+`style id props` y `linkStyle 0,2|default props`. Las propiedades son CSS (`fill:#dcfce7,stroke:#15803d`).
+
+- **Se pasan tal cual al SVG** como `style="…"`, sin lista de propiedades permitidas: cualquier
+  propiedad que el navegador entienda en SVG funciona.
+- En un nodo, la forma recibe todo menos lo de texto; el texto recibe `font-*`, `letter-*`,
+  `word-*`, `text-*` y `color` (que en SVG se traduce a `fill` del texto, como hace Mermaid);
+  `opacity` va al nodo entero. En una flecha, `color` y las de fuente van a su etiqueta; cada
+  color de línea tiene su propia punta de flecha.
+- `font-size`, `font-family`, `font-weight`, `font-style` y `letter-spacing` se usan también para
+  **medir** el texto, así el nodo crece con la fuente.
+- Prioridad (como Mermaid): `classDef default` → clases del nodo (gana la definida más tarde) →
+  `style` del nodo.
+- Referencias y nodos absorbidos llevan el estilo del nodo real; las referencias conservan el borde
+  discontinuo.
+- Avisos: propiedades de HTML sin efecto en SVG (`background`, `padding`, `margin`, `border`…),
+  clase sin `classDef`, `linkStyle` con un número de flecha que no existe, `click`, y estilos de un
+  subgraph (se ignoran de momento: no hay caja).
+
 ## Reglas de layout por defecto
 
 1. El diagrama crece **hacia abajo** desde el nodo inicial.
@@ -192,8 +213,8 @@ flowchart TD
 
 ## TODO
 
-- [ ] Colores: `classDef`, `:::clase` y `style` (de nodos y de subgraphs) hoy se ignoran con aviso.
-      Decidir cómo se aplican, también a los títulos y a los nodos de referencia.
+- [ ] Estilos de un subgraph (`style ID …`): hoy se ignoran con aviso. Decidir si se aplican al
+      título o como fondo del área de su diagrama.
 - [ ] Nodos con más de 3 salidas: definir una solución mediante metadatos.
 - [ ] Bucles y nodos con varios padres (incluye un nuevo tipo de línea para las aristas que regresan). Decidir tras el prototipo.
 - [ ] Choques entre ramas: separación automática. Decidir tras el prototipo.

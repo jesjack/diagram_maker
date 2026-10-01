@@ -5,6 +5,9 @@
 //         from/to pueden ser el id de un subgraph entero.
 // meta:   { dirs: [{ from, to, dir, line }] }
 // subgraphs: [{ id, title, parent, line }]  (orden de aparición; parent: id o null)
+//
+// Estilos (classDef, class, :::, style, linkStyle): se resuelven al final. Cada nodo o arista con
+// estilo lleva css = [[propiedad, valor], ...], que el render pasa tal cual al SVG.
 
 class DiagramError extends Error {
   constructor(message, line) {
@@ -28,8 +31,9 @@ const SHAPES = [
   { open: "{", close: "}", shape: "diamond" },
 ];
 
-// Líneas de Mermaid que se ignoran (estilos) con un aviso.
-const IGNORED_KEYWORDS = /^(classDef|class|style|linkStyle|click)\b/;
+const STYLE_RE = /^(classDef|class|style|linkStyle)\s+(\S+)(?:\s+(.*))?$/;
+// Propiedades de HTML que no tienen efecto en un elemento SVG: se avisa para que no parezca un fallo.
+const HTML_ONLY_PROPS = /^(background(-.*)?|padding(-.*)?|margin(-.*)?|border(-.*)?|width|height|display|box-shadow|text-align)$/;
 const ID_RE = /^[\p{L}\p{N}_]+/u;
 
 function parseDiagram(source) {
@@ -39,6 +43,7 @@ function parseDiagram(source) {
   const warnings = [];
   const subgraphs = [];
   const open = []; // pila de subgraphs abiertos
+  const styles = { classDefs: new Map(), classOf: [], style: [], linkStyle: [] };
   let headerSeen = false;
 
   const lines = source.split(/\r?\n/);
@@ -61,8 +66,13 @@ function parseDiagram(source) {
     }
     headerSeen = true;
 
-    if (IGNORED_KEYWORDS.test(line)) {
-      warnings.push({ line: lineNo, message: "Estilos de Mermaid ignorados" });
+    if (/^click\b/.test(line)) {
+      warnings.push({ line: lineNo, message: "'click' ignorado" });
+      return;
+    }
+    const st = line.match(STYLE_RE);
+    if (st) {
+      parseStyleStatement(st, lineNo, styles);
       return;
     }
     if (/^subgraph\b/.test(line)) {
@@ -83,7 +93,7 @@ function parseDiagram(source) {
       return;
     }
 
-    parseStatement(line, lineNo, nodes, edges, open.length ? open[open.length - 1].id : null);
+    parseStatement(line, lineNo, nodes, edges, open.length ? open[open.length - 1].id : null, styles);
   });
 
   if (open.length) {
@@ -109,8 +119,97 @@ function parseDiagram(source) {
     nodes.delete(sg.id);
   }
   for (const n of nodes.values()) delete n.declared;
+  resolveStyles(styles, nodes, edges, subgraphs, warnings);
 
   return { nodes, edges, meta, warnings, subgraphs };
+}
+
+// classDef a,b props | class id1,id2 clase | style id props | linkStyle 0,2|default props
+function parseStyleStatement([, keyword, target, rest], lineNo, styles) {
+  const list = target.split(",").filter(Boolean);
+  if (keyword === "class") {
+    if (!rest) throw new DiagramError("Uso: class id1,id2 clase", lineNo);
+    for (const id of list) styles.classOf.push({ id, cls: rest.trim(), line: lineNo });
+    return;
+  }
+  if (!rest) throw new DiagramError(`Faltan las propiedades de '${keyword}'`, lineNo);
+  const props = parseProps(rest, lineNo);
+  if (keyword === "classDef") {
+    for (const name of list) styles.classDefs.set(name, { props, line: lineNo, order: styles.classDefs.size });
+  } else if (keyword === "style") {
+    for (const id of list) styles.style.push({ id, props, line: lineNo });
+  } else styles.linkStyle.push({ targets: list, props, line: lineNo });
+}
+
+// "fill:#f9f,stroke:#333,stroke-dasharray:5 5" -> [[prop, valor], ...]. Un trozo sin ':' (la coma
+// de "stroke-dasharray: 5, 5") se une a la propiedad anterior; "\," también es una coma.
+function parseProps(text, lineNo) {
+  const props = [];
+  for (const piece of text.replace(/;\s*$/, "").split(/(?<!\\),/)) {
+    const m = piece.replace(/\\,/g, ",").match(/^\s*([\w-]+)\s*:\s*(.*?)\s*$/);
+    if (m) props.push([m[1].toLowerCase(), m[2]]);
+    else if (props.length) props[props.length - 1][1] += `,${piece.trim()}`;
+    else throw new DiagramError(`Propiedad de estilo inválida: '${piece.trim()}'`, lineNo);
+  }
+  return props;
+}
+
+// Prioridad (como en Mermaid): classDef default -> clases del nodo (gana la definida más tarde)
+// -> style del nodo. Una propiedad repetida se queda con el último valor.
+function resolveStyles(styles, nodes, edges, subgraphs, warnings) {
+  const warned = new Set();
+  const warnOnce = (key, line, message) => {
+    if (warned.has(key)) return;
+    warned.add(key);
+    warnings.push({ line, message });
+  };
+  const merge = (css, props, line) => {
+    const map = new Map(css);
+    for (const [k, v] of props) {
+      if (HTML_ONLY_PROPS.test(k)) warnOnce(`prop:${k}`, line, `La propiedad '${k}' no tiene efecto en SVG: se ignora`);
+      else {
+        map.delete(k); // al final, para que el orden refleje la prioridad
+        map.set(k, v);
+      }
+    }
+    return [...map];
+  };
+  const isSubgraph = (id) => subgraphs.some((sg) => sg.id === id);
+
+  const classesOf = new Map();
+  for (const c of styles.classOf) {
+    if (nodes.has(c.id)) classesOf.set(c.id, [...(classesOf.get(c.id) || []), c]);
+    else if (isSubgraph(c.id)) warnOnce(`sg:${c.id}`, c.line, `Estilo del subgraph '${c.id}' ignorado (los subgraphs no tienen caja)`);
+    else warnings.push({ line: c.line, message: `class: no existe el nodo '${c.id}'` });
+  }
+  const def = styles.classDefs.get("default");
+  for (const n of nodes.values()) {
+    let css = def ? merge([], def.props, def.line) : [];
+    const defs = [];
+    for (const c of classesOf.get(n.id) || []) {
+      const d = styles.classDefs.get(c.cls);
+      if (d) defs.push(d);
+      else warnOnce(`cls:${c.cls}`, c.line, `La clase '${c.cls}' no tiene classDef: se ignora`);
+    }
+    for (const d of defs.sort((a, b) => a.order - b.order)) css = merge(css, d.props, d.line);
+    if (css.length) n.css = css;
+  }
+  for (const st of styles.style) {
+    const n = nodes.get(st.id);
+    if (n) n.css = merge(n.css || [], st.props, st.line);
+    else if (isSubgraph(st.id)) warnOnce(`sg:${st.id}`, st.line, `Estilo del subgraph '${st.id}' ignorado (los subgraphs no tienen caja)`);
+    else warnings.push({ line: st.line, message: `style: no existe el nodo '${st.id}'` });
+  }
+  for (const ls of styles.linkStyle) {
+    for (const t of ls.targets) {
+      const targets = t === "default" ? edges : /^\d+$/.test(t) && edges[Number(t)] ? [edges[Number(t)]] : null;
+      if (!targets) {
+        warnings.push({ line: ls.line, message: `linkStyle: no existe la flecha número '${t}' (se cuentan desde 0)` });
+        continue;
+      }
+      for (const e of targets) e.css = merge(e.css || [], ls.props, ls.line);
+    }
+  }
 }
 
 // subgraph ID["título"] | subgraph ID[título] | subgraph "título" | subgraph título
@@ -157,14 +256,14 @@ function stripTrailingComment(line) {
 }
 
 // nodo (arista nodo)*   p. ej. "a --> b -->|x| c"
-function parseStatement(line, lineNo, nodes, edges, group) {
+function parseStatement(line, lineNo, nodes, edges, group, styles) {
   let pos = 0;
   const skipSpaces = () => {
     while (pos < line.length && /\s/.test(line[pos])) pos++;
   };
 
   skipSpaces();
-  let prev = parseNodeRef(line, pos, lineNo, nodes, group);
+  let prev = parseNodeRef(line, pos, lineNo, nodes, group, styles);
   pos = prev.end;
 
   for (;;) {
@@ -177,7 +276,7 @@ function parseStatement(line, lineNo, nodes, edges, group) {
     skipSpaces();
     if (pos >= line.length) throw new DiagramError("Falta el nodo destino de la arista", lineNo);
 
-    const next = parseNodeRef(line, pos, lineNo, nodes, group);
+    const next = parseNodeRef(line, pos, lineNo, nodes, group, styles);
     pos = next.end;
     edges.push({
       index: edges.length,
@@ -194,7 +293,7 @@ function parseStatement(line, lineNo, nodes, edges, group) {
 }
 
 // id, opcionalmente seguido de forma y texto: a["texto"], a(("texto")), a{texto}...
-function parseNodeRef(line, pos, lineNo, nodes, group) {
+function parseNodeRef(line, pos, lineNo, nodes, group, styles) {
   const idMatch = line.slice(pos).match(ID_RE);
   if (!idMatch) throw new DiagramError(`Se esperaba un id de nodo en '${line.slice(pos)}'`, lineNo);
   const id = idMatch[0];
@@ -211,9 +310,12 @@ function parseNodeRef(line, pos, lineNo, nodes, group) {
     pos = parsed.end;
   }
 
-  // Clase de Mermaid "a:::clase": se ignora.
-  const cls = line.slice(pos).match(/^:::[\w-]+/);
-  if (cls) pos += cls[0].length;
+  // Clase de Mermaid "a:::clase".
+  const cls = line.slice(pos).match(/^:::([\w-]+)/);
+  if (cls) {
+    pos += cls[0].length;
+    if (styles) styles.classOf.push({ id, cls: cls[1], line: lineNo });
+  }
 
   const existing = nodes.get(id);
   if (!existing) {

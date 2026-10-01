@@ -23,6 +23,29 @@ function escapeXml(s) {
 
 const fmt = (n) => Number(n.toFixed(2));
 
+// css de Mermaid ([[prop, valor], ...]) -> atributo style. El CSS de style gana a los atributos
+// de presentación (fill="..."), así que lo que no se indique queda con los valores del tema.
+const styleAttr = (css) => (css && css.length ? ` style="${escapeXml(css.map(([k, v]) => `${k}:${v}`).join(";"))}"` : "");
+
+// Reparte el css de un nodo: el texto recibe las propiedades de fuente y "color" (que en SVG es
+// el relleno del texto), el grupo la opacidad, y la forma todo lo demás.
+function splitCss(css = []) {
+  const shape = [];
+  const text = [];
+  const group = [];
+  for (const [k, v] of css) {
+    if (k === "color") text.push(["fill", v]);
+    else if (/^(font|letter|word|text)-/.test(k)) text.push([k, v]);
+    else if (k === "opacity") group.push([k, v]);
+    else shape.push([k, v]);
+  }
+  return { shape, text, group };
+}
+const cssValue = (css, key) => {
+  const hit = (css || []).filter(([k]) => k === key).pop();
+  return hit && hit[1];
+};
+
 // Área del SVG: la caja del layout más el margen.
 function frame(layout, theme) {
   const { bounds } = layout;
@@ -41,13 +64,25 @@ function frame(layout, theme) {
 function renderSvg(layout, theme = THEME, { shadow = true } = {}) {
   const { nodes, edges, options: opts } = layout;
   const f = frame(layout, theme);
+  // Una punta de flecha por cada color de línea (el marcador no hereda el color de la línea).
+  const markers = new Map([[theme.edge, "arrow"]]);
+  for (const e of edges) {
+    const c = cssValue(e.css, "stroke");
+    if (c && !markers.has(c)) markers.set(c, `arrow-${markers.size}`);
+  }
 
   const parts = [];
   parts.push(f.open(` font-family="${escapeXml(opts.fontFamily)}" font-size="${opts.fontSize}"`));
   parts.push(
-    `<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" ` +
-      `markerUnits="userSpaceOnUse" orient="auto-start-reverse">` +
-      `<path d="M0,0 L10,5 L0,10 z" fill="${theme.edge}"/></marker>` +
+    `<defs>` +
+      [...markers]
+        .map(
+          ([color, id]) =>
+            `<marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" ` +
+            `markerUnits="userSpaceOnUse" orient="auto-start-reverse">` +
+            `<path d="M0,0 L10,5 L0,10 z" fill="${escapeXml(color)}"/></marker>`
+        )
+        .join("") +
       (theme.shadow && shadow ? shadowFilter(f, theme.shadow) : "") +
       `</defs>`
   );
@@ -59,7 +94,7 @@ function renderSvg(layout, theme = THEME, { shadow = true } = {}) {
 
   // Aristas debajo de los nodos, etiquetas encima de todo.
   parts.push(`<g class="edges">`);
-  for (const e of edges) parts.push(renderEdge(e, theme));
+  for (const e of edges) parts.push(renderEdge(e, theme, markers.get(cssValue(e.css, "stroke") || theme.edge)));
   parts.push(`</g><g class="nodes">`);
   for (const n of nodes) parts.push(renderNode(n, theme, opts));
   parts.push(`</g><g class="labels">`);
@@ -106,8 +141,13 @@ function renderShadows({ nodes, edges }, theme) {
   const parts = [
     `<g class="shadows" transform="translate(${sh.dx} ${sh.dy})" opacity="${sh.opacity}" filter="url(#shadow)">`,
   ];
-  for (const e of edges) parts.push(renderEdge({ ...e, arrowStart: false, arrowEnd: false }, edgeTheme));
-  for (const n of nodes) parts.push(nodeShape(n, style, sh.color, theme.nodeStrokeWidth));
+  // La sombra solo copia la geometría: del css de la línea, solo el grosor.
+  for (const e of edges) {
+    const css = (e.css || []).filter(([k]) => k === "stroke-width");
+    parts.push(renderEdge({ ...e, css, arrowStart: false, arrowEnd: false }, edgeTheme));
+  }
+  const arc = `fill="none" stroke="${sh.color}" stroke-width="${theme.nodeStrokeWidth}"`;
+  for (const n of nodes) parts.push(nodeShape(n, style, arc));
   for (const e of edges) {
     if (!e.labelBox) continue;
     const b = e.labelBox;
@@ -117,28 +157,36 @@ function renderShadows({ nodes, edges }, theme) {
   return parts.join("");
 }
 
-function renderEdge(e, theme) {
+function renderEdge(e, theme, marker = "arrow") {
   const [p, q] = e.points;
   const width = e.style === "thick" ? theme.edgeWidth * 2 : theme.edgeWidth;
   const dash = e.style === "dotted" ? ` stroke-dasharray="4 4"` : "";
-  const start = e.arrowStart ? ` marker-start="url(#arrow)"` : "";
-  const end = e.arrowEnd ? ` marker-end="url(#arrow)"` : "";
+  const start = e.arrowStart ? ` marker-start="url(#${marker})"` : "";
+  const end = e.arrowEnd ? ` marker-end="url(#${marker})"` : "";
+  // "color" de linkStyle es el color de la etiqueta, no de la línea.
+  const css = (e.css || []).filter(([k]) => k !== "color" && !/^(font|letter|word|text)-/.test(k));
   return (
     `<line data-from="${escapeXml(e.from)}" data-to="${escapeXml(e.to)}" x1="${fmt(p.x)}" y1="${fmt(p.y)}" ` +
-    `x2="${fmt(q.x)}" y2="${fmt(q.y)}" stroke="${theme.edge}" stroke-width="${width}"${dash}${start}${end}/>`
+    `x2="${fmt(q.x)}" y2="${fmt(q.y)}" stroke="${theme.edge}" stroke-width="${width}"${dash}${start}${end}${styleAttr(css)}/>`
   );
 }
 
 function renderNode(n, theme, opts) {
-  const dash = n.ref && !n.absorbed ? ` stroke-dasharray="${theme.refDash}"` : "";
-  const style = `fill="${theme.nodeFill}" stroke="${theme.nodeStroke}" stroke-width="${theme.nodeStrokeWidth}"${dash}`;
-  const shape = nodeShape(n, style, theme.nodeStroke, theme.nodeStrokeWidth);
+  const css = splitCss(n.css);
+  // Las referencias siempre llevan borde discontinuo, aunque su clase diga otra cosa.
+  if (n.ref && !n.absorbed) css.shape.push(["stroke-dasharray", theme.refDash]);
+  const base = `stroke="${theme.nodeStroke}" stroke-width="${theme.nodeStrokeWidth}"`;
+  const style = `fill="${theme.nodeFill}" ${base}${styleAttr(css.shape)}`;
+  const arc = `fill="none" ${base}${styleAttr([...css.shape, ["fill", "none"]])}`;
+  const shape = nodeShape(n, style, arc);
   // En el cilindro el texto se centra en el cuerpo, bajo la tapa.
   const textY = n.shape === "cylinder" ? n.y + n.w * 0.06 : n.y;
-  return `<g class="node" data-id="${escapeXml(n.id)}">${shape}${renderText(n.lines, n.x, textY, theme.text, opts)}</g>`;
+  const text = renderText(n.lines, n.x, textY, theme.text, n.lineHeight || opts.lineHeight, css.text);
+  return `<g class="node" data-id="${escapeXml(n.id)}"${styleAttr(css.group)}>${shape}${text}</g>`;
 }
 
-function nodeShape(n, style, stroke, strokeWidth) {
+// arcStyle: atributos de la tapa del cilindro (una línea sin relleno).
+function nodeShape(n, style, arcStyle) {
   const hw = n.w / 2;
   const hh = n.h / 2;
   let shape;
@@ -175,8 +223,7 @@ function nodeShape(n, style, stroke, strokeWidth) {
       shape =
         `<path d="M${fmt(l)},${fmt(top)} L${fmt(l)},${fmt(bottom)} A${fmt(hw)},${fmt(ry)} 0 0 0 ${fmt(r)},${fmt(bottom)} ` +
         `L${fmt(r)},${fmt(top)} A${fmt(hw)},${fmt(ry)} 0 0 0 ${fmt(l)},${fmt(top)} Z" ${style}/>` +
-        `<path d="M${fmt(l)},${fmt(top)} A${fmt(hw)},${fmt(ry)} 0 0 0 ${fmt(r)},${fmt(top)}" fill="none" ` +
-        `stroke="${stroke}" stroke-width="${strokeWidth}"/>`;
+        `<path d="M${fmt(l)},${fmt(top)} A${fmt(hw)},${fmt(ry)} 0 0 0 ${fmt(r)},${fmt(top)}" ${arcStyle}/>`;
       break;
     }
     default: {
@@ -187,12 +234,12 @@ function nodeShape(n, style, stroke, strokeWidth) {
   return shape;
 }
 
-function renderText(lines, x, y, color, opts) {
-  const firstY = y - ((lines.length - 1) * opts.lineHeight) / 2;
+function renderText(lines, x, y, color, lineHeight, css) {
+  const firstY = y - ((lines.length - 1) * lineHeight) / 2;
   const spans = lines
-    .map((l, i) => `<tspan x="${fmt(x)}" y="${fmt(firstY + i * opts.lineHeight)}">${escapeXml(l)}</tspan>`)
+    .map((l, i) => `<tspan x="${fmt(x)}" y="${fmt(firstY + i * lineHeight)}">${escapeXml(l)}</tspan>`)
     .join("");
-  return `<text text-anchor="middle" dominant-baseline="central" fill="${color}">${spans}</text>`;
+  return `<text text-anchor="middle" dominant-baseline="central" fill="${color}"${styleAttr(css)}>${spans}</text>`;
 }
 
 function renderLabel(e, theme) {
@@ -200,7 +247,8 @@ function renderLabel(e, theme) {
   return (
     `<g class="label"><rect x="${fmt(b.x - b.w / 2)}" y="${fmt(b.y - b.h / 2)}" width="${fmt(b.w)}" height="${fmt(b.h)}" ` +
     `rx="3" fill="${theme.labelBackground}"/>` +
-    `<text x="${fmt(b.x)}" y="${fmt(b.y)}" text-anchor="middle" dominant-baseline="central" fill="${theme.labelText}">` +
+    `<text x="${fmt(b.x)}" y="${fmt(b.y)}" text-anchor="middle" dominant-baseline="central" fill="${theme.labelText}"` +
+    `${styleAttr(splitCss(e.css).text)}>` +
     `${escapeXml(e.label)}</text></g>`
   );
 }

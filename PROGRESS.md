@@ -69,7 +69,9 @@ Notas:
 - `examples/v3_*.mmd`: diagramas reales de un proyecto del usuario (de `~/prueba.md`) que todavía
   se podían dibujar. Rama `subgraphs`: subgraphs (un diagrama aparte por cada uno, con nodos de
   referencia; ver SPEC.md) y paralelogramos. Con eso `v3_soffice` y `v3_uno` ya se dibujan.
-  Faltan: hexágono `{{}}` (bloquea `v3_app` y `v3_leyenda`), más de 3 salidas, colores y `flowchart LR`.
+  Ya están fusionados en `main`, junto con los estilos (classDef, :::, class, style, linkStyle).
+  Faltan: hexágono `{{}}` (bloquea `v3_app` y `v3_leyenda`), más de 3 salidas, estilos de
+  subgraph y `flowchart LR`.
 - El CLI abre la página con un mini servidor en 127.0.0.1 que sirve una sola vez y termina, porque el
   navegador del usuario (Edge por flatpak) no tiene acceso a carpetas fuera de Descargas/Documentos.
   El HTML también se guarda en disco (junto al .mmd, o con `-o`).

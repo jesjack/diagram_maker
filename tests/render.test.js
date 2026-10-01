@@ -61,7 +61,7 @@ test("subgraphs: títulos, paralelogramos y referencias con borde discontinuo", 
     { shadow: false }
   );
   assert.match(svg, /<g class="titles">\s*<text[^>]*>Sis &amp; co<\/text>/);
-  assert.strictEqual((svg.match(/stroke-dasharray="5 3"/g) || []).length, 2); // ref(A) arriba, ref(IN) en S
+  assert.strictEqual((svg.match(/stroke-dasharray:5 3/g) || []).length, 2); // ref(A) arriba, ref(IN) en S
   assert.strictEqual((svg.match(/<polygon /g) || []).length, 4); // p, q y las dos referencias
 });
 
@@ -73,4 +73,36 @@ test("nodo absorbido: se dibuja con su forma y borde normales dentro del subgrap
   );
   assert.ok(!svg.includes("stroke-dasharray"));
   assert.strictEqual((svg.match(/<polygon /g) || []).length, 1); // solo p, con su paralelogramo
+});
+
+test("estilos: forma, texto (color -> fill), opacidad, flechas de color y referencias", () => {
+  const svg = renderSvg(
+    layoutDiagram(
+      parseDiagram(
+        [
+          "classDef app fill:#dcfce7,stroke:#15803d,color:#0b3d1c,stroke-width:2px,font-weight:bold,opacity:0.8",
+          'a["A"]:::app --> b[("B")]:::app',
+          "x --> a",
+          "subgraph S",
+          '  s["S"]',
+          "end",
+          "a --> s",
+          "linkStyle 0 stroke:#f00,color:#00f",
+        ].join("\n")
+      )
+    ),
+    undefined,
+    { shadow: false }
+  );
+  const node = svg.match(/<g class="node" data-id="a"[^]*?<\/g>/)[0];
+  assert.match(node, /<g class="node" data-id="a" style="opacity:0.8">/);
+  assert.match(node, /<rect [^>]*style="fill:#dcfce7;stroke:#15803d;stroke-width:2px"/);
+  assert.match(node, /<text [^>]*style="fill:#0b3d1c;font-weight:bold"/);
+  // Tapa del cilindro: sin relleno aunque la clase tenga fill.
+  assert.match(svg, /<path [^>]*fill="none"[^>]*style="[^"]*fill:none"/);
+  // Flecha 0 en rojo con su propia punta; su etiqueta no tiene texto, pero "color" no va a la línea.
+  assert.match(svg, /<marker id="arrow-1"[^>]*><path [^>]*fill="#f00"/);
+  assert.match(svg, /<line data-from="a" data-to="b"[^>]*marker-end="url\(#arrow-1\)" style="stroke:#f00"\/>/);
+  // La referencia a A dentro de S lleva el estilo de A y además el borde discontinuo.
+  assert.match(svg, /<polygon [^>]*style="fill:#dcfce7;stroke:#15803d;stroke-width:2px;stroke-dasharray:5 3"/);
 });
