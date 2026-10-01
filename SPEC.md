@@ -230,6 +230,10 @@ Sintaxis de Mermaid: `classDef nombre props`, `id:::nombre`, `class id1,id2 nomb
     de empalme; si el origen no tiene sitio, se usa la cascada de la regla 10. En el paso a
     paso, una flecha provisional que luego se reconduce no se dibuja mientras esté en diagonal o
     sobre un nodo.
+14. **Reutilizar al lado:** si un nodo necesita una referencia, una copia o un conector de X y ya
+    tiene **pegado** (o reservado a su lado) un representante de X —una referencia, una copia o el
+    propio X; para un empalme, cualquier pastilla de su dueño—, la flecha va a ese en vez de crear
+    otro.
 
 ### Rejilla
 

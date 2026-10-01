@@ -864,6 +864,29 @@ function placeInGrid(nodes, edges, warnings, ctx) {
   const roots = [...real.filter((n) => !hasIncoming.has(n.id)), ...real, ...all.filter((n) => n.ref)];
 
   // Coloca los hijos directos (y referencias pegadas) de parent; devuelve los nodos nuevos a recorrer.
+  // Qué nodo representa un nodo (una referencia, una copia o el original tienen la misma identidad;
+  // un empalme o su copia, la de su dueño). Si el padre ya tiene pegado un representante del nodo
+  // que necesita, la flecha va a ese en vez de crear otra referencia, copia o conector.
+  const identity = (n) => (n.shape === "junction" ? `\u25cf${n.junctionOf}` : n.realId || n.id);
+  // También vale una celda reservada para un representante que aún no se ha colocado (con el
+  // recorrido en profundidad, el hermano que lo colocará puede no haberlo hecho todavía).
+  const twinNextTo = (parent, target) => {
+    for (const d of ["down", "right", "left", "up"]) {
+      const key = cellAt(parent, d);
+      const m = occupied.get(key) || (pending.has(key) && nodes.get(pending.get(key)));
+      if (m && m !== target && m !== parent && identity(m) === identity(target)) return { node: m, side: d };
+    }
+    return null;
+  };
+  const reuseTwin = (e, parent, twin, why) => {
+    const old = nodes.get(e.to);
+    for (const [k, id] of pending) if (id === old.id || id === `copy:${e.index}`) pending.delete(k);
+    if (old.col === undefined && edges.every((x) => x === e || (x.from !== old.id && x.to !== old.id))) nodes.delete(old.id);
+    e.to = twin.node.id;
+    e.dir = twin.side;
+    twin.node.why += ` · también recibe la flecha de ${who(parent)} (${why})`;
+  };
+
   const expand = (parent, each) => {
     const placed = [];
     for (const e of edges) {
@@ -890,11 +913,24 @@ function placeInGrid(nodes, edges, warnings, ctx) {
       let child = nodes.get(e.to);
       // Un empalme solo lo coloca su dueño, por su extensión: una rama que llega a él espera.
       if (child.shape === "junction" && child.col === undefined && !e.bus) continue;
+      // Referencia aún sin colocar: si el padre ya tiene pegado un representante del mismo nodo, se usa.
+      if (child.col === undefined && child.ref && !e.bus) {
+        const twin = twinNextTo(parent, child);
+        if (twin) {
+          reuseTwin(e, parent, twin, "ya tenía una referencia igual al lado");
+          continue;
+        }
+      }
       if (child.col !== undefined) {
         if (e.bus) continue; // la extensión a un empalme propio nunca se copia
         // Hijo ya colocado lejos y sin hijos: se le pone una copia aquí, en su turno (regla 12).
         const leaf = farLeaf(parent, child);
         if (!leaf) continue; // TODO (SPEC): bucles / varios padres
+        const twin = twinNextTo(parent, leaf);
+        if (twin) {
+          reuseTwin(e, parent, twin, "en vez de otra copia");
+          continue;
+        }
         child = copyOfLeaf(leaf, e);
       }
       const extra = placeNextTo(parent, child, e);
@@ -1172,6 +1208,11 @@ function placeInGrid(nodes, edges, warnings, ctx) {
       const u = nodes.get(x.from);
       const target = nodes.get(x.to);
       if (!u || !target || u.col === undefined || target.col === undefined || !badLine(x)) continue;
+      const twin = twinNextTo(u, target);
+      if (twin) {
+        reuseTwin(x, u, twin, "en vez de un conector");
+        continue;
+      }
       const owner = target.junctionOf || target.realId || target.id;
       const dot = {
         id: `${target.id}\u2192${++connectors}`,
@@ -1241,7 +1282,7 @@ function placeInGrid(nodes, edges, warnings, ctx) {
   const alive = new Set(nodes.keys());
   const keep = history.filter((h, k) => {
     const placedAt = h.pos.find(([n]) => n.step === k);
-    return !placedAt || alive.has(placedAt[0].id);
+    return placedAt && alive.has(placedAt[0].id);
   });
   for (const h of keep) {
     h.pos = h.pos.filter(([n]) => alive.has(n.id));

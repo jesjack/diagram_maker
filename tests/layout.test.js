@@ -529,3 +529,17 @@ test("varios padres: la flecha que quedaría en diagonal o sobre un nodo termina
     for (const x of s.edges) assert.ok(m[x.from].col === m[x.to].col || m[x.from].row === m[x.to].row, `paso ${k + 1}`);
   }
 });
+
+test("si el padre ya tiene al lado un representante del mismo nodo, la flecha lo reutiliza (proyecto.mmd: vigilar -> parser)", () => {
+  const src = fs.readFileSync(path.join(__dirname, "../examples/proyecto.mmd"), "utf8");
+  const L = layoutDiagram(parseDiagram(src));
+  const refs = L.nodes.filter((n) => n.ref && (n.realId || n.id) === "parser");
+  assert.strictEqual(refs.length, 1, "una sola referencia a parser en el diagrama de diagram.py");
+  const ref = refs[0];
+  for (const from of ["servir", "vigilar"]) {
+    const e = L.edges.find((x) => x.from === from && x.to === ref.id);
+    assert.ok(e, `${from} apunta a la misma referencia`);
+    const a = L.nodes.find((n) => n.id === from);
+    assert.strictEqual(Math.abs(a.col - ref.col) + Math.abs(a.row - ref.row), 1);
+  }
+});

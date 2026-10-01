@@ -26,7 +26,7 @@ const INICIAL = {
 };
 const CONOCIDOS = new Map(
   (
-    "4:F 83:F 104:CFX 107:F 111:F 116:F 195:F 260:F 266:CX 276:CX 303:F 315:F 349:F 383:CX"
+    "4:F 83:F 104:CFX 107:F 111:F 116:F 182:F 195:F 260:F 266:CX 276:CX 303:F 315:F 349:F 383:CX"
   )
     .split(" ")
     .map((x) => x.split(":"))
