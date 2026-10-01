@@ -586,23 +586,32 @@ function placeInGrid(nodes, edges, warnings, ctx) {
       place(root, nextComponentCol, 0, step ? `inicio de un grupo nuevo, aparte${later}` : "nodo inicial");
     }
 
-    // Recorrido en anchura siguiendo las salidas en orden de declaración.
-    const queue = [root];
-    while (queue.length) {
-      const parent = queue.shift();
+    // Coloca los hijos directos (y referencias pegadas) de parent; devuelve los nodos nuevos a recorrer.
+    const expand = (parent, each) => {
+      const placed = [];
       for (const e of edges) {
         if (e.attached && e.to === parent.id) {
           const ref = nodes.get(e.from);
-          if (ref.col === undefined) queue.push(...placeNextTo(parent, ref, e));
+          if (ref.col === undefined) {
+            const extra = placeNextTo(parent, ref, e);
+            placed.push(...extra);
+            if (each) extra.forEach(each);
+          }
           continue;
         }
         if (e.from !== parent.id || e.attached) continue;
         const child = nodes.get(e.to);
         if (child.col !== undefined) continue; // TODO (SPEC): bucles / varios padres
         const extra = placeNextTo(parent, child, e);
-        queue.push(child, ...extra);
+        placed.push(child, ...extra);
+        if (each) [child, ...extra].forEach(each);
       }
-    }
+      return placed;
+    };
+    // Recorrido en profundidad, en orden de declaración: cada nodo termina toda su rama antes de
+    // pasar a su siguiente hermano (los hermanos ya tienen su lado reservado).
+    const visit = (u) => expand(u, visit);
+    visit(root);
 
     // El siguiente componente desconectado va a la derecha de todo lo colocado.
     const maxCol = Math.max(...[...nodes.values()].filter((n) => n.col !== undefined).map((n) => n.col));
@@ -639,9 +648,8 @@ function placeInGrid(nodes, edges, warnings, ctx) {
     let collisions = taken.has(`${col},${row}`) ? 1 : 0;
     taken.add(`${col},${row}`);
     const free = (p, d) => !taken.has(`${p.col + DIR_VECTORS[d].dc},${p.row + DIR_VECTORS[d].dr}`);
-    const queue = [start];
-    while (queue.length) {
-      const u = queue.shift();
+    // En profundidad, como el recorrido normal (visit en placeRoot).
+    const visit = (u) => {
       const pu = pos.get(u.id);
       const conns = edges
         .filter((e) => (e.from === u.id || e.to === u.id) && e.from !== e.to)
@@ -656,9 +664,10 @@ function placeInGrid(nodes, edges, warnings, ctx) {
         taken.add(`${p.col},${p.row}`);
         pos.set(w.id, p);
         sides.push([e, u, d]);
-        if (!w.ref) queue.push(w);
+        if (!w.ref) visit(w);
       }
-    }
+    };
+    visit(start);
     return { pos, sides, collisions };
   };
   const placeGroupByLink = (root) => {

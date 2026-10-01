@@ -176,6 +176,10 @@ Sintaxis de Mermaid: `classDef nombre props`, `id:::nombre`, `class id1,id2 nomb
 
 ### Rejilla
 
+Los nodos se colocan **en profundidad**, en orden de declaración: cada nodo termina toda su rama
+antes de pasar a su siguiente hermano (que ya tiene su lado reservado). Es también el orden del
+modo paso a paso del visor.
+
 Cada nodo ocupa una celda (columna, fila); un hijo va a la celda vecina de su padre según la dirección.
 El ancho de cada columna y el alto de cada fila se ajustan al nodo más grande que contienen, así que
 los nodos quedan alineados. El hueco entre celdas crece si la etiqueta de una arista no cabe.

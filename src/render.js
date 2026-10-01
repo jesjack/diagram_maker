@@ -162,15 +162,17 @@ function renderShadows({ nodes, edges }, theme) {
 }
 
 // Pastillas encima de todo, centradas en la esquina superior izquierda de la caja de cada nodo.
-// Referencias y nodos absorbidos muestran el id del nodo real; los empalmes no llevan.
+// Referencias y nodos absorbidos muestran el id del nodo real; los empalmes, el de su dueño.
 function renderIdPills(nodes, theme) {
   const p = theme.idPill;
   const parts = [`<g class="ids" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="${p.fontSize}">`];
   for (const n of nodes) {
-    if (n.shape === "junction") continue;
-    const id = n.realId || n.id;
+    // Un empalme muestra el id de su nodo dueño con un punto delante, arriba a su izquierda para
+    // no tapar el punto.
+    const junction = n.shape === "junction";
+    const id = junction ? `\u25cf ${n.junctionOf}` : n.realId || n.id;
     const w = id.length * p.fontSize * 0.62 + 8; // monoespaciada: ancho fijo por carácter
-    const x = n.x - n.w / 2;
+    const x = junction ? n.x - n.w / 2 - w + 2 : n.x - n.w / 2;
     const y = n.y - n.h / 2;
     parts.push(
       `<g class="id-pill" data-id="${escapeXml(n.id)}"><rect x="${fmt(x - 4)}" y="${fmt(y - p.height / 2)}" width="${fmt(w)}" height="${p.height}" ` +
