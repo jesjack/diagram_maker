@@ -19,6 +19,17 @@ diagrama.mmd ──► CLI (Python) ──► genera HTML autocontenido ──�
 
 - **CLI en Python, sin dependencias**: recibe un archivo (`python diagram.py archivo.mmd`) o texto introducido en el propio programa, inyecta el código en la plantilla HTML y abre el navegador.
 - **Motor en JavaScript**, embebido en el HTML generado (funciona sin servidor).
+- **Apertura**: el HTML se guarda junto al `.mmd` (o en `-o`) y se abre sirviéndolo **una sola vez**
+  desde un mini servidor en 127.0.0.1 (los navegadores en sandbox, como Edge en flatpak, no leen
+  cualquier carpeta); en Termux se abre con `termux-open-url`. `--no-open` solo genera el HTML.
+- **Recarga en vivo** (`python3 diagram.py archivo.mmd --watch`): el servidor sigue abierto hasta
+  Ctrl+C y vigila el `.mmd` (sondeo del mtime cada 0,5 s). La página servida pregunta cada segundo
+  `GET /source?v=N`: `204` si sigue en la versión `N`, o `{"version", "source"}` si el archivo
+  cambió, y vuelve a hacer parse → layout → render sin recargar la pestaña (sondeo corto en lugar
+  de SSE: es lo más robusto en móvil cuando el navegador congela la pestaña o se corta la conexión;
+  con la pestaña oculta no pregunta). `GET /` da la página con el código actual. El HTML guardado
+  se regenera en cada cambio, sin recarga en vivo. Requiere archivo de entrada (con stdin, error);
+  con `--no-open` sirve igual sin abrir el navegador.
 
 ## Visor web
 
@@ -41,6 +52,12 @@ diagrama.mmd ──► CLI (Python) ──► genera HTML autocontenido ──�
   paso actual se resalta y, si queda fuera de la pantalla, la vista se centra en él. Cada paso se
   dibuja **tal como estaba el diagrama al terminarlo**: una inserción de fila o columna, un hermano
   movido o una línea alargada aparecen en el paso que los provocó, no antes.
+- **Recarga en vivo** (con `--watch`): un indicador «● en vivo» / «○ sin conexión» en la barra.
+  Al llegar código nuevo se **conserva la vista** (zoom y desplazamiento, sin re-ajustar; el primer
+  nodo colocado se queda en el mismo punto de la pantalla aunque el diagrama crezca por arriba o
+  por la izquierda) y, si se estaba en el paso a paso, se vuelve al diagrama completo (con otro
+  código cambian el orden y el número de pasos). Un error muestra el panel de error y se sigue
+  vigilando: al corregirlo desaparece y vuelve el diagrama. Los avisos se actualizan.
 
 ## Sintaxis soportada
 

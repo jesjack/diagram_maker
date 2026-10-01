@@ -109,6 +109,10 @@
   .toolbar button:hover { background: rgba(0, 0, 0, .06); }
   .toolbar, #warnings { touch-action: manipulation; }
   .toolbar .sep { width: 1px; height: 20px; background: var(--border); margin: 0 2px; }
+  /* Recarga en vivo (diagram.py --watch) */
+  #live { padding: 0 6px; color: #1a7f37; font-size: 12px; white-space: nowrap; }
+  #live.off { color: var(--muted); }
+  #live[hidden] { display: none; }
   #status { min-width: 48px; text-align: center; color: var(--muted); font-variant-numeric: tabular-nums; }
 
   #warnings {
@@ -198,6 +202,7 @@
 </div>
 
 <div class="toolbar">
+  <span id="live" hidden></span>
   <span id="status" title="Zoom: rueda, pellizco o + / - · doble toque o 0 para ajustar">100%</span>
   <span class="sep"></span>
   <button id="btn-mermaid" title="Abrir este diagrama con Mermaid oficial en otra pestaña, para comparar">Mermaid</button>
@@ -229,6 +234,7 @@ __DIAGRAM_SCRIPTS__
   DiagramViewer.start({
     source: JSON.parse(document.getElementById("diagram-source").textContent),
     title: __DIAGRAM_TITLE__,
+    live: __DIAGRAM_LIVE__,
   });
 </script>
 </body>
