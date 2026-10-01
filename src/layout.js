@@ -47,6 +47,7 @@ const DEFAULT_DIRS = {
 };
 
 const MAX_OUTGOING = 3;
+const MAX_CONNECTIONS = 4; // un nodo solo tiene 4 lados: padres + hijos (incluidas referencias)
 const OPPOSITE = { down: "up", up: "down", left: "right", right: "left" };
 
 function layoutDiagram(graph, options = {}) {
@@ -188,12 +189,33 @@ function layoutSingle(graph, measure, opts, warnings) {
   for (const n of graph.nodes.values()) nodes.set(n.id, { ...n, ...sizeNode(n, measure, opts) });
 
   const edges = graph.edges.map((e) => ({ ...e }));
+  checkConnections(nodes, edges);
   const ctx = assignDirections(nodes, edges, graph.meta.dirs);
   placeInGrid(nodes, edges, warnings, ctx);
   const bounds = computeCoordinates(nodes, edges, measure, opts);
   for (const e of edges) routeEdge(e, nodes.get(e.from), nodes.get(e.to), measure, opts);
 
   return { nodes: [...nodes.values()], edges, bounds };
+}
+
+// Error fatal si un nodo tiene más conexiones de las que caben en sus lados. Se cuenta lo que se
+// dibuja en este diagrama: una referencia es una conexión más.
+function checkConnections(nodes, edges) {
+  const seen = new Map();
+  for (const e of [...edges].sort((a, b) => a.index - b.index)) {
+    for (const id of new Set([e.from, e.to])) {
+      const count = (seen.get(id) || 0) + 1;
+      seen.set(id, count);
+      if (count === MAX_CONNECTIONS + 1) {
+        // (Una referencia tiene una sola arista: nunca llega aquí.)
+        const total = edges.filter((x) => x.from === id || x.to === id).length;
+        throw new layoutDeps.DiagramError(
+          `El nodo '${nodes.get(id).realId || id}' tiene ${total} conexiones (padres + hijos); el máximo es ${MAX_CONNECTIONS}`,
+          e.line
+        );
+      }
+    }
+  }
 }
 
 // ---------------------------------------------------------------- tamaño de nodos

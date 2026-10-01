@@ -303,3 +303,12 @@ test("estilos: font-size y font-weight cambian el tamaño medido del nodo", () =
   assert.ok(b.h > a.h);
   assert.strictEqual(b.lineHeight, 36); // 18 * 28/14
 });
+
+test("más de 4 conexiones (padres + hijos) es error fatal, en la línea de la 5ª", () => {
+  assert.throws(
+    () => layout(["a --> x", "b --> x", "c --> x", "x --> d", "e --> x"].join("\n")),
+    (err) => err.line === 5 && /'x' tiene 5 conexiones \(padres \+ hijos\); el máximo es 4/.test(err.message)
+  );
+  // 1 padre + 3 salidas = 4: vale.
+  assert.doesNotThrow(() => layout(["p --> x", "x --> a", "x --> b", "x --> c"].join("\n")));
+});

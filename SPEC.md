@@ -131,7 +131,9 @@ Sintaxis de Mermaid: `classDef nombre props`, `id:::nombre`, `class id1,id2 nomb
 2. **Rombo (IF)**: la 1ª salida declarada va a la **derecha**, la 2ª a la **izquierda**.
 3. **Cualquier otro nodo**: salidas por orden de declaración:
    1ª → **abajo**, 2ª → **derecha**, 3ª → **izquierda**.
-4. Un nodo con **más de 3 salidas** produce un **error fatal**.
+4. Un nodo con **más de 3 salidas** produce un **error fatal**. También uno con **más de 4
+   conexiones** en total (padres + hijos, contando las referencias de su diagrama), porque solo
+   tiene 4 lados; el error señala la línea de la 5ª conexión.
 5. `a <--> b` cuenta como salida del nodo que la declara (`a`).
 6. El orden de declaración de las aristas es en sí mismo una forma de control del layout.
 7. **Nodo inicial**: el primer nodo declarado sin aristas entrantes.
