@@ -156,3 +156,7 @@ node --test tests/*.test.js
 
 - [`SPEC.md`](SPEC.md): especificación y reglas del layout.
 - [`PROGRESS.md`](PROGRESS.md): estado del trabajo y cómo retomarlo.
+
+## Licencia
+
+[MIT](LICENSE) © Edgar Jesús Moreno Castañeda

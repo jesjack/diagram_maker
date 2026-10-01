@@ -2,6 +2,7 @@
   "name": "@jesjack/diagram-maker",
   "version": "0.1.0",
   "description": "Diagramas de flujo a partir de sintaxis Mermaid con un motor de layout propio: rejilla, líneas rectas y sin cruces. Visor web, recarga en vivo y exportación a SVG/PNG.",
+  "license": "MIT",
   "bin": {
     "dmk": "bin/dmk.js"
   },
