@@ -33,7 +33,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/jesjack/diagram_maker.git"
+    "url": "git+https://github.com/jesjack/diagram_maker.git"
   },
   "author": "Edgar Jesús Moreno Castañeda",
   "homepage": "https://github.com/jesjack/diagram_maker#readme",
