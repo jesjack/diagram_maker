@@ -12,6 +12,8 @@ const THEME = {
   labelBackground: "#ffffff",
   title: "#656d76", // título de cada subgraph, encima de su diagrama
   refDash: "5 3", // borde de los nodos de referencia a otro diagrama
+  // Pastilla con el id de cada nodo, en su esquina superior izquierda (renderSvg con { ids: true }).
+  idPill: { fill: "#57606a", text: "#ffffff", fontSize: 10, height: 14 },
   padding: 40,
   // Sombra difuminada bajo todas las formas. null = sin sombra.
   shadow: { dx: 0, dy: 1, blur: 1.5, color: "#000000", opacity: 0.18 },
@@ -61,7 +63,8 @@ function frame(layout, theme) {
 }
 
 // Con { shadow: false } se omite la sombra: el visor la dibuja aparte (ver renderShadowSvg).
-function renderSvg(layout, theme = THEME, { shadow = true } = {}) {
+// Con { ids: true } cada nodo lleva una pastilla con su id.
+function renderSvg(layout, theme = THEME, { shadow = true, ids = false } = {}) {
   const { nodes, edges, options: opts } = layout;
   const f = frame(layout, theme);
   // Una punta de flecha por cada color de línea (el marcador no hereda el color de la línea).
@@ -110,6 +113,7 @@ function renderSvg(layout, theme = THEME, { shadow = true } = {}) {
     }
     parts.push(`</g>`);
   }
+  if (ids) parts.push(renderIdPills(nodes, theme));
   parts.push(`</svg>`);
   return parts.join("\n");
 }
@@ -152,6 +156,28 @@ function renderShadows({ nodes, edges }, theme) {
     if (!e.labelBox) continue;
     const b = e.labelBox;
     parts.push(`<rect x="${fmt(b.x - b.w / 2)}" y="${fmt(b.y - b.h / 2)}" width="${fmt(b.w)}" height="${fmt(b.h)}" rx="3" ${style}/>`);
+  }
+  parts.push(`</g>`);
+  return parts.join("");
+}
+
+// Pastillas encima de todo, centradas en la esquina superior izquierda de la caja de cada nodo.
+// Referencias y nodos absorbidos muestran el id del nodo real; los empalmes no llevan.
+function renderIdPills(nodes, theme) {
+  const p = theme.idPill;
+  const parts = [`<g class="ids" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="${p.fontSize}">`];
+  for (const n of nodes) {
+    if (n.shape === "junction") continue;
+    const id = n.realId || n.id;
+    const w = id.length * p.fontSize * 0.62 + 8; // monoespaciada: ancho fijo por carácter
+    const x = n.x - n.w / 2;
+    const y = n.y - n.h / 2;
+    parts.push(
+      `<g class="id-pill"><rect x="${fmt(x - 4)}" y="${fmt(y - p.height / 2)}" width="${fmt(w)}" height="${p.height}" ` +
+        `rx="${p.height / 2}" fill="${p.fill}"/>` +
+        `<text x="${fmt(x - 4 + w / 2)}" y="${fmt(y)}" text-anchor="middle" dominant-baseline="central" fill="${p.text}">` +
+        `${escapeXml(id)}</text></g>`
+    );
   }
   parts.push(`</g>`);
   return parts.join("");

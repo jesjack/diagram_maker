@@ -10,17 +10,15 @@ const DiagramViewer = (() => {
     const status = document.getElementById("status");
     document.title = title;
 
-    let svgText;
     let result;
     try {
       const graph = parseDiagram(source);
       result = layoutDiagram(graph, { measure: makeMeasure() });
-      svgText = renderSvg(result); // con sombra difuminada: es lo que se exporta
     } catch (err) {
       showError(err, source);
       return;
     }
-    canvas.innerHTML = renderSvg(result, THEME, { shadow: false });
+    canvas.innerHTML = renderSvg(result, THEME, { shadow: false, ids: true });
     const svg = canvas.querySelector("svg");
     const size = { w: parseFloat(svg.getAttribute("width")), h: parseFloat(svg.getAttribute("height")) };
     if (THEME.shadow) paintShadow(renderShadowSvg(result), size, canvas);
@@ -153,9 +151,23 @@ const DiagramViewer = (() => {
     document.getElementById("btn-fit").onclick = fit;
     document.getElementById("btn-zoom-in").onclick = () => zoomAt(1.2, ...center());
     document.getElementById("btn-zoom-out").onclick = () => zoomAt(1 / 1.2, ...center());
+    // Pastillas con el id de cada nodo: se muestran u ocultan con el botón ID (o la tecla i).
+    // Lo exportado sale como se está viendo, con la sombra difuminada real dentro del SVG.
+    let showIds = true;
+    const btnIds = document.getElementById("btn-ids");
+    const toggleIds = () => {
+      showIds = !showIds;
+      canvas.classList.toggle("no-ids", !showIds);
+      btnIds.setAttribute("aria-pressed", String(showIds));
+    };
+    btnIds.onclick = toggleIds;
+    window.addEventListener("keydown", (ev) => {
+      if (ev.key === "i") toggleIds();
+    });
+    const exportSvg = () => renderSvg(result, THEME, { ids: showIds });
     document.getElementById("btn-svg").onclick = () =>
-      download(new Blob([svgText], { type: "image/svg+xml" }), `${title}.svg`);
-    document.getElementById("btn-png").onclick = () => exportPng(svgText, size, title);
+      download(new Blob([exportSvg()], { type: "image/svg+xml" }), `${title}.svg`);
+    document.getElementById("btn-png").onclick = () => exportPng(exportSvg(), size, title);
 
     // En móvil "resize" salta cada vez que aparece o se oculta la barra del navegador:
     // se conserva el punto que estaba en el centro en lugar de volver a ajustar.

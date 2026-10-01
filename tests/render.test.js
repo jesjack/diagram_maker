@@ -122,3 +122,14 @@ test("empalme: punto del color de las líneas y extensión sin flecha", () => {
   assert.match(svg, /<line data-from="x" data-to="x●"[^>]*stroke-width="1.5"\/>/); // sin marker
   assert.match(svg, /<line data-from="x●" data-to="d"[^>]*marker-end="url\(#arrow\)"/);
 });
+
+test("pastillas de id: solo con { ids: true }, id real en referencias, sin pastilla en empalmes", () => {
+  const src = 'e["E"]\nsubgraph S\n  a["A"]\nend\ne --> a\ne --> x\np --> q\nq --> r1\nq --> r2\nq --> r3\nq --> r4';
+  const layout = layoutDiagram(parseDiagram(src));
+  assert.ok(!renderSvg(layout).includes('class="ids"'));
+  const svg = renderSvg(layout, undefined, { shadow: false, ids: true });
+  const ids = [...svg.matchAll(/<g class="id-pill">.*?<text[^>]*>([^<]*)<\/text><\/g>/g)].map((m) => m[1]);
+  assert.ok(ids.includes("a") && ids.includes("e") && ids.includes("q"));
+  assert.ok(!ids.some((id) => /[↗●]/.test(id)), JSON.stringify(ids)); // ni ids internos de referencias ni empalmes
+  assert.strictEqual(ids.filter((id) => id === "e").length, 2); // e y su referencia dentro de S
+});
