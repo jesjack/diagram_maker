@@ -23,6 +23,7 @@ const DIRECTIONS = ["down", "right", "left", "up"];
 const SHAPES = [
   { open: "((", close: "))", shape: "circle" },
   { open: "{{", close: "}}", shape: "hexagon" },
+  { open: "[[", close: "]]", shape: "subroutine" },
   { open: "[(", close: ")]", shape: "cylinder" },
   { open: "([", close: "])", shape: "stadium" },
   { open: "[/", close: "/]", shape: "parallelogram" },
@@ -350,6 +351,9 @@ function parseShapeText(line, pos, close, lineNo) {
   return { text, end: pos + close.length };
 }
 
+// Texto de una etiqueta de arista: sin comillas y con "<br>" como salto de línea, como en los nodos.
+const labelText = (t) => t.replace(/^"(.*)"$/, "$1").replace(/<br\s*\/?>/gi, "\n");
+
 // Aristas soportadas:
 //   a --> b    a <--> b    a --- b    a ==> b    a -.-> b
 //   a -->|etiqueta| b      a -- etiqueta --> b
@@ -361,7 +365,7 @@ function parseEdge(line, pos, lineNo) {
   let m = rest.match(/^(<?)(--|==|-\.)\s+(.+?)\s+(-{2,}|={2,}|\.+-)(>?)/);
   if (m && !/^(<?)(-{2,}|={2,}|-\.+-)>/.test(rest)) {
     return {
-      label: m[3].replace(/^"(.*)"$/, "$1"), // -- "texto" --> : sin las comillas, como en -->|"texto"|
+      label: labelText(m[3]), // -- "texto" --> : sin las comillas, como en -->|"texto"|
       arrowStart: m[1] === "<",
       arrowEnd: m[5] === ">",
       style: styleOf(m[2] + m[4]),
@@ -376,7 +380,7 @@ function parseEdge(line, pos, lineNo) {
   let label = null;
   const labelMatch = line.slice(end).match(/^\s*\|([^|]*)\|/);
   if (labelMatch) {
-    label = labelMatch[1].trim().replace(/^"(.*)"$/, "$1");
+    label = labelText(labelMatch[1].trim());
     end += labelMatch[0].length;
   }
   return {

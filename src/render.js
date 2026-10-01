@@ -252,6 +252,17 @@ function nodeShape(n, style, arcStyle) {
     case "circle":
       shape = `<circle cx="${fmt(n.x)}" cy="${fmt(n.y)}" r="${fmt(hw)}" ${style}/>`;
       break;
+    case "subroutine": {
+      // Subrutina [[ ]]: rectángulo con una línea vertical cerca de cada lado.
+      const l = n.x - hw;
+      const r = n.x + hw;
+      const t = n.y - hh;
+      const b = n.y + hh;
+      shape =
+        `<rect x="${fmt(l)}" y="${fmt(t)}" width="${fmt(n.w)}" height="${fmt(n.h)}" rx="2" ${style}/>` +
+        `<path d="M${fmt(l + 10)},${fmt(t)} V${fmt(b)} M${fmt(r - 10)},${fmt(t)} V${fmt(b)}" ${arcStyle}/>`;
+      break;
+    }
     case "junction":
       shape = `<rect x="${fmt(n.x - hw)}" y="${fmt(n.y - hh)}" width="${fmt(n.w)}" height="${fmt(n.h)}" rx="${fmt(hh)}" ${style}/>`;
       break;
@@ -312,6 +323,15 @@ function renderText(lines, x, y, color, lineHeight, css) {
   return `<text text-anchor="middle" dominant-baseline="central" fill="${color}"${styleAttr(css)}>${spans}</text>`;
 }
 
+// Una línea: el texto tal cual; varias ("<br>"): una por tspan, centradas en la caja.
+function labelSpans(label, b) {
+  const lines = label.split("\n");
+  if (lines.length === 1) return escapeXml(label);
+  const lh = b.lineHeight || 18;
+  const first = b.y - ((lines.length - 1) * lh) / 2;
+  return lines.map((l, i) => `<tspan x="${fmt(b.x)}" y="${fmt(first + i * lh)}">${escapeXml(l)}</tspan>`).join("");
+}
+
 function renderLabel(e, theme) {
   const b = e.labelBox;
   return (
@@ -319,7 +339,8 @@ function renderLabel(e, theme) {
     `rx="3" fill="${theme.labelBackground}"/>` +
     `<text x="${fmt(b.x)}" y="${fmt(b.y)}" text-anchor="middle" dominant-baseline="central" fill="${theme.labelText}"` +
     `${styleAttr(splitCss(e.css).text)}>` +
-    `${escapeXml(e.label)}</text></g>`
+    labelSpans(e.label, b) +
+    `</text></g>`
   );
 }
 

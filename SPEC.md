@@ -73,6 +73,7 @@ diagrama.mmd ──► CLI (Python) ──► genera HTML autocontenido ──�
 | `id(("texto"))`    | Círculo                   |
 | `id{"texto"}`      | Rombo (IF / decisión)     |
 | `id{{"texto"}}`    | Hexágono                  |
+| `id[["texto"]]`    | Subrutina                 |
 | `id[("texto")]`    | Cilindro (base de datos)  |
 
 Convención: IDs descriptivos (`tomaCaja`, `ventasDb`) y textos entre comillas.

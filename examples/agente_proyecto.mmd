@@ -1,0 +1,63 @@
+flowchart TD
+    %% Entrada
+    IN[/"Código Mermaid<br>(archivo .mmd, terminal o tubería)"/]
+
+    subgraph CLI["🐍 diagram.py (Python)"]
+        direction TB
+        READ["read_source()<br>lee el código"]
+        EMPTY{"¿Está vacío?"}
+        BUILD["build_html()<br>rellena template.html con<br>el código y los scripts JS"]
+        SAVE[("archivo .html<br>autocontenido")]
+        MODE{"¿Modo?"}
+        ONCE["open_in_browser()<br>sirve la página una vez<br>en 127.0.0.1"]
+        WATCH["watch()<br>servidor HTTP hasta Ctrl+C"]
+        POLL{{"SourceWatcher.poll()<br>¿cambió el .mmd?"}}
+    end
+
+    subgraph WEB["🌐 Navegador: página generada"]
+        direction TB
+        PARSE["parser.js · parseDiagram()<br>nodos, aristas, subgraphs,<br>estilos y @dir"]
+        ERR{"¿Error de sintaxis?"}
+        SHOWERR["Panel de error<br>con la línea marcada"]
+        LAYOUT["layout.js · layoutDiagram()<br>empalmes → direcciones →<br>rejilla → coordenadas → rutas"]
+        RENDER["render.js · renderSvg()<br>SVG con estilos en línea<br>+ sombra en canvas"]
+        VIEW(["viewer.js<br>zoom, arrastre, gestos,<br>paso a paso, avisos"])
+        EXPORT[/"Exportar SVG / PNG<br>o abrir en Mermaid oficial"/]
+    end
+
+    FAIL(["Salir con mensaje"])
+
+    IN --> READ --> EMPTY
+    EMPTY -- sí --> FAIL
+    EMPTY -- no --> BUILD
+    BUILD --> SAVE
+    BUILD --> MODE
+    MODE -- normal --> ONCE
+    MODE -- "--watch" --> WATCH
+    MODE -- "--no-open" --> SAVE
+
+    ONCE ==> PARSE
+    WATCH ==> PARSE
+    SAVE -. "abrir como archivo" .-> PARSE
+
+    PARSE --> ERR
+    ERR -- sí --> SHOWERR
+    ERR -- no --> LAYOUT --> RENDER --> VIEW
+    VIEW --> EXPORT
+
+    WATCH --> POLL
+    POLL -- "sí: versión + 1" --> WATCH
+    VIEW -. "GET /source?v=N<br>cada segundo" .-> WATCH
+    WATCH -. "JSON con el código nuevo<br>(o 204 si no cambió)" .-> PARSE
+
+    classDef io fill:#fff4d6,stroke:#b58900,color:#3d2e00
+    classDef py fill:#e3effc,stroke:#3572a5,color:#0b2540
+    classDef js fill:#fdf6c9,stroke:#c9a400,color:#3a3000
+    classDef bad fill:#fde2e1,stroke:#cf222e,color:#5c0a0f
+    classDef ui fill:#dff5e3,stroke:#1a7f37,color:#0a3018
+
+    class IN,SAVE,EXPORT io
+    class READ,BUILD,ONCE,WATCH,POLL py
+    class PARSE,LAYOUT,RENDER js
+    class SHOWERR,FAIL bad
+    class VIEW ui

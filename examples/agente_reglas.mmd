@@ -1,0 +1,117 @@
+flowchart TD
+    IN[/"Grafo parseado<br>(nodos, aristas, @dir, subgraphs)"/]
+    HASSG{"¿Tiene subgraphs?"}
+    SPLIT["Un diagrama por grupo<br>(nivel superior + cada subgraph)<br>aristas entre grupos → nodos de referencia<br>nodos absorbidos se dibujan dentro"]
+
+    IN --> HASSG
+    HASSG -- sí --> SPLIT --> PREP1
+    HASSG -- no --> PREP1
+
+    subgraph PREP["① Preparación (por diagrama)"]
+        PREP1["Medir y partir el texto<br>de cada nodo"]
+        J4{"¿Más de 4 conexiones?<br>(padres + hijos + refs)"}
+        JUNC["Conservar 3 y convertir la 4ª<br>en extensión → empalme ● dueño<br>(encadenar si no basta)"]
+        DIRS["Asignar lados a las salidas<br>1º las de @dir, luego por orden:<br>normal: abajo, derecha, izquierda<br>rombo: derecha, izquierda, abajo"]
+        PREP1 --> J4
+        J4 -- sí --> JUNC --> DIRS
+        J4 -- no --> DIRS
+    end
+
+    subgraph ROOTS["② Raíces y grupos"]
+        R0["Siguiente nodo sin entradas<br>(orden de declaración)"]
+        R1{"¿Es el primero?"}
+        R2{"¿Algún hijo<br>ya colocado?"}
+        PIN["Pegarlo a ese hijo<br>en su 1er lado libre"]
+        WAIT[["Aplazar"]]
+        RETRY{"Reintento al final:<br>¿hay hijo colocado?"}
+        LINK{"¿Alguna conexión<br>con lo ya colocado?"}
+        REBUILD["Reconstruir el grupo<br>desde esa conexión<br>(o extender la pareja<br>hasta un empalme)"]
+        NEWG["Grupo nuevo<br>a la derecha de todo"]
+        R0 --> R1
+        R1 -- sí --> NEWG
+        R1 -- no --> R2
+        R2 -- sí --> PIN
+        R2 -- no --> WAIT --> RETRY
+        RETRY -- sí --> PIN
+        RETRY -- no --> LINK
+        LINK -- sí --> REBUILD
+        LINK -- no --> NEWG
+    end
+
+    DIRS --> R0
+
+    subgraph DFS["③ Recorrido en profundidad: expand(padre)"]
+        RES["Reservar las celdas<br>de todos sus hijos"]
+        NEXT["Siguiente salida del padre<br>(orden de declaración)"]
+        JW{"¿Va a un empalme<br>aún sin colocar?"}
+        TWIN{"¿Ya tiene pegado un<br>representante del destino?<br>(ref, copia o el propio nodo)"}
+        REUSE["Reutilizarlo:<br>la flecha va a ese"]
+        PLACED{"¿El hijo ya<br>está colocado?"}
+        LEAF{"¿Es una hoja<br>lejana?"}
+        COPY["Crear copia de la hoja<br>(o de la pastilla del empalme)"]
+        LONG["Dejar la flecha<br>(se revisa al final)"]
+        CELL{"¿Celda del lado<br>libre?"}
+        PUT["Colocar el hijo"]
+        RECUR(("visitar<br>hijo"))
+
+        RES --> NEXT --> JW
+        JW -- "sí: lo coloca su dueño" --> NEXT
+        JW -- no --> TWIN
+        TWIN -- sí --> REUSE --> NEXT
+        TWIN -- no --> PLACED
+        PLACED -- no --> CELL
+        PLACED -- sí --> LEAF
+        LEAF -- sí --> COPY --> CELL
+        LEAF -- no --> LONG --> NEXT
+        CELL -- sí --> PUT --> RECUR
+        RECUR -. "rama terminada" .-> NEXT
+    end
+
+    PIN --> RES
+    NEWG --> RES
+    REBUILD --> RES
+    RECUR -. "expand(hijo)" .-> RES
+
+    subgraph CASCADE["④ Cascada para hacer sitio (finita)"]
+        C1{"¿Otro lado libre del padre<br>no reservado?"}
+        C2{"¿Extensión recta hasta<br>un empalme a 1..8 celdas?"}
+        C3["Desplazar una celda el<br>bloque mínimo de nodos<br>(gana el lado que mueve menos)"]
+        C4["Peor caso: desplazar fila<br>o columna entera"]
+        C1 -- no --> C2
+        C2 -- no --> C3
+        C3 -. "si mueve al padre" .-> C4
+    end
+
+    CELL -- "no: ocupada por nodo,<br>reserva o línea" --> C1
+    C1 -- sí --> PUT
+    C2 -- sí --> PUT
+    C3 --> PUT
+    C4 --> PUT
+
+    subgraph FINAL["⑤ Pasadas finales"]
+        F1["Copias de respaldo para<br>hojas lejanas no recorridas"]
+        F2["Quitar empalmes<br>sin ramas"]
+        F3["Conectores: flecha en diagonal<br>o sobre un nodo → pastilla ● destino<br>junto a su origen"]
+        F4["Coordenadas: ancho de columna y<br>alto de fila = nodo más grande"]
+        F5["Trazar aristas y<br>colocar etiquetas"]
+        F1 --> F2 --> F3 --> F4 --> F5
+    end
+
+    NEXT -- "sin más salidas<br>y sin más raíces" --> F1
+    COMPOSE["Componer: cada diagrama a la<br>derecha del anterior, con su título"]
+    OUT[/"Posiciones de nodos, aristas<br>y títulos para el render"/]
+    F5 --> COMPOSE --> OUT
+
+    classDef io fill:#fff4d6,stroke:#b58900,color:#3d2e00
+    classDef step fill:#e3effc,stroke:#3572a5,color:#0b2540
+    classDef decision fill:#ffffff,stroke:#57606a,color:#1f2328
+    classDef junction fill:#ece2fb,stroke:#8250df,color:#2c1259
+    classDef rescue fill:#fde2e1,stroke:#cf222e,color:#5c0a0f
+    classDef good fill:#dff5e3,stroke:#1a7f37,color:#0a3018
+
+    class IN,OUT io
+    class SPLIT,PREP1,DIRS,R0,PIN,NEWG,REBUILD,RES,NEXT,F1,F2,F4,F5,COMPOSE step
+    class HASSG,J4,R1,R2,RETRY,LINK,JW,TWIN,PLACED,LEAF,CELL,C1,C2 decision
+    class JUNC,COPY,REUSE,F3 junction
+    class C3,C4,WAIT,LONG rescue
+    class PUT,RECUR good

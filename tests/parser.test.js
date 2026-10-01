@@ -163,3 +163,17 @@ test("etiqueta -- \"texto\" --> sin comillas", () => {
   assert.strictEqual(g.edges[0].label, "sí: relanza");
   assert.strictEqual(g.edges[1].label, "sin comillas");
 });
+
+test("subrutina [[...]] (no se confunde con el rectángulo ni el cilindro)", () => {
+  const g = parseDiagram('a[["Aplazar"]] --> b["x"]\nb --> c[("db")]');
+  assert.strictEqual(g.nodes.get("a").shape, "subroutine");
+  assert.strictEqual(g.nodes.get("a").text, "Aplazar");
+  assert.strictEqual(g.nodes.get("b").shape, "rect");
+  assert.strictEqual(g.nodes.get("c").shape, "cylinder");
+});
+
+test("etiqueta de arista con <br>: salto de línea, como en los nodos", () => {
+  const g = parseDiagram('a -- "una<br>dos" --> b\nb -->|"tres<br/>cuatro"| c');
+  assert.strictEqual(g.edges[0].label, "una\ndos");
+  assert.strictEqual(g.edges[1].label, "tres\ncuatro");
+});

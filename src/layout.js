@@ -23,6 +23,7 @@ const LAYOUT_DEFAULTS = {
     parallelogram: 170,
     "parallelogram-alt": 170,
     hexagon: 170,
+    subroutine: 170,
     diamond: 110,
     circle: 90,
     cylinder: 110,
@@ -411,6 +412,10 @@ function sizeNode(node, rawMeasure, opts) {
       w = Math.max(tw + 32 + skew, 90);
       return { lines, w, h, skew, lineHeight: tm.lineHeight };
     }
+    case "subroutine": // rectángulo con una franja a cada lado: 10 px más por lado
+      w = Math.max(tw + 52, 110);
+      h = Math.max(th + 20, 40);
+      break;
     default:
       w = Math.max(tw + 32, 90);
       h = Math.max(th + 20, 40);
@@ -1329,8 +1334,9 @@ function computeCoordinates(nodes, edges, measure, opts) {
     const a = nodes.get(e.from);
     const b = nodes.get(e.to);
     const tm = textMetrics(e.css, measure, opts);
-    const labelW = tm.measure(e.label) + 24;
-    const labelH = tm.lineHeight + 16;
+    const labelLines = e.label.split("\n");
+    const labelW = Math.max(...labelLines.map((l) => tm.measure(l))) + 24;
+    const labelH = tm.lineHeight * labelLines.length + 16;
     if (a.row === b.row && Math.abs(a.col - b.col) === 1) {
       const c = Math.min(a.col, b.col);
       colGapAfter.set(c, Math.max(colGapAfter.get(c) || 0, labelW));
@@ -1408,11 +1414,14 @@ function routeEdge(edge, a, b, measure, opts) {
   ];
   if (edge.label) {
     const [p, q] = edge.points;
+    const tm = textMetrics(edge.css, measure, opts);
+    const lines = edge.label.split("\n"); // "<br>" en la etiqueta: varias líneas
     edge.labelBox = {
       x: (p.x + q.x) / 2,
       y: (p.y + q.y) / 2,
-      w: textMetrics(edge.css, measure, opts).measure(edge.label) + 12,
-      h: textMetrics(edge.css, measure, opts).lineHeight + 4,
+      w: Math.max(...lines.map((l) => tm.measure(l))) + 12,
+      h: tm.lineHeight * lines.length + 4,
+      lineHeight: tm.lineHeight,
     };
   }
 }

@@ -164,3 +164,12 @@ test("ningún script del visor contiene '</script' (se incrustan dentro de <scri
     assert.ok(!/<\/script/i.test(src), `${f} contiene '</script': escríbelo como '<\\/script'`);
   }
 });
+
+test("etiqueta de varias líneas: un tspan por línea y caja más alta", () => {
+  const layout = layoutDiagram(parseDiagram('a -->|"una<br>dos"| b'));
+  const e = layout.edges[0];
+  assert.ok(e.labelBox.h > 30);
+  const svg = renderSvg(layout, undefined, { shadow: false });
+  assert.match(svg, /<g class="label"[^>]*>.*<tspan[^>]*>una<\/tspan><tspan[^>]*>dos<\/tspan>/);
+  assert.ok(!svg.includes("&lt;br"));
+});
