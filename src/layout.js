@@ -534,7 +534,7 @@ function placeInGrid(nodes, edges, warnings, ctx) {
     }
     const v = DIR_VECTORS[side];
     const kind = node.copyOf
-      ? `copia de ${who(nodes.get(node.copyOf))} (el original está lejos y no tiene hijos), hija de`
+      ? `copia de ${who(nodes.get(node.copyOf))} (el original está lejos${node.shape === "junction" ? "" : " y no tiene hijos"}), hija de`
       : e.attached ? "pegado a" : e.from === parent.id ? "hijo de" : "padre de";
     const moved = side !== wanted ? ` (el lado de ${SIDE_NAME[wanted]} estaba ocupado)` : "";
     place(node, parent.col + v.dc, parent.row + v.dr, `${kind} ${who(parent)}, ${SIDE_AT[side]}${moved}`);
@@ -801,14 +801,20 @@ function placeInGrid(nodes, edges, warnings, ctx) {
   // Una flecha hacia un empalme de una hoja cuenta como flecha hacia la hoja.
   const hasChildren = (id) => edges.some((x) => x.from === id && !x.bus);
   const near = (a, b) => Math.abs(a.col - b.col) + Math.abs(a.row - b.row) === 1;
+  // Qué copiar para una flecha u -> target lejana: la hoja (target, o el dueño hoja de un empalme)
+  // o, si target es un empalme cuyo dueño tiene hijos, el propio empalme (su pastilla dice de quién es).
   const farLeaf = (u, target) => {
-    const leaf = target.shape === "junction" ? nodes.get(target.junctionOf) : target;
-    if (!leaf || leaf.ref || leaf.shape === "junction" || hasChildren(leaf.id) || near(u, target)) return null;
-    return leaf;
+    if (near(u, target) || target.ref) return null;
+    if (target.shape === "junction") {
+      const owner = nodes.get(target.junctionOf);
+      return owner && !owner.ref && !hasChildren(owner.id) ? owner : target;
+    }
+    return hasChildren(target.id) ? null : target;
   };
   let copies = 0;
   const copyOfLeaf = (leaf, e) => {
-    const copy = { ...leaf, id: `${leaf.id}\u29c9${++copies}`, realId: leaf.realId || leaf.id, copyOf: leaf.id };
+    const copy = { ...leaf, id: `${leaf.id}\u29c9${++copies}`, copyOf: leaf.id };
+    if (leaf.shape !== "junction") copy.realId = leaf.realId || leaf.id; // un empalme se identifica por junctionOf
     delete copy.col;
     delete copy.row;
     nodes.set(copy.id, copy);
@@ -835,8 +841,10 @@ function placeInGrid(nodes, edges, warnings, ctx) {
       removed = false;
       for (const j of [...nodes.values()]) {
         if (j.shape !== "junction") continue;
+        // Solo se quita un empalme que ya no tiene ramas: como mucho le queda la extensión que
+        // llega (una copia de empalme tiene su flecha, que es una rama).
         const own = edges.filter((x) => x.from === j.id || x.to === j.id);
-        if (own.length > 1) continue; // solo le queda (como mucho) la extensión que llega
+        if (own.length > 1 || own.some((x) => !x.bus)) continue;
         for (const x of own) edges.splice(edges.indexOf(x), 1);
         nodes.delete(j.id);
         occupied.delete(`${j.col},${j.row}`);

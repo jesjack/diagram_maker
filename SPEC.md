@@ -176,8 +176,10 @@ Sintaxis de Mermaid: `classDef nombre props`, `id:::nombre`, `class id1,id2 nomb
 12. **Copias de hojas:** cuando un padre, en su turno, tiene como hijo una hoja (nodo sin hijos)
     ya colocada lejos (no en una celda vecina), se le pone una **copia** de la hoja como un hijo
     más, en el lado que le tocaba a esa flecha o en el primero libre; así no hay líneas largas
-    cruzando el diagrama. Al final, una pasada de respaldo hace lo mismo con las flechas que no
-    pasaron por el recorrido. La copia es idéntica (forma, estilo, id). Una flecha hacia un empalme de una hoja
+    cruzando el diagrama. Si la flecha va a un **empalme** lejano, se copia el empalme (un punto
+    con su pastilla `● dueño`), tenga o no hijos su dueño; si el dueño es una hoja se copia el
+    nodo completo. Al final, una pasada de respaldo hace lo mismo con las flechas que no pasaron
+    por el recorrido. La copia es idéntica (forma, estilo, id). Una flecha hacia un empalme de una hoja
     cuenta como flecha hacia la hoja, y un empalme que se queda sin ramas se quita. Si el padre no
     tiene ningún lado libre, se queda la línea larga.
 

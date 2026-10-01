@@ -420,3 +420,25 @@ test("hoja colocada lejos: el padre recibe una copia a su lado; un nodo con hijo
   // f tiene un hijo (h): no se copia aunque g quede lejos.
   assert.ok(!L.nodes.some((n) => n.copyOf === "f"));
 });
+
+test("flecha a un empalme lejano: copia del empalme junto al padre, aunque su dueño tenga hijos (v3_app: F2 -> A8)", () => {
+  const src = fs.readFileSync(path.join(__dirname, "../examples/v3_app.mmd"), "utf8");
+  const L = layoutDiagram(parseDiagram(src));
+  const byId = Object.fromEntries(L.nodes.map((n) => [n.id, n]));
+  const e = L.edges.find((x) => x.from === "F2" && byId[x.to].junctionOf === "A8");
+  assert.ok(e, "F2 apunta a un empalme de A8");
+  const j = byId[e.to];
+  assert.ok(j.copyOf && j.shape === "junction", "es una copia del empalme");
+  assert.strictEqual(Math.abs(j.col - byId.F2.col) + Math.abs(j.row - byId.F2.row), 1);
+});
+
+test("ninguna flecha se pierde por el camino (copias, empalmes, extensiones)", () => {
+  for (const f of ["v3_app", "v3_uno", "v3_soffice", "inicio_app", "prueba_movil"]) {
+    const g = parseDiagram(fs.readFileSync(path.join(__dirname, `../examples/${f}.mmd`), "utf8"));
+    const L = layoutDiagram(g);
+    // Todo es nivel superior o absorbido en estos ejemplos: cada flecha original se dibuja una vez.
+    assert.strictEqual(L.edges.filter((e) => !e.bus).length, g.edges.length, f);
+    const ids = new Set(L.nodes.map((n) => n.id));
+    for (const e of L.edges) assert.ok(ids.has(e.from) && ids.has(e.to), `${f}: ${e.from} -> ${e.to}`);
+  }
+});
