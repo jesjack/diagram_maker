@@ -106,3 +106,12 @@ test("estilos: forma, texto (color -> fill), opacidad, flechas de color y refere
   // La referencia a A dentro de S lleva el estilo de A y además el borde discontinuo.
   assert.match(svg, /<polygon [^>]*style="fill:#dcfce7;stroke:#15803d;stroke-width:2px;stroke-dasharray:5 3"/);
 });
+
+test("hexágono: polígono de 6 puntos con el texto dentro", () => {
+  const layout = layoutDiagram(parseDiagram('a{{"Hexágono"}}'));
+  const n = layout.nodes[0];
+  const svg = renderSvg(layout, undefined, { shadow: false });
+  const pts = svg.match(/<polygon points="([^"]+)"/)[1].split(" ");
+  assert.strictEqual(pts.length, 6);
+  assert.ok(n.skew > 0 && n.w > n.skew * 2);
+});

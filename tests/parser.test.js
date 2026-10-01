@@ -150,3 +150,10 @@ test("subgraphs: errores de apertura y cierre", () => {
   assert.throws(() => parseDiagram("subgraph S\na --> b"), (e) => e.line === 1 && /Falta 'end'/.test(e.message));
   assert.throws(() => parseDiagram('subgraph S\nend\nS["nodo"] --> b'), /a la vez un subgraph y un nodo/);
 });
+
+test("hexágono {{...}} (no se confunde con el rombo)", () => {
+  const g = parseDiagram('a{{"E/S db"}}:::app --> b{"¿Sí?"}');
+  assert.strictEqual(g.nodes.get("a").shape, "hexagon");
+  assert.strictEqual(g.nodes.get("a").text, "E/S db");
+  assert.strictEqual(g.nodes.get("b").shape, "diamond");
+});

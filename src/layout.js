@@ -22,6 +22,7 @@ const LAYOUT_DEFAULTS = {
     stadium: 170,
     parallelogram: 170,
     "parallelogram-alt": 170,
+    hexagon: 170,
     diamond: 110,
     circle: 90,
     cylinder: 110,
@@ -302,9 +303,11 @@ function sizeNode(node, rawMeasure, opts) {
       h = Math.max(th + 20, 40);
       w = Math.max(tw + h * 0.8 + 16, 90);
       break;
+    case "hexagon":
     case "parallelogram":
     case "parallelogram-alt": {
-      // skew: desplazamiento horizontal de los lados inclinados (lo usa también render.js).
+      // skew: desplazamiento horizontal de los lados inclinados (lo usa también render.js). En el
+      // hexágono son las puntas laterales; el texto cabe igual que en el paralelogramo.
       h = Math.max(th + 20, 40);
       const skew = h * 0.35;
       w = Math.max(tw + 32 + skew, 90);

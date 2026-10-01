@@ -22,6 +22,7 @@ const DIRECTIONS = ["down", "right", "left", "up"];
 // Aperturas de forma, de la más larga a la más corta para que "((" gane a "(".
 const SHAPES = [
   { open: "((", close: "))", shape: "circle" },
+  { open: "{{", close: "}}", shape: "hexagon" },
   { open: "[(", close: ")]", shape: "cylinder" },
   { open: "([", close: "])", shape: "stadium" },
   { open: "[/", close: "/]", shape: "parallelogram" },

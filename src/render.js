@@ -199,6 +199,15 @@ function nodeShape(n, style, arcStyle) {
         `<polygon points="${fmt(n.x)},${fmt(n.y - hh)} ${fmt(n.x + hw)},${fmt(n.y)} ` +
         `${fmt(n.x)},${fmt(n.y + hh)} ${fmt(n.x - hw)},${fmt(n.y)}" ${style}/>`;
       break;
+    case "hexagon": {
+      const k = n.skew;
+      const pts = [
+        [n.x - hw + k, n.y - hh], [n.x + hw - k, n.y - hh], [n.x + hw, n.y],
+        [n.x + hw - k, n.y + hh], [n.x - hw + k, n.y + hh], [n.x - hw, n.y],
+      ];
+      shape = `<polygon points="${pts.map(([x, y]) => `${fmt(x)},${fmt(y)}`).join(" ")}" ${style}/>`;
+      break;
+    }
     case "parallelogram":
     case "parallelogram-alt": {
       const l = n.x - hw;
