@@ -756,6 +756,45 @@ function placeInGrid(nodes, edges, warnings, ctx) {
     return true;
   };
 
+  // Una flecha hacia una hoja (nodo sin hijos) que quedó lejos de su padre se dibuja hacia una
+  // copia de la hoja junto al padre, en vez de tirar una línea larga: preferentemente en el lado
+  // que le tocaba a esa flecha, si no en el primero libre. Sin lado libre, se queda la línea.
+  // Una flecha hacia un empalme de una hoja cuenta como flecha hacia la hoja; los empalmes que se
+  // quedan sin ramas se quitan.
+  const copyLeaves = () => {
+    const hasChildren = (id) => edges.some((x) => x.from === id && !x.bus);
+    const near = (a, b) => Math.abs(a.col - b.col) + Math.abs(a.row - b.row) === 1;
+    const ownerOf = (n) => (n.shape === "junction" ? nodes.get(n.junctionOf) : n);
+    let copies = 0;
+    for (const e of [...edges].sort((a, b) => a.index - b.index)) {
+      if (e.bus || e.attached) continue;
+      const u = nodes.get(e.from);
+      const target = nodes.get(e.to);
+      const leaf = ownerOf(target);
+      if (!leaf || leaf.ref || leaf.shape === "junction" || hasChildren(leaf.id) || near(u, target)) continue;
+      const side = [e.dir, ...sidesOf(u)].find((d) => d && !occupied.has(cellAt(u, d)));
+      if (!side) continue;
+      const copy = { ...leaf, id: `${leaf.id}\u29c9${++copies}`, realId: leaf.realId || leaf.id, copyOf: leaf.id };
+      nodes.set(copy.id, copy);
+      e.to = copy.id;
+      e.dir = side;
+      const v = DIR_VECTORS[side];
+      place(copy, u.col + v.dc, u.row + v.dr, `copia de ${who(leaf)} junto a ${who(u)}, ${SIDE_AT[side]}: el original está lejos y no tiene hijos`);
+    }
+    for (let removed = true; removed; ) {
+      removed = false;
+      for (const j of [...nodes.values()]) {
+        if (j.shape !== "junction") continue;
+        const own = edges.filter((x) => x.from === j.id || x.to === j.id);
+        if (own.length > 1) continue; // solo le queda (como mucho) la extensión que llega
+        for (const x of own) edges.splice(edges.indexOf(x), 1);
+        nodes.delete(j.id);
+        occupied.delete(`${j.col},${j.row}`);
+        removed = true;
+      }
+    }
+  };
+
   // Fija la geometría de una arista sabiendo en qué lado de u está el otro extremo.
   const setSide = (e, u, side) => {
     if (e.attached) {
@@ -794,6 +833,7 @@ function placeInGrid(nodes, edges, warnings, ctx) {
     if (root.col !== undefined || isAttachedRef(root)) continue;
     placeRoot(root, findAnchor(root));
   }
+  copyLeaves();
 }
 
 // ---------------------------------------------------------------- coordenadas

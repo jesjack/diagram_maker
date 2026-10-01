@@ -173,6 +173,12 @@ Sintaxis de Mermaid: `classDef nombre props`, `id:::nombre`, `class id1,id2 nomb
     empalme. Solo si el padre no tiene ningún lado libre queda el aviso de choque.
 11. Si un nodo recibe más referencias de las que caben en sus lados, las que sobran se dibujan
     sueltas a la derecha, al final, y nunca hacen de padre.
+12. **Copias de hojas:** al terminar de colocar, una flecha hacia una hoja (nodo sin hijos) que
+    quedó lejos de su padre (no en una celda vecina) va a una **copia** de la hoja junto al padre,
+    en el lado que le tocaba a esa flecha o en el primero libre; así no hay líneas largas cruzando
+    el diagrama. La copia es idéntica (forma, estilo, id). Una flecha hacia un empalme de una hoja
+    cuenta como flecha hacia la hoja, y un empalme que se queda sin ramas se quita. Si el padre no
+    tiene ningún lado libre, se queda la línea larga.
 
 ### Rejilla
 

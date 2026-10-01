@@ -393,3 +393,17 @@ test("hijo sin lado libre: extensión por el lado de un hermano, que sigue recto
   assert.strictEqual(sib.dir, bus.dir);
   assert.ok(!L.warnings.some((w) => /Choque/.test(w.message)), JSON.stringify(L.warnings.filter((w) => /Choque/.test(w.message))));
 });
+
+test("hoja colocada lejos: el padre recibe una copia a su lado; un nodo con hijos no se copia", () => {
+  const L = layout(["a --> b --> hoja", "a --> c --> d --> e --> k --> hoja", "e --> f", "a --> g --> f", "f --> h"].join("\n"));
+  const near = (x, y) => Math.abs(x.col - y.col) + Math.abs(x.row - y.row) === 1;
+  const byId = Object.fromEntries(L.nodes.map((n) => [n.id, n]));
+  const copies = L.nodes.filter((n) => n.realId === "hoja" && n.copyOf);
+  assert.strictEqual(copies.length, 1);
+  const toCopy = L.edges.find((e) => e.to === copies[0].id);
+  assert.strictEqual(toCopy.from, "k");
+  assert.ok(near(byId.k, copies[0]));
+  assert.ok(near(byId.b, byId.hoja), "el original sigue junto a su primer padre");
+  // f tiene un hijo (h): no se copia aunque g quede lejos.
+  assert.ok(!L.nodes.some((n) => n.copyOf === "f"));
+});
