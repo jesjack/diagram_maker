@@ -1,0 +1,49 @@
+flowchart TD
+    usuario(("Usuario"))
+    mmd[/"archivo .mmd"/]
+
+    subgraph CLI["diagram.py (Python, sin dependencias)"]
+        leer["Lee el .mmd o la terminal"]
+        html["Incrusta parser, layout,<br/>render y visor en la plantilla"]
+        guardar[("archivo .html<br/>autocontenido")]
+        servir["Mini servidor en 127.0.0.1<br/>y abre el navegador"]
+        watch{"¿--watch?"}
+        vigilar["Vigila el .mmd y sirve<br/>la versión nueva"]
+        fin(["Sirve una vez y termina"])
+    end
+
+    subgraph MOTOR["Motor (JavaScript, en el navegador)"]
+        parser["parser.js: texto Mermaid →<br/>nodos, aristas, subgraphs,<br/>estilos y metadatos @dir"]
+        error{"¿Error de sintaxis?"}
+        panel["Panel de error con la<br/>línea marcada"]
+        layout["layout.js: rejilla, direcciones,<br/>empalmes, copias y conectores"]
+        render["render.js: SVG con formas,<br/>flechas, etiquetas y pastillas"]
+    end
+
+    subgraph VISOR["Visor (viewer.js)"]
+        ver["Zoom, arrastre y gestos táctiles"]
+        pasos["Paso a paso: cómo se<br/>construyó el diagrama"]
+        exportar[/"SVG / PNG"/]
+        mermaid["Comparar con<br/>Mermaid oficial"]
+    end
+
+    usuario --> mmd --> leer --> html --> guardar
+    html --> servir --> watch
+    watch -->|sí| vigilar
+    watch -->|no| fin
+    servir --> parser --> error
+    error -->|sí| panel
+    error -->|no| layout --> render --> ver
+    ver --> pasos
+    ver --> exportar
+    ver --> mermaid
+    vigilar --> parser
+
+    classDef cli fill:#dbeafe,stroke:#1d4ed8,color:#0b1f4d
+    classDef motor fill:#dcfce7,stroke:#15803d,color:#0b3d1c
+    classDef visor fill:#ede9fe,stroke:#6d28d9,color:#2e1065
+    classDef ext fill:#f3f4f6,stroke:#6b7280,color:#1f2937,stroke-dasharray:4 3
+    class leer,html,guardar,servir,watch,vigilar,fin cli
+    class parser,error,panel,layout,render motor
+    class ver,pasos,exportar,mermaid visor
+    class usuario,mmd ext

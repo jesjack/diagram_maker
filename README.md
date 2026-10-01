@@ -19,6 +19,12 @@ flowchart TD
     %% @dir ok -> enviar : down
 ```
 
+Este es el propio proyecto, dibujado con él ([`examples/proyecto.mmd`](examples/proyecto.mmd)): cada
+`subgraph` se dibuja como un diagrama aparte y las flechas entre ellos usan nodos de referencia
+(paralelogramos discontinuos).
+
+![Diagrama de flujo de Diagram Maker, dibujado con Diagram Maker](docs/diagrama-del-proyecto.png)
+
 Mermaid se usa solo como **sintaxis** (la conocen bien los modelos de IA y el archivo sigue siendo
 compatible con Mermaid); el dibujo lo hace este proyecto.
 
@@ -96,7 +102,8 @@ mínimo de nodos necesario. Las reglas completas están en [`SPEC.md`](SPEC.md).
 
 ## Ejemplos
 
-En [`examples/`](examples): `inicio_app.mmd` (el ejemplo de la especificación), `prueba_movil.mmd`
+En [`examples/`](examples): `proyecto.mmd` (el diagrama de arriba), `inicio_app.mmd` (el ejemplo de
+la especificación), `prueba_movil.mmd`
 y los diagramas `v3_*.mmd`, sacados de un proyecto real (procesos con subgraphs, pines de entrada y
 salida, y estilos por proceso).
 
