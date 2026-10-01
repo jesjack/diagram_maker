@@ -148,9 +148,7 @@ const DiagramViewer = (() => {
       else if (ev.key === "+" || ev.key === "=") zoomAt(1.2, ...center());
       else if (ev.key === "-") zoomAt(1 / 1.2, ...center());
     });
-    document.getElementById("btn-fit").onclick = fit;
-    document.getElementById("btn-zoom-in").onclick = () => zoomAt(1.2, ...center());
-    document.getElementById("btn-zoom-out").onclick = () => zoomAt(1 / 1.2, ...center());
+    document.getElementById("btn-mermaid").onclick = () => openInMermaid(source, title);
     // ---- depuración: ver cómo se construye el diagrama, nodo a nodo, en el orden en que el layout
     // los colocó (n.step) y con el motivo (n.why). Una flecha aparece cuando sus dos extremos están.
     const order = [...result.nodes].sort((a, b) => a.step - b.step);
@@ -307,6 +305,36 @@ const DiagramViewer = (() => {
       parent.prepend(c);
     };
     img.src = url;
+  }
+
+  // Abre el mismo código en una pestaña nueva dibujado con Mermaid oficial (librería desde
+  // jsDelivr; hace falta internet), para comparar. Ahí funciona el zoom normal del navegador.
+  function openInMermaid(source, title) {
+    const esc = (t) => t.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
+    const page = `<!doctype html><html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title)} · Mermaid</title>
+<style>
+  body { margin: 0; padding: 16px; background: #f4f5f7; color: #1f2328; font: 14px system-ui, sans-serif; }
+  .mermaid svg { max-width: none !important; height: auto; }
+  #msg { color: #656d76; }
+</style></head><body>
+<p id="msg">Mermaid oficial · cargando…</p>
+<pre class="mermaid">${esc(source)}</pre>
+<script type="module">
+  const msg = document.getElementById("msg");
+  try {
+    const { default: mermaid } = await import("https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs");
+    mermaid.initialize({ startOnLoad: false, securityLevel: "strict" });
+    await mermaid.run();
+    msg.textContent = "Mermaid oficial";
+  } catch (err) {
+    msg.textContent = "No se pudo cargar o dibujar con Mermaid (¿sin internet?): " + err.message;
+  }
+</script></body></html>`;
+    const url = URL.createObjectURL(new Blob([page], { type: "text/html" }));
+    window.open(url, "_blank");
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   }
 
   // Mide texto con la fuente con la que se va a pintar (la del nodo si su estilo la cambia).

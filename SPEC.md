@@ -23,9 +23,12 @@ diagrama.mmd ──► CLI (Python) ──► genera HTML autocontenido ──�
 ## Visor web
 
 - El diagrama se muestra centrado al abrir.
-- **Scroll**: zoom.
+- **Scroll**: zoom (también `+` / `-`; `0` o doble clic/toque ajusta). La barra no tiene botones de
+  zoom: solo muestra el porcentaje.
 - **Arrastre**: desplazamiento por el lienzo.
 - **Descarga** del diagrama como imagen (PNG y SVG).
+- **Mermaid**: abre el mismo código dibujado con Mermaid oficial en otra pestaña, para comparar
+  (librería desde jsDelivr: hace falta internet).
 - **Táctil**: un dedo arrastra, dos dedos hacen zoom, doble toque ajusta.
 - **Pastillas de id**: cada nodo lleva su id en una pastilla en la esquina; siempre visibles, también
   en lo exportado, porque los empalmes y conectores se refieren a los nodos por su id. La pastilla
