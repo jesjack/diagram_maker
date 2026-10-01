@@ -475,7 +475,13 @@ function placeInGrid(nodes, edges, warnings, ctx) {
   const SIDE_AT = { down: "debajo", right: "a la derecha", left: "a la izquierda", up: "encima" };
   const who = (n) =>
     n.junctionOf ? `empalme de '${n.junctionOf}'` : n.ref && !n.absorbed ? `ref. a '${n.realId}'` : `'${n.realId || n.id}'`;
+  // Celdas reservadas para hijos que aún no se han colocado (clave -> id del hijo): al expandir un
+  // nodo se reservan las celdas de todos sus hijos antes de bajar por ninguna rama, para que un
+  // descendiente de un hermano anterior no se las quite (el recorrido es en profundidad).
+  const pending = new Map();
+  const blocked = (key, forId) => occupied.has(key) || (pending.has(key) && pending.get(key) !== forId);
   const place = (node, col, row, why = "") => {
+    for (const [k, id] of pending) if (id === node.id) pending.delete(k);
     node.col = col;
     node.row = row;
     node.step = step++;
@@ -500,11 +506,11 @@ function placeInGrid(nodes, edges, warnings, ctx) {
   const placeNextTo = (parent, node, e) => {
     let side = sideOf(e);
     const wanted = side;
-    if (occupied.has(cellAt(parent, side)) && !e.explicit) {
+    if (blocked(cellAt(parent, side), node.id) && !e.explicit) {
       const reserved = new Set(
         edges.filter((x) => x !== e && (x.from === parent.id || (x.attached && x.to === parent.id))).map(sideOf)
       );
-      const alt = ["down", "right", "left", "up"].find((d) => !reserved.has(d) && !occupied.has(cellAt(parent, d)));
+      const alt = ["down", "right", "left", "up"].find((d) => !reserved.has(d) && !blocked(cellAt(parent, d), node.id));
       if (alt) {
         side = alt;
         if (e.attached) {
@@ -515,12 +521,21 @@ function placeInGrid(nodes, edges, warnings, ctx) {
         // Ningún lado libre sin reservar: se saca una extensión por un lado libre aunque esté
         // reservado para un hermano. El hermano sigue recto desde el empalme (misma dirección) y
         // este nodo va a un lado libre del empalme. Devuelve el empalme para seguir el recorrido.
-        const d = ["down", "right", "left", "up"].find((x) => !occupied.has(cellAt(parent, x)));
+        // La celda puede estar reservada para un hermano: ese hermano seguirá recto desde el empalme.
+        const siblings = new Set(
+          edges.filter((x) => x.from === parent.id || (x.attached && x.to === parent.id)).map((x) => (x.attached ? x.from : x.to))
+        );
+        const d = ["down", "right", "left", "up"].find((x) => {
+          const key = cellAt(parent, x);
+          return !occupied.has(key) && (!pending.has(key) || siblings.has(pending.get(key)) || pending.get(key) === node.id);
+        });
         if (d) return extendForChild(parent, node, e, d, wanted);
       }
     }
     const v = DIR_VECTORS[side];
-    const kind = e.attached ? "pegado a" : e.from === parent.id ? "hijo de" : "padre de";
+    const kind = node.copyOf
+      ? `copia de ${who(nodes.get(node.copyOf))} (el original está lejos y no tiene hijos), hija de`
+      : e.attached ? "pegado a" : e.from === parent.id ? "hijo de" : "padre de";
     const moved = side !== wanted ? ` (el lado de ${SIDE_NAME[wanted]} estaba ocupado)` : "";
     place(node, parent.col + v.dc, parent.row + v.dr, `${kind} ${who(parent)}, ${SIDE_AT[side]}${moved}`);
     return [];
@@ -536,9 +551,11 @@ function placeInGrid(nodes, edges, warnings, ctx) {
     if (sibling) {
       moveEnd(sibling, parent.id, j.id);
       setSide(sibling, j, d); // sigue recto
+      const key = cellAt(j, d);
+      if (!blocked(key)) pending.set(key, sibling.attached ? sibling.from : sibling.to);
     }
     moveEnd(e, parent.id, j.id);
-    const free = ["down", "right", "left", "up"].filter((x) => x !== OPPOSITE[d] && x !== d && !occupied.has(cellAt(j, x)));
+    const free = ["down", "right", "left", "up"].filter((x) => x !== OPPOSITE[d] && x !== d && !blocked(cellAt(j, x), node.id));
     const side = free[0] || d;
     setSide(e, j, side);
     const sv = DIR_VECTORS[side];
@@ -561,7 +578,7 @@ function placeInGrid(nodes, edges, warnings, ctx) {
     const o = ctx.overrides.get(`${edge.from}\u0000${edge.to}`);
     if (o) return { edge, child, cell: OPPOSITE[o.dir] };
     const order = [...DEFAULT_DIRS[child.shape === "diamond" ? "diamond" : "other"], "up"];
-    const cell = order.find((d) => !occupied.has(`${child.col + DIR_VECTORS[d].dc},${child.row + DIR_VECTORS[d].dr}`));
+    const cell = order.find((d) => !blocked(`${child.col + DIR_VECTORS[d].dc},${child.row + DIR_VECTORS[d].dr}`, node.id));
     return cell ? { edge, child, cell } : null;
   };
 
@@ -571,6 +588,50 @@ function placeInGrid(nodes, edges, warnings, ctx) {
   const real = all.filter((n) => !n.ref);
   const roots = [...real.filter((n) => !hasIncoming.has(n.id)), ...real, ...all.filter((n) => n.ref)];
 
+  // Coloca los hijos directos (y referencias pegadas) de parent; devuelve los nodos nuevos a recorrer.
+  const expand = (parent, each) => {
+    const placed = [];
+    for (const e of edges) {
+      const mine = e.attached ? e.to === parent.id : e.from === parent.id;
+      if (!mine) continue;
+      const other = nodes.get(e.attached ? e.from : e.to);
+      const willCopy = other.col !== undefined && !e.attached && farLeaf(parent, other);
+      if (other.col !== undefined && !willCopy) continue;
+      const key = cellAt(parent, sideOf(e));
+      if (!blocked(key)) pending.set(key, willCopy ? `copy:${e.index}` : other.id);
+    }
+    for (const e of edges) {
+      if (e.attached && e.to === parent.id) {
+        const ref = nodes.get(e.from);
+        if (ref.col === undefined) {
+          const extra = placeNextTo(parent, ref, e);
+          placed.push(...extra);
+          if (each) extra.forEach(each);
+        }
+        continue;
+      }
+      if (e.from !== parent.id || e.attached) continue;
+      let child = nodes.get(e.to);
+      if (child.col !== undefined) {
+        // Hijo ya colocado lejos y sin hijos: se le pone una copia aquí, en su turno (regla 12).
+        const leaf = farLeaf(parent, child);
+        if (!leaf) continue; // TODO (SPEC): bucles / varios padres
+        // Sin ningún lado libre para la copia se deja la línea larga.
+        const room = [sideOf(e), "down", "right", "left", "up"].some(
+          (d) => d && !blocked(cellAt(parent, d), `copy:${e.index}`)
+        );
+        if (!room) continue;
+        child = copyOfLeaf(leaf, e);
+      }
+      const extra = placeNextTo(parent, child, e);
+      placed.push(child, ...extra);
+      if (each) [child, ...extra].forEach(each);
+    }
+    return placed;
+  };
+  // Recorrido en profundidad, en orden de declaración: cada nodo termina toda su rama antes de
+  // pasar a su siguiente hermano (los hermanos ya tienen su lado reservado).
+  const visit = (u) => expand(u, visit);
   const placeRoot = (root, anchor, retry = false) => {
     const later = retry ? " (aplazado y reintentado)" : "";
     if (anchor) {
@@ -586,31 +647,6 @@ function placeInGrid(nodes, edges, warnings, ctx) {
       place(root, nextComponentCol, 0, step ? `inicio de un grupo nuevo, aparte${later}` : "nodo inicial");
     }
 
-    // Coloca los hijos directos (y referencias pegadas) de parent; devuelve los nodos nuevos a recorrer.
-    const expand = (parent, each) => {
-      const placed = [];
-      for (const e of edges) {
-        if (e.attached && e.to === parent.id) {
-          const ref = nodes.get(e.from);
-          if (ref.col === undefined) {
-            const extra = placeNextTo(parent, ref, e);
-            placed.push(...extra);
-            if (each) extra.forEach(each);
-          }
-          continue;
-        }
-        if (e.from !== parent.id || e.attached) continue;
-        const child = nodes.get(e.to);
-        if (child.col !== undefined) continue; // TODO (SPEC): bucles / varios padres
-        const extra = placeNextTo(parent, child, e);
-        placed.push(child, ...extra);
-        if (each) [child, ...extra].forEach(each);
-      }
-      return placed;
-    };
-    // Recorrido en profundidad, en orden de declaración: cada nodo termina toda su rama antes de
-    // pasar a su siguiente hermano (los hermanos ya tienen su lado reservado).
-    const visit = (u) => expand(u, visit);
     visit(root);
 
     // El siguiente componente desconectado va a la derecha de todo lo colocado.
@@ -642,7 +678,7 @@ function placeInGrid(nodes, edges, warnings, ctx) {
   // Simula la reconstrucción del grupo desde start, colocado en la celda (col, row): devuelve las
   // posiciones y aristas resultantes y cuántos choques habría, sin tocar nada.
   const simulateGroup = (group, start, col, row, extraTaken = []) => {
-    const taken = new Set([...occupied.keys(), ...extraTaken]);
+    const taken = new Set([...occupied.keys(), ...pending.keys(), ...extraTaken]);
     const pos = new Map([[start.id, { col, row }]]);
     const sides = []; // [arista, nodo u, lado de u donde queda el otro extremo]
     let collisions = taken.has(`${col},${row}`) ? 1 : 0;
@@ -682,7 +718,7 @@ function placeInGrid(nodes, edges, warnings, ctx) {
       const start = nodes.get(group.has(link.from) ? link.from : link.to);
       const partner = nodes.get(group.has(link.from) ? link.to : link.from);
       for (const cell of sidesOf(partner)) {
-        if (occupied.has(cellAt(partner, cell))) continue;
+        if (blocked(cellAt(partner, cell), start.id)) continue;
         const v = DIR_VECTORS[cell];
         const sim = simulateGroup(group, start, partner.col + v.dc, partner.row + v.dr);
         if (!best || sim.collisions < best.sim.collisions) best = { sim, link, start, cell };
@@ -709,6 +745,8 @@ function placeInGrid(nodes, edges, warnings, ctx) {
     for (const [id, p] of best.sim.pos) place(nodes.get(id), p.col, p.row, id === best.start.id ? how : `${how}: sigue el recorrido`);
     setSide(best.link, best.start, OPPOSITE[best.cell]);
     for (const [e, u, d] of best.sim.sides) setSide(e, u, d);
+    // Cada nodo del grupo se expande en su turno (copias de hojas lejanas, regla 12).
+    for (const id of best.sim.pos.keys()) if (!nodes.get(id).ref) visit(nodes.get(id));
     const maxCol = Math.max(...[...nodes.values()].filter(isPlaced).map((n) => n.col));
     nextComponentCol = maxCol + 2;
     return true;
@@ -724,7 +762,7 @@ function placeInGrid(nodes, edges, warnings, ctx) {
       for (let k = 1; k <= MAX_EXTENSION; k++) {
         const jc = { col: partner.col + v.dc * k, row: partner.row + v.dr * k };
         const key = `${jc.col},${jc.row}`;
-        if (occupied.has(key)) break; // la línea no puede atravesar un nodo
+        if (blocked(key)) break; // la línea no puede atravesar un nodo
         path.push(key);
         for (const s2 of ["down", "right", "left", "up"]) {
           if (s2 === OPPOSITE[d]) continue; // por ahí llega la extensión
@@ -751,6 +789,7 @@ function placeInGrid(nodes, edges, warnings, ctx) {
     }
     setSide(link, junction, s2);
     for (const [e, u, side] of sim.sides) setSide(e, u, side);
+    for (const id of sim.pos.keys()) if (!nodes.get(id).ref) visit(nodes.get(id));
     const maxCol = Math.max(...[...nodes.values()].filter(isPlaced).map((n) => n.col));
     nextComponentCol = maxCol + 2;
     return true;
@@ -759,24 +798,35 @@ function placeInGrid(nodes, edges, warnings, ctx) {
   // Una flecha hacia una hoja (nodo sin hijos) que quedó lejos de su padre se dibuja hacia una
   // copia de la hoja junto al padre, en vez de tirar una línea larga: preferentemente en el lado
   // que le tocaba a esa flecha, si no en el primero libre. Sin lado libre, se queda la línea.
-  // Una flecha hacia un empalme de una hoja cuenta como flecha hacia la hoja; los empalmes que se
-  // quedan sin ramas se quitan.
+  // Una flecha hacia un empalme de una hoja cuenta como flecha hacia la hoja.
+  const hasChildren = (id) => edges.some((x) => x.from === id && !x.bus);
+  const near = (a, b) => Math.abs(a.col - b.col) + Math.abs(a.row - b.row) === 1;
+  const farLeaf = (u, target) => {
+    const leaf = target.shape === "junction" ? nodes.get(target.junctionOf) : target;
+    if (!leaf || leaf.ref || leaf.shape === "junction" || hasChildren(leaf.id) || near(u, target)) return null;
+    return leaf;
+  };
+  let copies = 0;
+  const copyOfLeaf = (leaf, e) => {
+    const copy = { ...leaf, id: `${leaf.id}\u29c9${++copies}`, realId: leaf.realId || leaf.id, copyOf: leaf.id };
+    delete copy.col;
+    delete copy.row;
+    nodes.set(copy.id, copy);
+    for (const [k, id] of pending) if (id === `copy:${e.index}`) pending.set(k, copy.id);
+    e.to = copy.id;
+    return copy;
+  };
+  // Respaldo al final: flechas que no pasaron por expand (p. ej. de grupos reconstruidos). Los
+  // empalmes que se quedan sin ramas se quitan.
   const copyLeaves = () => {
-    const hasChildren = (id) => edges.some((x) => x.from === id && !x.bus);
-    const near = (a, b) => Math.abs(a.col - b.col) + Math.abs(a.row - b.row) === 1;
-    const ownerOf = (n) => (n.shape === "junction" ? nodes.get(n.junctionOf) : n);
-    let copies = 0;
     for (const e of [...edges].sort((a, b) => a.index - b.index)) {
       if (e.bus || e.attached) continue;
       const u = nodes.get(e.from);
-      const target = nodes.get(e.to);
-      const leaf = ownerOf(target);
-      if (!leaf || leaf.ref || leaf.shape === "junction" || hasChildren(leaf.id) || near(u, target)) continue;
-      const side = [e.dir, ...sidesOf(u)].find((d) => d && !occupied.has(cellAt(u, d)));
+      const leaf = farLeaf(u, nodes.get(e.to));
+      if (!leaf) continue;
+      const side = [e.dir, ...sidesOf(u)].find((d) => d && !blocked(cellAt(u, d)));
       if (!side) continue;
-      const copy = { ...leaf, id: `${leaf.id}\u29c9${++copies}`, realId: leaf.realId || leaf.id, copyOf: leaf.id };
-      nodes.set(copy.id, copy);
-      e.to = copy.id;
+      const copy = copyOfLeaf(leaf, e);
       e.dir = side;
       const v = DIR_VECTORS[side];
       place(copy, u.col + v.dc, u.row + v.dr, `copia de ${who(leaf)} junto a ${who(u)}, ${SIDE_AT[side]}: el original está lejos y no tiene hijos`);

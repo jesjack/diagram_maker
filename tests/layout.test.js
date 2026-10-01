@@ -358,23 +358,36 @@ test("grupo sin ninguna conexión con lo colocado: sigue aparte", () => {
   assert.ok(x.col - a.col >= 2);
 });
 
-test("si el grupo no cabe por ninguna conexión, se extiende la línea de la pareja hasta un empalme (v3_uno)", () => {
+test("si el grupo no cabe por ninguna conexión, se extiende la línea de la pareja hasta un empalme", () => {
+  // P solo tiene libre la derecha y encima de ese hueco está AR: y (que necesita 3 lados además del
+  // de P) no cabe pegado a P, así que P saca una extensión y y va junto al empalme.
+  const L = layout(
+    ["a --> P", "a --> AR", "P --> D", "P --> L", "%% @dir P -> L : left", "x --> y", "y --> c1", "y --> c2", "y --> P"].join("\n")
+  );
+  const at = (id) => L.nodes.find((n) => n.id === id);
+  const j = L.nodes.find((n) => n.shape === "junction" && n.junctionOf === "P");
+  assert.ok(j, "P tiene un empalme nuevo");
+  assert.ok(L.edges.some((e) => e.bus && e.from === "P" && e.to === j.id));
+  assert.ok(L.edges.some((e) => e.from === "y" && e.to === j.id), "la conexión y -> P sale del empalme");
+  const y = at("y");
+  assert.strictEqual(Math.abs(y.col - j.col) + Math.abs(y.row - j.row), 1);
+  assert.ok(!L.warnings.some((w) => /Choque/.test(w.message)));
+});
+
+test("la copia de una hoja se hace en el turno del padre, no al final (v3_app: V2 -> oEnfocar)", () => {
+  const src = fs.readFileSync(path.join(__dirname, "../examples/v3_app.mmd"), "utf8");
+  const L = layoutDiagram(parseDiagram(src));
+  const v2 = L.nodes.find((n) => n.id === "V2");
+  const e = L.edges.find((x) => x.from === "V2" && (L.nodes.find((n) => n.id === x.to).realId || x.to) === "oEnfocar");
+  const copy = L.nodes.find((n) => n.id === e.to);
+  assert.ok(copy.copyOf, "V2 apunta a una copia de oEnfocar");
+  assert.strictEqual(Math.abs(copy.col - v2.col) + Math.abs(copy.row - v2.row), 1);
+});
+
+test("las celdas de los hijos se reservan antes de bajar por una rama (v3_uno: K5 no choca)", () => {
   const src = fs.readFileSync(path.join(__dirname, "../examples/v3_uno.mmd"), "utf8");
   const L = layoutDiagram(parseDiagram(src));
-  const at = (id) => L.nodes.find((n) => n.id === id);
-  // El grupo de teclas (K1..K5) se une por K4 --> oApi, a través de un empalme nuevo de oApi.
-  const link = L.edges.find((e) => e.from === "K4" && at(e.to).shape === "junction");
-  assert.ok(link, "K4 apunta a un empalme");
-  const j = at(link.to);
-  assert.strictEqual(j.junctionOf, "oApi");
-  assert.ok(L.edges.some((e) => e.bus && e.to === j.id), "el empalme cuelga de una extensión");
-  const k4 = at("K4");
-  assert.strictEqual(Math.abs(k4.col - j.col) + Math.abs(k4.row - j.row), 1, "K4 junto al empalme");
-  // La extensión es una línea recta (misma fila o misma columna que su origen).
-  const bus = L.edges.find((e) => e.bus && e.to === j.id);
-  const o = at(bus.from);
-  assert.ok(o.col === j.col || o.row === j.row);
-  assert.ok(L.warnings.filter((w) => /Choque/.test(w.message)).length <= 2);
+  assert.ok(!L.warnings.some((w) => /'K5'/.test(w.message)), JSON.stringify(L.warnings));
 });
 
 test("hijo sin lado libre: extensión por el lado de un hermano, que sigue recto (v3_app, A4)", () => {
