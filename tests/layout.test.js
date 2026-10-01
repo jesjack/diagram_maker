@@ -41,8 +41,10 @@ test("@dir up hace crecer hacia arriba", () => {
   assert.deepStrictEqual(c.b, [0, -1]);
 });
 
-test("más de 3 salidas es error fatal", () => {
-  assert.throws(() => layout("a --> b\na --> c\na --> d\na --> e"), (e) => e instanceof DiagramError && e.line === 4);
+test("4 salidas sin padre caben (la 4ª va arriba)", () => {
+  const L = layout("a --> b\na --> c\na --> d\na --> e");
+  assert.deepStrictEqual(["b", "c", "d", "e"].map((id) => L.edges.find((x) => x.to === id).dir), ["down", "right", "left", "up"]);
+  assert.ok(!L.nodes.some((n) => n.shape === "junction"));
 });
 
 test("dos salidas en la misma dirección es error fatal", () => {
@@ -268,7 +270,7 @@ test("si el nivel superior se queda vacío, no se dibuja", () => {
   assert.strictEqual(Math.min(...L.nodes.map((n) => n.x - n.w / 2)), L.bounds.minX);
 });
 
-test("nodo absorbido con varias aristas: una sola copia por diagrama; más de 3 salidas es error", () => {
+test("nodo absorbido con varias aristas: una sola copia por diagrama", () => {
   const L = layout(
     ['t[/"IN teclado"/]', "subgraph S", '  a["A"] --> b["B"]', '  c["C"]', '  d["D"]', "end", "t --> c", "t --> d", "t --> b"].join("\n")
   );
@@ -279,11 +281,6 @@ test("nodo absorbido con varias aristas: una sola copia por diagrama; más de 3 
   // c y d son sus hijos (abajo y derecha); b ya estaba colocado bajo a.
   assert.deepStrictEqual([at("c").col - t.col, at("c").row - t.row], [0, 1]);
   assert.deepStrictEqual([at("d").col - t.col, at("d").row - t.row], [1, 0]);
-
-  assert.throws(
-    () => layout(['t["T"]', "subgraph S", '  a["A"]', '  b["B"]', '  c["C"]', '  d["D"]', "end", "t --> a", "t --> b", "t --> c", "t --> d"].join("\n")),
-    /'t' tiene 4 salidas/
-  );
 });
 
 test("nodo sin padre con algún hijo ya colocado: se pega a ese hijo en vez de ir a la derecha", () => {
@@ -304,11 +301,31 @@ test("estilos: font-size y font-weight cambian el tamaño medido del nodo", () =
   assert.strictEqual(b.lineHeight, 36); // 18 * 28/14
 });
 
-test("más de 4 conexiones (padres + hijos) es error fatal, en la línea de la 5ª", () => {
-  assert.throws(
-    () => layout(["a --> x", "b --> x", "c --> x", "x --> d", "e --> x"].join("\n")),
-    (err) => err.line === 5 && /'x' tiene 5 conexiones \(padres \+ hijos\); el máximo es 4/.test(err.message)
-  );
-  // 1 padre + 3 salidas = 4: vale.
-  assert.doesNotThrow(() => layout(["p --> x", "x --> a", "x --> b", "x --> c"].join("\n")));
+test("más de 4 conexiones: la 4ª es una extensión hasta un empalme, y se encadenan", () => {
+  // x: 1 padre + 7 hijos = 8 conexiones.
+  const L = layout(["p --> x", ...["a", "b", "c", "d", "e", "f", "g"].map((c) => `x -->|${c}| ${c}`)].join("\n"));
+  const j1 = L.nodes.find((n) => n.id === "x\u25cf");
+  const j2 = L.nodes.find((n) => n.id === "x\u25cf\u25cf");
+  assert.ok(j1 && j2, "dos empalmes encadenados");
+  assert.strictEqual(j1.shape, "junction");
+  const conns = (id) => L.edges.filter((e) => e.from === id || e.to === id);
+  // x: p, a, b + extensión; j1: extensión de x, c, d + extensión a j2; j2: e, f, g + extensión.
+  assert.deepStrictEqual(conns("x").map((e) => e.to).sort(), ["a", "b", "x", "x\u25cf"].sort());
+  assert.deepStrictEqual(conns("x\u25cf").map((e) => e.to).sort(), ["c", "d", "x\u25cf", "x\u25cf\u25cf"].sort());
+  assert.deepStrictEqual(conns("x\u25cf\u25cf").map((e) => e.to).sort(), ["e", "f", "g", "x\u25cf\u25cf"].sort());
+  // La extensión no tiene flechas; las ramas conservan la suya y su etiqueta.
+  const bus = L.edges.find((e) => e.from === "x" && e.to === "x\u25cf");
+  assert.ok(bus.bus && !bus.arrowEnd && !bus.arrowStart);
+  const toC = L.edges.find((e) => e.to === "c");
+  assert.deepStrictEqual([toC.from, toC.label, toC.arrowEnd], ["x\u25cf", "c", true]);
+  // Ninguna conexión pisa a otra.
+  for (const n of L.nodes) assert.ok(conns(n.id).length <= 4, n.id);
+  assert.ok(!L.warnings.some((w) => /Choque/.test(w.message)), JSON.stringify(L.warnings));
+});
+
+test("empalme también para entradas: las flechas que sobran terminan en el empalme", () => {
+  const L = layout(["a --> db", "b --> db", "c --> db", "d --> db", "e --> db"].join("\n"));
+  const j = "db\u25cf";
+  assert.deepStrictEqual(L.edges.filter((e) => e.to === j && !e.bus).map((e) => e.from).sort(), ["d", "e"]);
+  assert.ok(L.edges.find((e) => e.from === "db" && e.to === j).bus);
 });

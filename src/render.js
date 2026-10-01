@@ -172,6 +172,10 @@ function renderEdge(e, theme, marker = "arrow") {
 }
 
 function renderNode(n, theme, opts) {
+  // Empalme: un punto del color de las líneas, sin texto.
+  if (n.shape === "junction") {
+    return `<g class="junction" data-id="${escapeXml(n.id)}">${nodeShape(n, `fill="${theme.edge}"`, "")}</g>`;
+  }
   const css = splitCss(n.css);
   // Las referencias siempre llevan borde discontinuo, aunque su clase diga otra cosa.
   if (n.ref && !n.absorbed) css.shape.push(["stroke-dasharray", theme.refDash]);
@@ -191,6 +195,7 @@ function nodeShape(n, style, arcStyle) {
   const hh = n.h / 2;
   let shape;
   switch (n.shape) {
+    case "junction":
     case "circle":
       shape = `<circle cx="${fmt(n.x)}" cy="${fmt(n.y)}" r="${fmt(hw)}" ${style}/>`;
       break;

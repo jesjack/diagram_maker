@@ -115,3 +115,10 @@ test("hexágono: polígono de 6 puntos con el texto dentro", () => {
   assert.strictEqual(pts.length, 6);
   assert.ok(n.skew > 0 && n.w > n.skew * 2);
 });
+
+test("empalme: punto del color de las líneas y extensión sin flecha", () => {
+  const svg = renderSvg(layoutDiagram(parseDiagram("p --> x\nx --> a\nx --> b\nx --> c\nx --> d")), undefined, { shadow: false });
+  assert.match(svg, /<g class="junction" data-id="x●"><circle [^>]*r="5" fill="#1f2328"\/><\/g>/);
+  assert.match(svg, /<line data-from="x" data-to="x●"[^>]*stroke-width="1.5"\/>/); // sin marker
+  assert.match(svg, /<line data-from="x●" data-to="d"[^>]*marker-end="url\(#arrow\)"/);
+});

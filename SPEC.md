@@ -97,7 +97,7 @@ end
   subgraphs no se dibuja en su diagrama (ni sus referencias): aparece solo dentro de esos subgraphs,
   con su forma y borde normales, porque no es referencia a nada dibujado en otro sitio. Se dibuja
   **una sola vez por diagrama**: con una sola arista ahí se pega a su destino como una referencia;
-  con varias es un nodo normal (más de 3 salidas → error fatal, como cualquier nodo).
+  con varias es un nodo normal (si tiene más de 4 conexiones usa empalmes, como cualquier nodo).
   TODO: decidir si un nodo absorbido muy compartido debería volver a una copia por arista.
   Un nodo sin aristas, o con alguna arista a un nodo de fuera o a un subgraph entero,
   no se absorbe. Un diagrama que se queda sin nodos no se dibuja.
@@ -132,9 +132,12 @@ Sintaxis de Mermaid: `classDef nombre props`, `id:::nombre`, `class id1,id2 nomb
 2. **Rombo (IF)**: la 1ª salida declarada va a la **derecha**, la 2ª a la **izquierda**.
 3. **Cualquier otro nodo**: salidas por orden de declaración:
    1ª → **abajo**, 2ª → **derecha**, 3ª → **izquierda**.
-4. Un nodo con **más de 3 salidas** produce un **error fatal**. También uno con **más de 4
-   conexiones** en total (padres + hijos, contando las referencias de su diagrama), porque solo
-   tiene 4 lados; el error señala la línea de la 5ª conexión.
+4. **Más de 4 conexiones** (padres + hijos, contando las referencias de su diagrama): un nodo solo
+   tiene 4 lados, así que conserva las 3 primeras en orden de declaración y la 4ª es una
+   **extensión**: una línea sin flecha hasta un **empalme** (un punto), del que salen las demás.
+   El empalme tiene 3 lados libres; si no le bastan, se queda con 2 y encadena otro empalme. Las
+   ramas conservan su flecha y su etiqueta (si la flecha entraba al nodo, termina en el empalme) y
+   un `@dir` de una conexión movida pasa a su rama. Con 4 salidas y sin padre, la 4ª va arriba.
 5. `a <--> b` cuenta como salida del nodo que la declara (`a`).
 6. El orden de declaración de las aristas es en sí mismo una forma de control del layout.
 7. **Nodo inicial**: el primer nodo declarado sin aristas entrantes.
@@ -218,6 +221,7 @@ flowchart TD
 
 - [ ] Estilos de un subgraph (`style ID …`): hoy se ignoran con aviso. Decidir si se aplican al
       título o como fondo del área de su diagrama.
-- [ ] Nodos con más de 3 salidas: definir una solución mediante metadatos.
+- [x] Nodos con más de 3 salidas / 4 conexiones: empalmes automáticos (regla 4). Pendiente: `@bus`
+      para elegir a mano qué conexiones comparten empalme.
 - [ ] Bucles y nodos con varios padres (incluye un nuevo tipo de línea para las aristas que regresan). Decidir tras el prototipo.
 - [ ] Choques entre ramas: separación automática. Decidir tras el prototipo.

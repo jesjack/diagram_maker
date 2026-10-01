@@ -47,8 +47,8 @@ const DEFAULT_DIRS = {
   other: ["down", "right", "left"],
 };
 
-const MAX_OUTGOING = 3;
 const MAX_CONNECTIONS = 4; // un nodo solo tiene 4 lados: padres + hijos (incluidas referencias)
+const JUNCTION_SIZE = 10; // diámetro del punto de empalme
 const OPPOSITE = { down: "up", up: "down", left: "right", right: "left" };
 
 function layoutDiagram(graph, options = {}) {
@@ -190,8 +190,9 @@ function layoutSingle(graph, measure, opts, warnings) {
   for (const n of graph.nodes.values()) nodes.set(n.id, { ...n, ...sizeNode(n, measure, opts) });
 
   const edges = graph.edges.map((e) => ({ ...e }));
-  checkConnections(nodes, edges);
-  const ctx = assignDirections(nodes, edges, graph.meta.dirs);
+  const dirs = graph.meta.dirs.map((d) => ({ ...d }));
+  addJunctions(nodes, edges, dirs, opts);
+  const ctx = assignDirections(nodes, edges, dirs);
   placeInGrid(nodes, edges, warnings, ctx);
   const bounds = computeCoordinates(nodes, edges, measure, opts);
   for (const e of edges) routeEdge(e, nodes.get(e.from), nodes.get(e.to), measure, opts);
@@ -199,23 +200,53 @@ function layoutSingle(graph, measure, opts, warnings) {
   return { nodes: [...nodes.values()], edges, bounds };
 }
 
-// Error fatal si un nodo tiene más conexiones de las que caben en sus lados. Se cuenta lo que se
-// dibuja en este diagrama: una referencia es una conexión más.
-function checkConnections(nodes, edges) {
-  const seen = new Map();
-  for (const e of [...edges].sort((a, b) => a.index - b.index)) {
-    for (const id of new Set([e.from, e.to])) {
-      const count = (seen.get(id) || 0) + 1;
-      seen.set(id, count);
-      if (count === MAX_CONNECTIONS + 1) {
-        // (Una referencia tiene una sola arista: nunca llega aquí.)
-        const total = edges.filter((x) => x.from === id || x.to === id).length;
-        throw new layoutDeps.DiagramError(
-          `El nodo '${nodes.get(id).realId || id}' tiene ${total} conexiones (padres + hijos); el máximo es ${MAX_CONNECTIONS}`,
-          e.line
-        );
-      }
+// Un nodo solo tiene 4 lados. Si tiene más conexiones (padres + hijos, contando las referencias
+// de su diagrama), conserva las 3 primeras en orden de declaración y la 4ª es una extensión: una
+// línea sin flecha hasta un punto de empalme, del que salen las demás. El empalme tiene 3 lados
+// libres; si no le bastan, se queda con 2 y encadena otro empalme, y así sucesivamente.
+function addJunctions(nodes, edges, dirs, opts) {
+  const touching = (id) =>
+    edges.filter((e) => (e.from === id || e.to === id) && e.from !== e.to).sort((a, b) => a.index - b.index);
+  const queue = [...nodes.keys()];
+  while (queue.length) {
+    const id = queue.shift();
+    const conns = touching(id);
+    if (conns.length <= MAX_CONNECTIONS) continue;
+    const owner = nodes.get(id);
+    const root = owner.junctionOf || owner.realId || id;
+    const jid = `${id}\u25cf`; // no puede chocar con un id escrito (\u25cf no es válido en ids)
+    const moved = conns.slice(MAX_CONNECTIONS - 1);
+    nodes.set(jid, {
+      id: jid,
+      shape: "junction",
+      text: "",
+      lines: [],
+      w: JUNCTION_SIZE,
+      h: JUNCTION_SIZE,
+      lineHeight: opts.lineHeight,
+      line: moved[0].line,
+      group: owner.group,
+      junctionOf: root,
+    });
+    // La extensión ocupa el sitio de la 4ª conexión en el orden de declaración.
+    edges.push({
+      index: moved[0].index - 0.5,
+      from: id,
+      to: jid,
+      label: null,
+      arrowStart: false,
+      arrowEnd: false,
+      style: "solid",
+      bus: true,
+      line: moved[0].line,
+    });
+    for (const e of moved) {
+      // Un @dir de una conexión movida pasa a la rama que sale del empalme.
+      for (const d of dirs) if (d.from === e.from && d.to === e.to) d[e.from === id ? "from" : "to"] = jid;
+      if (e.from === id) e.from = jid;
+      else e.to = jid;
     }
+    queue.push(jid);
   }
 }
 
@@ -342,12 +373,6 @@ function assignSlots(node, ctx, anchor = null) {
   const { nodes, edges, overrides } = ctx;
   const out = edges.filter((e) => e.from === node.id);
   const att = edges.filter((e) => e.refEdge && e.to === node.id);
-  if (out.length > MAX_OUTGOING) {
-    throw new layoutDeps.DiagramError(
-      `El nodo '${node.id}' tiene ${out.length} salidas; el máximo es ${MAX_OUTGOING}`,
-      out[MAX_OUTGOING].line
-    );
-  }
   for (const e of [...out, ...att]) {
     delete e.dir;
     delete e.slot;
@@ -426,7 +451,7 @@ function resolveDeferred({ e, node, used }, { edges, overrides }) {
 }
 
 const nodeLabel = (n) =>
-  n.absorbed ? `'${n.realId}'` : n.ref ? `la referencia a '${n.text.replace(/\n/g, " ")}'` : `'${n.id}'`;
+  n.junctionOf ? `el empalme de '${n.junctionOf}'` : n.absorbed ? `'${n.realId || n.id}'` : n.ref ? `la referencia a '${n.text.replace(/\n/g, " ")}'` : `'${n.id}'`;
 
 // ---------------------------------------------------------------- rejilla
 
@@ -605,6 +630,7 @@ function borderDistance(node, ux, uy) {
   const ay = Math.abs(uy);
   switch (node.shape) {
     case "circle":
+    case "junction":
       return hw;
     case "diamond":
       return 1 / (ax / hw + ay / hh);
