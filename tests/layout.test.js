@@ -421,7 +421,7 @@ test("hoja colocada lejos: el padre recibe una copia a su lado; un nodo con hijo
   assert.ok(!L.nodes.some((n) => n.copyOf === "f" && n.shape !== "junction"));
 });
 
-test("flecha a un empalme lejano: copia del empalme junto al padre, aunque su dueño tenga hijos (v3_app: F2 -> A8)", () => {
+test("flecha a un empalme: F2 queda junto a un empalme de A8, sin línea larga (v3_app)", () => {
   const src = fs.readFileSync(path.join(__dirname, "../examples/v3_app.mmd"), "utf8");
   const L = layoutDiagram(parseDiagram(src));
   const byId = Object.fromEntries(L.nodes.map((n) => [n.id, n]));
@@ -430,7 +430,7 @@ test("flecha a un empalme lejano: copia del empalme junto al padre, aunque su du
   const e = L.edges.find((x) => fromF2(x.from) && byId[x.to].junctionOf === "A8");
   assert.ok(e, "F2 apunta a un empalme de A8");
   const j = byId[e.to];
-  assert.ok(j.copyOf && j.shape === "junction", "es una copia del empalme");
+  assert.strictEqual(j.shape, "junction"); // el empalme de A8 (o una copia) junto a F2
   const src2 = byId[e.from];
   assert.strictEqual(Math.abs(j.col - src2.col) + Math.abs(j.row - src2.row), 1);
 });

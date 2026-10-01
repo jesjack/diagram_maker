@@ -872,6 +872,7 @@ function placeInGrid(nodes, edges, warnings, ctx) {
       const other = nodes.get(e.attached ? e.from : e.to);
       const willCopy = other.col !== undefined && !e.attached && farLeaf(parent, other);
       if (other.col !== undefined && !willCopy) continue;
+      if (other.shape === "junction" && other.col === undefined && !e.bus) continue;
       const key = cellAt(parent, sideOf(e));
       if (!blocked(key)) pending.set(key, willCopy ? `copy:${e.index}` : other.id);
     }
@@ -887,6 +888,8 @@ function placeInGrid(nodes, edges, warnings, ctx) {
       }
       if (e.from !== parent.id || e.attached) continue;
       let child = nodes.get(e.to);
+      // Un empalme solo lo coloca su dueño, por su extensión: una rama que llega a él espera.
+      if (child.shape === "junction" && child.col === undefined && !e.bus) continue;
       if (child.col !== undefined) {
         if (e.bus) continue; // la extensión a un empalme propio nunca se copia
         // Hijo ya colocado lejos y sin hijos: se le pone una copia aquí, en su turno (regla 12).
@@ -940,6 +943,7 @@ function placeInGrid(nodes, edges, warnings, ctx) {
       for (const e of edges) {
         const w = e.attached && e.to === u.id ? nodes.get(e.from) : !e.attached && e.from === u.id ? nodes.get(e.to) : null;
         if (!w || isPlaced(w) || group.has(w.id)) continue;
+        if (w.shape === "junction" && !e.bus) continue; // el empalme entra al grupo con su dueño
         group.add(w.id);
         if (!w.ref) queue.push(w);
       }
@@ -967,6 +971,7 @@ function placeInGrid(nodes, edges, warnings, ctx) {
       for (const e of conns) {
         const w = nodes.get(e.from === u.id ? e.to : e.from);
         if (!group.has(w.id) || pos.has(w.id)) continue;
+        if (w.shape === "junction" && !e.bus) continue; // lo coloca su dueño, por su extensión
         const side = sidesOf(u).find((d) => free(pu, d));
         const d = side || sidesOf(u)[0];
         const p = { col: pu.col + DIR_VECTORS[d].dc, row: pu.row + DIR_VECTORS[d].dr };
@@ -1231,7 +1236,19 @@ function placeInGrid(nodes, edges, warnings, ctx) {
   copyLeaves();
   fixLongLinks();
   history[step - 1] = snapshot(); // el último paso, ya con la limpieza de empalmes
-  return history;
+  // Los empalmes que se quitaron al final (sin ramas) desaparecen de toda la historia y los pasos
+  // se renumeran, para que el paso k siga teniendo k+1 nodos.
+  const alive = new Set(nodes.keys());
+  const keep = history.filter((h, k) => {
+    const placedAt = h.pos.find(([n]) => n.step === k);
+    return !placedAt || alive.has(placedAt[0].id);
+  });
+  for (const h of keep) {
+    h.pos = h.pos.filter(([n]) => alive.has(n.id));
+    h.edges = h.edges.filter((x) => alive.has(x.from) && alive.has(x.to));
+  }
+  [...nodes.values()].sort((a, b) => a.step - b.step).forEach((n, i) => (n.step = i));
+  return keep;
 }
 
 // ---------------------------------------------------------------- coordenadas

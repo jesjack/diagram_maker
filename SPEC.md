@@ -168,7 +168,8 @@ Sintaxis de Mermaid: `classDef nombre props`, `id:::nombre`, `class id1,id2 nomb
    tiene 4 lados, así que conserva las 3 primeras en orden de declaración y la 4ª es una
    **extensión**: una línea sin flecha hasta un **empalme**, del que salen las demás. Un empalme se
    dibuja como una **pastilla con el id de su dueño** (`● A8`) y ocupa ese tamaño en la rejilla.
-   El empalme tiene 3 lados libres; si no le bastan, se queda con 2 y encadena otro empalme. Las
+   El empalme tiene 3 lados libres; si no le bastan, se queda con 2 y encadena otro empalme. Un
+   empalme solo lo coloca su dueño, por su extensión: una rama que llega a él espera a que esté. Las
    ramas conservan su flecha y su etiqueta (si la flecha entraba al nodo, termina en el empalme) y
    un `@dir` de una conexión movida pasa a su rama. Con 4 salidas y sin padre, la 4ª va arriba.
 5. `a <--> b` cuenta como salida del nodo que la declara (`a`).
