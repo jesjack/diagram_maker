@@ -173,17 +173,36 @@ function renderIdPills(nodes, theme) {
     if (n.shape === "junction") continue; // el empalme ya es una pastilla (renderNode)
     const id = n.realId || n.id;
     const w = id.length * p.fontSize * 0.62 + 8; // monoespaciada: ancho fijo por carácter
-    const x = n.x - n.w / 2;
-    const y = n.y - n.h / 2;
+    const { x, y, centered } = pillAnchor(n);
+    const left = centered ? x - w / 2 : x - 4;
     parts.push(
-      `<g class="id-pill" data-id="${escapeXml(n.id)}"><rect x="${fmt(x - 4)}" y="${fmt(y - p.height / 2)}" width="${fmt(w)}" height="${p.height}" ` +
+      `<g class="id-pill" data-id="${escapeXml(n.id)}"><rect x="${fmt(left)}" y="${fmt(y - p.height / 2)}" width="${fmt(w)}" height="${p.height}" ` +
         `rx="${p.height / 2}" fill="${p.fill}"/>` +
-        `<text x="${fmt(x - 4 + w / 2)}" y="${fmt(y)}" text-anchor="middle" dominant-baseline="central" fill="${p.text}">` +
+        `<text x="${fmt(left + w / 2)}" y="${fmt(y)}" text-anchor="middle" dominant-baseline="central" fill="${p.text}">` +
         `${escapeXml(id)}</text></g>`
     );
   }
   parts.push(`</g>`);
   return parts.join("");
+}
+
+// Punto del contorno de la forma donde se ancla su pastilla: la "esquina superior izquierda" de la
+// forma real. En rombos y círculos esa esquina está en un lado inclinado, así que la pastilla se
+// centra sobre ella; en las demás empieza en la esquina.
+function pillAnchor(n) {
+  const hw = n.w / 2;
+  const hh = n.h / 2;
+  switch (n.shape) {
+    case "diamond":
+      return { x: n.x - hw / 2, y: n.y - hh / 2, centered: true };
+    case "circle":
+      return { x: n.x - hw * Math.SQRT1_2, y: n.y - hh * Math.SQRT1_2, centered: true };
+    case "hexagon":
+    case "parallelogram":
+      return { x: n.x - hw + n.skew, y: n.y - hh };
+    default:
+      return { x: n.x - hw, y: n.y - hh };
+  }
 }
 
 function renderEdge(e, theme, marker = "arrow") {

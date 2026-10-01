@@ -28,7 +28,11 @@ diagrama.mmd ──► CLI (Python) ──► genera HTML autocontenido ──�
 - **Descarga** del diagrama como imagen (PNG y SVG).
 - **Táctil**: un dedo arrastra, dos dedos hacen zoom, doble toque ajusta.
 - **Pastillas de id**: cada nodo lleva su id en una pastilla en la esquina; siempre visibles, también
-  en lo exportado, porque los empalmes y conectores se refieren a los nodos por su id.
+  en lo exportado, porque los empalmes y conectores se refieren a los nodos por su id. La pastilla
+  se ancla al contorno real de la forma (en rombos y círculos, centrada en su lado superior
+  izquierdo).
+- **Tocar la pastilla de un empalme o conector** desplaza la vista, con una animación, hasta su
+  nodo dueño (el original si hay copias), que parpadea un momento.
 - **Paso a paso** (depuración del layout): ◀ ▶ arriba a la izquierda (o ← →, Inicio, Fin) muestran
   los nodos en el orden en que el layout los colocó, con el motivo de cada colocación; el nodo del
   paso actual se resalta y, si queda fuera de la pantalla, la vista se centra en él. Cada paso se

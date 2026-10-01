@@ -222,6 +222,53 @@ const DiagramViewer = (() => {
     });
     showStep(total);
 
+    // ---- tocar la pastilla de un empalme (o conector) lleva, con una animación, hasta su nodo
+    // dueño, que parpadea. Si hay copias de ese nodo, va al original. Un arrastre no cuenta.
+    let downAt = null;
+    // El elemento tocado se guarda al apoyar el dedo: el arrastre captura el puntero y el click
+    // posterior llega al lienzo, no a la pastilla.
+    stage.addEventListener("pointerdown", (ev) => (downAt = { x: ev.clientX, y: ev.clientY, target: ev.target }), true);
+    stage.addEventListener("click", (ev) => {
+      if (downAt && Math.hypot(ev.clientX - downAt.x, ev.clientY - downAt.y) > 6) return;
+      const t = downAt && downAt.target;
+      const pill = t && t.closest && t.closest("g.junction");
+      if (!pill) return;
+      const j = shownLayout.nodes.find((n) => n.id === pill.dataset.id);
+      if (!j) return;
+      const owner = j.junctionOf;
+      const candidates = shownLayout.nodes.filter((n) => n.shape !== "junction" && (n.realId || n.id) === owner);
+      const target = candidates.find((n) => n.id === owner) || candidates.find((n) => !n.copyOf) || candidates[0];
+      if (target) flyTo(target);
+    });
+    let flight = 0;
+    const flyTo = (n) => {
+      const vb = shownSvg.viewBox.baseVal;
+      const r = stage.getBoundingClientRect();
+      const from = { tx: view.tx, ty: view.ty };
+      const to = { tx: r.width / 2 - (n.x - vb.x) * view.s, ty: r.height / 2 - (n.y - vb.y) * view.s };
+      const start = performance.now();
+      const id = ++flight;
+      const frame = (now) => {
+        if (id !== flight) return; // otro toque empezó otra animación
+        const t = Math.min(1, (now - start) / 450);
+        const k = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; // suave al salir y al llegar
+        view.tx = from.tx + (to.tx - from.tx) * k;
+        view.ty = from.ty + (to.ty - from.ty) * k;
+        apply();
+        if (t < 1) requestAnimationFrame(frame);
+        else flash(n.id);
+      };
+      requestAnimationFrame(frame);
+    };
+    const flash = (id) => {
+      const el = shownSvg.querySelector(`g.node[data-id="${CSS.escape(id)}"]`);
+      if (!el) return;
+      el.classList.remove("flash");
+      void el.getBoundingClientRect(); // reinicia la animación si ya estaba
+      el.classList.add("flash");
+      setTimeout(() => el.classList.remove("flash"), 1300);
+    };
+
     // Lo exportado sale como se ve (pastillas incluidas: los empalmes se refieren a los nodos por su
     // id), con la sombra difuminada real dentro del SVG.
     const exportSvg = () => renderSvg(result, THEME, { ids: true });

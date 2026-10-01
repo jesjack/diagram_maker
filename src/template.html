@@ -74,6 +74,12 @@
   #step-why:empty { display: none; }
   #canvas .step-current > :first-child { stroke: #e11d48 !important; stroke-width: 3px !important; }
   #canvas .junction.step-current rect { fill: #e11d48 !important; }
+  #canvas .junction { cursor: pointer; }
+  #canvas .flash > :first-child { animation: flash 1.2s ease-out; }
+  @keyframes flash {
+    0%, 50% { stroke: #e11d48; stroke-width: 4px; }
+    25%, 75% { stroke: #fb923c; stroke-width: 6px; }
+  }
 
   .toolbar {
     position: fixed;

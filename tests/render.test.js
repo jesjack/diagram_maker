@@ -137,3 +137,21 @@ test("pastillas de id: solo con { ids: true }, id real en referencias; los empal
   assert.strictEqual(ids.filter((id) => id === "e").length, 2); // e y su referencia dentro de S
   assert.match(svg, /<g class="junction"[^>]*>.*?>● q<\/text>/);
 });
+
+test("pastilla anclada al contorno: en rombos y círculos va centrada sobre su lado superior izquierdo", () => {
+  const layout = layoutDiagram(parseDiagram('d{"Rombo"} --> r["Rect"]\nd --> c(("Círculo"))'));
+  const svg = renderSvg(layout, undefined, { shadow: false, ids: true });
+  const pill = (id) => {
+    const m = svg.match(new RegExp(`<g class="id-pill" data-id="${id}"><rect x="([\\d.-]+)" y="([\\d.-]+)" width="([\\d.-]+)" height="([\\d.-]+)"`));
+    return { x: +m[1], y: +m[2], w: +m[3], h: +m[4] };
+  };
+  const n = (id) => layout.nodes.find((x) => x.id === id);
+  const d = n("d");
+  const pd = pill("d");
+  assert.ok(Math.abs(pd.x + pd.w / 2 - (d.x - d.w / 4)) < 0.1 && Math.abs(pd.y + pd.h / 2 - (d.y - d.h / 4)) < 0.1);
+  const r = n("r");
+  assert.ok(Math.abs(pill("r").x - (r.x - r.w / 2 - 4)) < 0.1);
+  const c = n("c");
+  const pc = pill("c");
+  assert.ok(Math.abs(pc.x + pc.w / 2 - (c.x - (c.w / 2) * Math.SQRT1_2)) < 0.1);
+});
