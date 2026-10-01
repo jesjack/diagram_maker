@@ -59,7 +59,12 @@ function layoutDiagram(graph, options = {}) {
   const warnings = [...(graph.warnings || [])];
 
   if (!graph.subgraphs || !graph.subgraphs.length) {
-    return { ...layoutSingle(graph, measure, opts, warnings), titles: [], warnings, options: opts };
+    const single = layoutSingle(graph, measure, opts, warnings);
+    const { steps, snapshotAt } = single;
+    delete single.steps;
+    delete single.snapshotAt;
+    const at = (k) => ({ ...snapshotAt(Math.min(k, steps - 1)), titles: [], options: opts });
+    return { ...single, titles: [], warnings, options: opts, snapshotAt: at };
   }
 
   // Un diagrama por grupo (el nivel superior y cada subgraph), de izquierda a derecha.
@@ -70,8 +75,10 @@ function layoutDiagram(graph, options = {}) {
   let bounds = null;
   let cursor = 0;
   let stepOffset = 0; // los pasos de colocación siguen la numeración entre diagramas
+  const done = []; // por diagrama: lo necesario para reconstruir sus pasos
   for (const part of parts) {
     const r = layoutSingle(part, measure, opts, warnings);
+    const firstStep = stepOffset;
     for (const n of r.nodes) {
       if (n.step === 0) n.why = `${part.title ? `diagrama «${part.title}»` : "nivel superior"}: ${n.why}`;
       n.step += stepOffset;
@@ -99,13 +106,39 @@ function layoutDiagram(graph, options = {}) {
     }
     const width = Math.max(r.bounds.maxX - r.bounds.minX, titleW);
     if (part.title) titles.push({ text: part.title, x: cursor, y: opts.lineHeight / 2 });
+    done.push({ r, firstStep, steps: r.steps, cursor, titleH, nodes: [...r.nodes], edges: [...r.edges], titles: [...titles] });
     const b = { minX: cursor, minY: 0, maxX: cursor + width, maxY: titleH + r.bounds.maxY - r.bounds.minY };
     bounds = bounds
       ? { minX: bounds.minX, minY: 0, maxX: b.maxX, maxY: Math.max(bounds.maxY, b.maxY) }
       : b;
     cursor += width + opts.diagramGap;
   }
-  return { nodes, edges, bounds: bounds || { minX: 0, minY: 0, maxX: 0, maxY: 0 }, titles, warnings, options: opts };
+  // Paso k: los diagramas anteriores completos y el del paso k tal como estaba entonces.
+  const snapshotAt = (k) => {
+    const i = Math.max(0, done.findIndex((d) => k < d.firstStep + d.steps));
+    const cur = done[i] || done[done.length - 1];
+    const snap = cur.r.snapshotAt(Math.min(k - cur.firstStep, cur.steps - 1));
+    const dx = cur.cursor - snap.bounds.minX;
+    const dy = cur.titleH - snap.bounds.minY;
+    const moved = snap.nodes.map((n) => ({ ...n, x: n.x + dx, y: n.y + dy }));
+    const movedEdges = snap.edges.map((e) => ({
+      ...e,
+      points: e.points.map((p) => ({ x: p.x + dx, y: p.y + dy })),
+      labelBox: e.labelBox && { ...e.labelBox, x: e.labelBox.x + dx, y: e.labelBox.y + dy },
+    }));
+    const before = done.slice(0, done.indexOf(cur));
+    const all = [...before.flatMap((d) => d.nodes), ...moved];
+    const xs = all.flatMap((n) => [n.x - n.w / 2, n.x + n.w / 2]);
+    const ys = all.flatMap((n) => [n.y - n.h / 2, n.y + n.h / 2]);
+    return {
+      nodes: all,
+      edges: [...before.flatMap((d) => d.edges), ...movedEdges],
+      bounds: { minX: Math.min(0, ...xs), minY: Math.min(0, ...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) },
+      titles: cur.titles,
+      options: opts,
+    };
+  };
+  return { nodes, edges, bounds: bounds || { minX: 0, minY: 0, maxX: 0, maxY: 0 }, titles, warnings, options: opts, snapshotAt };
 }
 
 // Separa el grafo en un grafo por grupo. Una arista entre dos grupos se dibuja en los dos: en
@@ -199,11 +232,20 @@ function layoutSingle(graph, measure, opts, warnings) {
   const dirs = graph.meta.dirs.map((d) => ({ ...d }));
   addJunctions(nodes, edges, dirs, opts);
   const ctx = assignDirections(nodes, edges, dirs);
-  placeInGrid(nodes, edges, warnings, ctx);
+  const history = placeInGrid(nodes, edges, warnings, ctx);
   const bounds = computeCoordinates(nodes, edges, measure, opts);
   for (const e of edges) routeEdge(e, nodes.get(e.from), nodes.get(e.to), measure, opts);
 
-  return { nodes: [...nodes.values()], edges, bounds };
+  // Coordenadas del diagrama tal como estaba al terminar el paso k (se calculan al pedirlas).
+  const snapshotAt = (k) => {
+    const h = history[k];
+    const snapNodes = new Map(h.pos.map(([n, col, row]) => [n.id, { ...n, col, row }]));
+    const snapEdges = h.edges.map((x) => ({ ...x }));
+    const b = computeCoordinates(snapNodes, snapEdges, measure, opts);
+    for (const x of snapEdges) routeEdge(x, snapNodes.get(x.from), snapNodes.get(x.to), measure, opts);
+    return { nodes: [...snapNodes.values()], edges: snapEdges, bounds: b };
+  };
+  return { nodes: [...nodes.values()], edges, bounds, steps: history.length, snapshotAt };
 }
 
 // Crea un empalme de owner y la extensión (línea sin flechas) que los une. Devuelve el empalme.
@@ -494,7 +536,22 @@ function placeInGrid(nodes, edges, warnings, ctx) {
   };
   const blocked = (key, forId) =>
     occupied.has(key) || (pending.has(key) && pending.get(key) !== forId) || crossedBy(key);
+  // Historia para el paso a paso del visor: history[k] = estado de la rejilla al terminar el paso k
+  // (posición de cada nodo colocado y flechas entre nodos colocados, con sus extremos de entonces).
+  // Se guarda justo antes de que el paso siguiente cambie nada (closeStep), así una inserción o
+  // un nodo movido aparecen en el paso que los provocó.
+  const history = [];
+  const snapshot = () => ({
+    pos: [...nodes.values()].filter((n) => n.col !== undefined).map((n) => [n, n.col, n.row]),
+    edges: edges
+      .filter((x) => nodes.has(x.from) && nodes.has(x.to) && nodes.get(x.from).col !== undefined && nodes.get(x.to).col !== undefined)
+      .map((x) => ({ ...x })),
+  });
+  const closeStep = () => {
+    if (step > 0 && !history[step - 1]) history[step - 1] = snapshot();
+  };
   const place = (node, col, row, why = "") => {
+    closeStep();
     for (const [k, id] of pending) if (id === node.id) pending.delete(k);
     node.col = col;
     node.row = row;
@@ -582,6 +639,7 @@ function placeInGrid(nodes, edges, warnings, ctx) {
     return insertLine(parent, node, e, wanted);
   };
   const applyRoom = ({ parent, node, e, wanted, d, k, jc, sibEdge, sib, sibSide, nodeSide }) => {
+    closeStep();
     const j = addJunction(nodes, edges, parent, Math.min(e.index, sibEdge ? sibEdge.index : e.index) - 0.5, e.line, parent.lineHeight);
     edges[edges.length - 1].dir = d;
     if (sib && sib.col !== undefined) {
@@ -616,6 +674,7 @@ function placeInGrid(nodes, edges, warnings, ctx) {
   // celda (las líneas que la cruzan se alargan y siguen rectas). Se elige el lado que menos
   // flechas cruzan y el nodo va a la celda que queda libre.
   const insertLine = (parent, node, e, wanted) => {
+    closeStep();
     const placedNodes = [...nodes.values()].filter((n) => n.col !== undefined);
     const beyond = (n, d) =>
       d === "down" ? n.row > parent.row : d === "up" ? n.row < parent.row : d === "right" ? n.col > parent.col : n.col < parent.col;
@@ -1025,6 +1084,8 @@ function placeInGrid(nodes, edges, warnings, ctx) {
     placeRoot(root, findAnchor(root));
   }
   copyLeaves();
+  history[step - 1] = snapshot(); // el último paso, ya con la limpieza de empalmes
+  return history;
 }
 
 // ---------------------------------------------------------------- coordenadas

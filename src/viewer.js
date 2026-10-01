@@ -159,27 +159,50 @@ const DiagramViewer = (() => {
     const stepLabel = document.getElementById("step-label");
     const stepWhy = document.getElementById("step-why");
     const shadowCanvas = () => canvas.querySelector("canvas.shadow");
+    // En un paso intermedio se dibuja el diagrama tal como estaba al terminar ese paso
+    // (result.snapshotAt): las inserciones de filas/columnas y los nodos movidos aparecen en el
+    // paso que los provocó. Para que el dibujo no salte, el primer nodo se mantiene fijo en pantalla.
+    let shownSvg = svg;
+    let shownLayout = result;
+    const anchorId = order[0] && order[0].id;
+    const localPos = (layout, el, id) => {
+      const n = layout.nodes.find((x) => x.id === id);
+      const vb = el.viewBox.baseVal;
+      return n && { x: n.x - vb.x, y: n.y - vb.y };
+    };
+    const showLayout = (layout, el) => {
+      const before = localPos(shownLayout, shownSvg, anchorId);
+      if (el !== shownSvg) shownSvg.replaceWith(el);
+      const after = localPos(layout, el, anchorId);
+      if (before && after) {
+        view.tx += (before.x - after.x) * view.s;
+        view.ty += (before.y - after.y) * view.s;
+        apply();
+      }
+      shownSvg = el;
+      shownLayout = layout;
+    };
     const showStep = (k) => {
       shown = Math.max(1, Math.min(total, k));
       const all = shown === total;
-      const visible = new Set(order.slice(0, shown).map((n) => n.id));
       const current = all ? null : order[shown - 1];
-      for (const el of svg.querySelectorAll("[data-id]")) {
-        el.classList.toggle("step-hidden", !visible.has(el.dataset.id));
-        el.classList.toggle("step-current", !!current && el.dataset.id === current.id && !el.classList.contains("id-pill"));
-      }
-      for (const el of svg.querySelectorAll("[data-from]")) {
-        el.classList.toggle("step-hidden", !(visible.has(el.dataset.from) && visible.has(el.dataset.to)));
+      if (all) showLayout(result, svg);
+      else {
+        const snap = result.snapshotAt(shown - 1);
+        const tmp = document.createElement("div");
+        tmp.innerHTML = renderSvg(snap, THEME, { shadow: false, ids: true });
+        showLayout(snap, tmp.firstElementChild);
+        const el = shownSvg.querySelector(`g.node[data-id="${CSS.escape(current.id)}"], g.junction[data-id="${CSS.escape(current.id)}"]`);
+        if (el) el.classList.add("step-current");
       }
       const sh = shadowCanvas();
-      if (sh) sh.style.display = all ? "" : "none"; // la sombra es de todo el diagrama
-      stepLabel.textContent = all ? `${total} / ${total}` : `${shown} / ${total}`;
+      if (sh) sh.style.display = all ? "" : "none"; // la sombra es la del diagrama final
+      stepLabel.textContent = `${shown} / ${total}`;
       stepWhy.textContent = current ? `${current.realId || current.junctionOf || current.id}: ${current.why}` : "";
-      if (current) keepVisible(current);
+      if (current) keepVisible(shownLayout.nodes.find((n) => n.id === current.id) || current);
     };
-    // Si el nodo del paso actual queda fuera de la pantalla, se centra en él.
     const keepVisible = (n) => {
-      const vb = svg.viewBox.baseVal;
+      const vb = shownSvg.viewBox.baseVal;
       const r = stage.getBoundingClientRect();
       const sx = view.tx + (n.x - vb.x) * view.s;
       const sy = view.ty + (n.y - vb.y) * view.s;

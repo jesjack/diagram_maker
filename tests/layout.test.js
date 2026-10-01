@@ -475,3 +475,20 @@ test("nodo sin sitio cerca: se inserta una fila o columna y nadie queda encima d
   assert.ok(!L.warnings.some((w) => /Choque/.test(w.message)));
   assert.strictEqual(L.edges.filter((e) => !e.bus).length, 9);
 });
+
+test("historia del paso a paso: cada paso muestra el diagrama como estaba entonces (v3_app, oMainOds)", () => {
+  const src = fs.readFileSync(path.join(__dirname, "../examples/v3_app.mmd"), "utf8");
+  const L = layoutDiagram(parseDiagram(src));
+  const name = (n) => n.realId || (n.junctionOf && `● ${n.junctionOf}`) || n.id;
+  const stepOf = (id) => L.nodes.find((n) => name(n) === id).step;
+  const at = (k, id) => L.snapshotAt(k).nodes.find((n) => name(n) === id);
+  const near = (a, b) => Math.abs(a.col - b.col) + Math.abs(a.row - b.row) === 1;
+  // Al colocarse, oMainOds queda pegado a A8; en el paso siguiente la extensión de A8 lo mueve.
+  const k = stepOf("oMainOds");
+  assert.ok(near(at(k, "oMainOds"), at(k, "A8")));
+  assert.ok(!at(k, "● A8"));
+  assert.ok(at(k + 1, "● A8"));
+  assert.ok(!near(at(k + 1, "oMainOds"), at(k + 1, "A8")));
+  // Cada paso tiene un nodo más que el anterior y el último es el diagrama final.
+  for (let i = 0; i < L.nodes.length; i++) assert.strictEqual(L.snapshotAt(i).nodes.length, i + 1);
+});

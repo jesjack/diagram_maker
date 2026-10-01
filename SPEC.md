@@ -30,7 +30,9 @@ diagrama.mmd ──► CLI (Python) ──► genera HTML autocontenido ──�
 - **ID**: pastilla con el id de cada nodo (botón ID o tecla `i`).
 - **Paso a paso** (depuración del layout): ◀ ▶ arriba a la izquierda (o ← →, Inicio, Fin) muestran
   los nodos en el orden en que el layout los colocó, con el motivo de cada colocación; el nodo del
-  paso actual se resalta y, si queda fuera de la pantalla, la vista se centra en él.
+  paso actual se resalta y, si queda fuera de la pantalla, la vista se centra en él. Cada paso se
+  dibuja **tal como estaba el diagrama al terminarlo**: una inserción de fila o columna, un hermano
+  movido o una línea alargada aparecen en el paso que los provocó, no antes.
 
 ## Sintaxis soportada
 
