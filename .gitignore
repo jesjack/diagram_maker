@@ -5,3 +5,6 @@
 # Caché de Python
 __pycache__/
 *.py[cod]
+
+# Copias de trabajo de agentes de Claude Code
+.claude/worktrees/
