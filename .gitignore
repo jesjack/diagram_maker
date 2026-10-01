@@ -1,3 +1,7 @@
 # HTML generados por diagram.py
 *.html
 !src/template.html
+
+# Caché de Python
+__pycache__/
+*.py[cod]
