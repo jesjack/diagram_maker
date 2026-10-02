@@ -55,6 +55,7 @@ dmk archivo.mmd --svg           # exporta archivo.svg, sin abrir nada
 dmk archivo.mmd --png           # exporta archivo.png (--escala 3 para más resolución)
 dmk archivo.mmd --html          # solo genera el HTML
 dmk archivo.mmd --sin-servidor  # abre el HTML guardado como archivo, sin servidor
+dmk archivo.mmd --ligero        # HTML sin Mermaid incrustado (más pequeño, sin botón «Mermaid»)
 dmk                             # escribe el diagrama en la terminal (termina con Ctrl+D)
 cat archivo.mmd | dmk --svg -o diagrama.svg
 ```
@@ -98,8 +99,9 @@ archivo.mmd`, con `--watch` y `--no-open`); no exporta a SVG/PNG.
   nodo, tal como estaba en cada paso y con el motivo de cada colocación. Sirve para entender o
   depurar el layout.
 - **SVG / PNG**: descarga el diagrama.
-- **Mermaid**: abre el mismo código dibujado con Mermaid oficial en otra pestaña, para comparar
-  (necesita internet).
+- **Mermaid**: abre el mismo código dibujado con Mermaid oficial en otra pestaña, para comparar.
+  Mermaid va incrustado en el HTML, así que funciona sin internet (`--ligero` lo quita: el HTML
+  pasa de ~1,4 MB a ~130 kB y el botón no aparece).
 - Los errores de sintaxis se muestran con el número de línea marcado en el código.
 
 ## Sintaxis

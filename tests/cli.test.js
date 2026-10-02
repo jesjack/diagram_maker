@@ -36,7 +36,7 @@ test("--html genera el HTML autocontenido sin abrir nada", () => {
   const html = fs.readFileSync(path.join(tmp, "p.html"), "utf8");
   assert.match(html, /DiagramViewer\.start/);
   assert.ok(html.includes('"a[\\"Inicio\\"] --> b{\\"¿Ok?\\"}'), "lleva el código del diagrama");
-  assert.strictEqual((html.match(/<\/script>/g) || []).length, 3);
+  assert.strictEqual((html.match(/<\/script>/g) || []).length, 4); // fuente, Mermaid, motor y arranque
 });
 
 test("lee el diagrama por la entrada estándar", () => {
@@ -63,4 +63,18 @@ test("errores claros y código de salida 1", () => {
 test("--version y --ayuda", () => {
   assert.strictEqual(dmk(["--version"]).stdout.trim(), require("../package.json").version);
   assert.match(dmk(["--ayuda"]).stdout, /dmk archivo\.mmd --png/);
+});
+
+test("el HTML lleva Mermaid incrustado (botón sin internet); con --ligero no", () => {
+  const completo = path.join(tmp, "m.html");
+  const ligero = path.join(tmp, "l.html");
+  assert.strictEqual(dmk([ejemplo, "--html", "-o", completo]).status, 0);
+  assert.strictEqual(dmk([ejemplo, "--html", "--ligero", "-o", ligero]).status, 0);
+  const lib = (f) => fs.readFileSync(f, "utf8").match(/<script type="text\/plain" id="mermaid-lib">([^<]*)<\/script>/)[1];
+  const b64 = lib(completo);
+  assert.ok(b64.length > 900000, "Mermaid incrustado");
+  assert.strictEqual(require("node:zlib").gunzipSync(Buffer.from(b64, "base64")).toString("utf8", 0, 200).length, 200);
+  assert.strictEqual(lib(ligero), "");
+  assert.ok(fs.statSync(ligero).size < 300000);
+  assert.ok(!fs.readFileSync(completo, "utf8").includes("cdn.jsdelivr"), "no depende de internet");
 });

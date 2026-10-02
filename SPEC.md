@@ -41,8 +41,10 @@ diagrama.mmd ──► CLI (Python) ──► genera HTML autocontenido ──�
   zoom: solo muestra el porcentaje.
 - **Arrastre**: desplazamiento por el lienzo.
 - **Descarga** del diagrama como imagen (PNG y SVG).
-- **Mermaid**: abre el mismo código dibujado con Mermaid oficial en otra pestaña, para comparar
-  (librería desde jsDelivr: hace falta internet).
+- **Mermaid**: abre el mismo código dibujado con Mermaid oficial en otra pestaña, para comparar.
+  La librería (Mermaid 11, licencia MIT, en `vendor/`) va incrustada en el HTML comprimida con
+  gzip y en base64; el visor la descomprime con `DecompressionStream` al pulsar el botón, sin
+  internet. Con `dmk --ligero` no se incrusta y el botón no aparece.
 - **Táctil**: un dedo arrastra, dos dedos hacen zoom, doble toque ajusta.
 - **Pastillas de id**: cada nodo lleva su id en una pastilla en la esquina; siempre visibles, también
   en lo exportado, porque los empalmes y conectores se refieren a los nodos por su id. La pastilla

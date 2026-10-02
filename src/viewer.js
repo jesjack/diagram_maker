@@ -145,7 +145,10 @@ const DiagramViewer = (() => {
       else if (ev.key === "+" || ev.key === "=") zoomAt(1.2, ...center());
       else if (ev.key === "-") zoomAt(1 / 1.2, ...center());
     });
-    document.getElementById("btn-mermaid").onclick = () => openInMermaid(source, title);
+    // Botón «Mermaid» solo si el HTML lleva la librería incrustada (no con dmk --ligero).
+    const btnMermaid = document.getElementById("btn-mermaid");
+    if (mermaidLib()) btnMermaid.onclick = () => openInMermaid(source, title);
+    else btnMermaid.hidden = true;
     // ---- depuración: ver cómo se construye el diagrama, nodo a nodo, en el orden en que el layout
     // los colocó (n.step) y con el motivo (n.why). Una flecha aparece cuando sus dos extremos están.
     let order = [];
@@ -401,10 +404,26 @@ const DiagramViewer = (() => {
     img.src = url;
   }
 
-  // Abre el mismo código en una pestaña nueva dibujado con Mermaid oficial (librería desde
-  // jsDelivr; hace falta internet), para comparar. Ahí funciona el zoom normal del navegador.
-  function openInMermaid(source, title) {
+  // Mermaid oficial incrustado en el HTML (gzip + base64), o "" si no va (dmk --ligero).
+  const mermaidLib = () => (document.getElementById("mermaid-lib")?.textContent || "").trim();
+
+  // Abre el mismo código en una pestaña nueva dibujado con Mermaid oficial, para comparar, con la
+  // librería incrustada (sin internet). La pestaña se abre al momento (si se abre después de
+  // descomprimir, el navegador la bloquea como ventana emergente) y recibe la página cuando la
+  // librería está lista. Ahí funciona el zoom normal del navegador.
+  async function openInMermaid(source, title) {
+    const tab = window.open("", "_blank");
     const esc = (t) => t.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
+    let libUrl;
+    try {
+      const bytes = Uint8Array.from(atob(mermaidLib()), (c) => c.charCodeAt(0));
+      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+      libUrl = URL.createObjectURL(new Blob([await new Response(stream).text()], { type: "text/javascript" }));
+    } catch (err) {
+      if (tab) tab.close();
+      alert("No se pudo preparar Mermaid en este navegador: " + err.message);
+      return;
+    }
     const page = `<!doctype html><html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)} · Mermaid</title>
@@ -413,22 +432,24 @@ const DiagramViewer = (() => {
   .mermaid svg { max-width: none !important; height: auto; }
   #msg { color: #656d76; }
 </style></head><body>
-<p id="msg">Mermaid oficial · cargando…</p>
+<p id="msg">Mermaid oficial · dibujando…</p>
 <pre class="mermaid">${esc(source)}</pre>
-<script type="module">
+<script src="${libUrl}"><\/script>
+<script>
   const msg = document.getElementById("msg");
-  try {
-    const { default: mermaid } = await import("https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs");
-    mermaid.initialize({ startOnLoad: false, securityLevel: "strict" });
-    await mermaid.run();
-    msg.textContent = "Mermaid oficial";
-  } catch (err) {
-    msg.textContent = "No se pudo cargar o dibujar con Mermaid (¿sin internet?): " + err.message;
-  }
+  mermaid.initialize({ startOnLoad: false, securityLevel: "strict" });
+  mermaid.run().then(
+    () => (msg.textContent = "Mermaid oficial"),
+    (err) => (msg.textContent = "Mermaid no pudo dibujar el diagrama: " + err.message)
+  );
 <\/script></body></html>`; // <\/script: si no, cerraría el <script> del HTML generado
     const url = URL.createObjectURL(new Blob([page], { type: "text/html" }));
-    window.open(url, "_blank");
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    if (tab) tab.location.href = url;
+    else window.open(url, "_blank");
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(libUrl);
+    }, 120000);
   }
 
   // Mide texto con la fuente con la que se va a pintar (la del nodo si su estilo la cambia).

@@ -16,6 +16,7 @@ Con --watch el servidor sigue abierto y la página le pide el código nuevo cuan
 """
 
 import argparse
+import base64
 import http.server
 import json
 import re
@@ -31,6 +32,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 SRC = ROOT / "src"
 SCRIPTS = ["parser.js", "layout.js", "render.js", "viewer.js"]
+MERMAID = ROOT / "vendor" / "mermaid.min.js.gz"  # para el botón «Mermaid» sin internet
 SERVE_TIMEOUT = 30  # segundos que se espera a que el navegador pida la página
 WATCH_INTERVAL = 0.5  # segundos entre comprobaciones del .mmd con --watch
 
@@ -49,6 +51,7 @@ def build_html(source, title, live=None):
         "__DIAGRAM_SOURCE__": js_literal(source),
         "__DIAGRAM_TITLE__": js_literal(title),
         "__DIAGRAM_LIVE__": js_literal(live),
+        "__DIAGRAM_MERMAID__": base64.b64encode(MERMAID.read_bytes()).decode("ascii") if MERMAID.exists() else "",
         "__DIAGRAM_SCRIPTS__": scripts,
     }
     # Una sola pasada, para que el contenido insertado nunca se vuelva a sustituir.

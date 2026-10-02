@@ -26,13 +26,14 @@ Opciones:
       --escala N        escala del PNG (por defecto 2)
       --html            generar el HTML sin abrirlo
       --sin-servidor    abrir el HTML guardado como archivo, sin levantar un servidor
+      --ligero          HTML sin Mermaid incrustado (~130 kB en vez de ~1,4 MB; sin botón «Mermaid»)
   -w, --watch           servir hasta Ctrl+C y actualizar la página al guardar el .mmd
       --no-abrir        no abrir el navegador (con --watch se sirve igual)
   -h, --ayuda           esta ayuda
   -v, --version         versión`;
 
 function leerArgumentos(argv) {
-  const op = { archivo: null, salida: null, formato: "html", abrir: true, watch: false, escala: 2, sinServidor: false };
+  const op = { archivo: null, salida: null, formato: "html", abrir: true, watch: false, escala: 2, sinServidor: false, ligero: false };
   const conValor = (i, nombre) => {
     const v = argv[i + 1];
     if (v === undefined || v.startsWith("-")) fallar(`${nombre} necesita un valor.`);
@@ -73,6 +74,10 @@ function leerArgumentos(argv) {
       case "--sin-servidor":
       case "--no-server":
         op.sinServidor = true;
+        break;
+      case "--ligero":
+      case "--light":
+        op.ligero = true;
         break;
       case "-w":
       case "--watch":
@@ -135,7 +140,7 @@ async function main() {
   }
 
   // HTML con el visor.
-  const html = construirHtml(source, title);
+  const html = construirHtml(source, title, null, { mermaid: !op.ligero });
   const salida = op.salida || (op.archivo ? junto("html") : null);
   if (salida) {
     fs.writeFileSync(salida, html);
@@ -143,7 +148,7 @@ async function main() {
   } else if (!op.abrir || op.sinServidor) {
     fallar("Sin archivo de entrada hace falta -o para guardar el HTML.");
   }
-  if (op.watch) vigilar(op.archivo, title, { salida, abrirNavegador: op.abrir });
+  if (op.watch) vigilar(op.archivo, title, { salida, abrirNavegador: op.abrir, mermaid: !op.ligero });
   else if (op.sinServidor) abrir(path.resolve(salida), { esArchivo: true });
   else if (op.abrir) await servirUnaVez(html);
 }
