@@ -1282,6 +1282,7 @@ function placeInGrid(nodes, edges, warnings, ctx) {
   //     representante del mismo nodo (algo se movió después): la arista va a ese y este se quita;
   //  b) un empalme que solo conserva una rama alineada con su dueño (el empalme se creó de antemano,
   //     pero las demás conexiones acabaron en copias): la flecha va recta al dueño y se quita.
+  //  c) un empalme de una cadena sin ramas, alineado con el anterior y el siguiente: se salta.
   const removeNode = (n) => {
     for (const x of edges.filter((y) => y.from === n.id || y.to === n.id)) edges.splice(edges.indexOf(x), 1);
     nodes.delete(n.id);
@@ -1307,6 +1308,34 @@ function placeInGrid(nodes, edges, warnings, ctx) {
       for (const j of [...nodes.values()]) {
         if (!nodes.has(j.id) || j.shape !== "junction" || j.copyOf || j.col === undefined) continue;
         const own = edges.filter((x) => x.from === j.id || x.to === j.id);
+        // c) Empalme intermedio de una cadena que se ha quedado sin ramas (solo la extensión que
+        //    llega y la que sigue) y alineado: la extensión va recta del anterior al siguiente.
+        const into = own.filter((x) => x.bus && x.to === j.id);
+        const onward = own.filter((x) => x.bus && x.from === j.id);
+        if (own.length === 2 && into.length === 1 && onward.length === 1) {
+          const a = nodes.get(into[0].from);
+          const b = nodes.get(onward[0].to);
+          const straight =
+            (a.col === j.col && j.col === b.col && (a.row - j.row) * (b.row - j.row) < 0) ||
+            (a.row === j.row && j.row === b.row && (a.col - j.col) * (b.col - j.col) < 0);
+          if (straight) {
+            into[0].to = b.id;
+            edges.splice(edges.indexOf(onward[0]), 1);
+            nodes.delete(j.id);
+            if (occupied.get(`${j.col},${j.row}`) === j) occupied.delete(`${j.col},${j.row}`);
+            changed = true;
+            continue;
+          }
+          // En una esquina no se puede saltar (la línea quedaría en diagonal): pasa a ser un codo,
+          // un punto sin tamaño ni pastilla donde la extensión gira.
+          if (!j.elbow) {
+            j.elbow = true;
+            j.w = 0;
+            j.h = 0;
+            j.why += " · se quedó sin ramas: ahora es solo un codo de la línea";
+          }
+          continue;
+        }
         const bus = own.filter((x) => x.bus && x.to === j.id);
         const branches = own.filter((x) => !x.bus);
         if (bus.length !== 1 || branches.length !== 1 || own.length !== 2) continue;

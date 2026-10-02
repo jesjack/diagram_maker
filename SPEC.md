@@ -245,8 +245,10 @@ Sintaxis de Mermaid: `classDef nombre props`, `id:::nombre`, `class id1,id2 nomb
     El original también cuenta: si el padre ya tiene pegado el nodo original, no se crea copia.
 15. **Limpieza final:** se quitan los autogenerados que han quedado de sobra: una copia, referencia
     o conector con una sola flecha cuyo otro extremo tiene ya pegado otro representante del mismo
-    nodo (la flecha va a ese), y un empalme que solo conserva una rama alineada con su dueño (la
-    flecha va recta al dueño).
+    nodo (la flecha va a ese), un empalme que solo conserva una rama alineada con su dueño (la
+    flecha va recta al dueño) y un empalme de una cadena que se quedó sin ramas: si está alineado
+    se salta (la extensión va recta del anterior al siguiente) y, si está en una esquina, pasa a
+    ser un **codo**: un punto sin pastilla donde la línea gira.
 
 ### Rejilla
 

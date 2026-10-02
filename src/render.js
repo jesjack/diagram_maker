@@ -226,6 +226,7 @@ function renderEdge(e, theme, marker = "arrow") {
 
 function renderNode(n, theme, opts) {
   // Empalme: una pastilla con el id de su dueño ("● A8"); las flechas llegan a su borde.
+  if (n.shape === "junction" && n.elbow) return ""; // codo de una extensión: solo gira la línea
   if (n.shape === "junction") {
     const p = theme.idPill;
     return (

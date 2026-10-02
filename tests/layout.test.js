@@ -558,6 +558,9 @@ test("sin autogenerados de sobra: ninguna copia/referencia con un igual al lado 
         const igual = vecinos(p).find((m) => m !== r && identidad(m) === identidad(r));
         assert.ok(!igual, `${f}: ${r.id} sobra (${p.id} ya tiene al lado ${igual && igual.id})`);
       }
+      if (r.shape === "junction" && !r.elbow) {
+        assert.ok(own.some((e) => !e.bus), `${f}: el empalme ${r.id} no tiene ninguna rama`);
+      }
       if (r.shape === "junction" && !r.copyOf && own.length === 2) {
         const bus = own.find((e) => e.bus && e.to === r.id);
         const rama = own.find((e) => !e.bus);
