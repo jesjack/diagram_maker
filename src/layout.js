@@ -297,19 +297,27 @@ function moveEnd(e, from, to, dirs = []) {
   else e.to = to;
 }
 
-// Un nodo solo tiene 4 lados. Si tiene más conexiones (padres + hijos, contando las referencias
+// Un nodo solo tiene 4 lados. Si tiene más vecinos (padres + hijos, contando las referencias
 // de su diagrama), conserva las 3 primeras en orden de declaración y la 4ª es una extensión: una
 // línea sin flecha hasta un punto de empalme, del que salen las demás. El empalme tiene 3 lados
 // libres; si no le bastan, se queda con 2 y encadena otro empalme, y así sucesivamente.
 function addJunctions(nodes, edges, dirs, opts) {
   const touching = (id) =>
     edges.filter((e) => (e.from === id || e.to === id) && e.from !== e.to).sort((a, b) => a.index - b.index);
+  // Se cuentan vecinos, no flechas: la ida y la vuelta con el mismo nodo (a --> b y b --> a, un
+  // ciclo) ocupan un solo lado, así que van juntas, en el nodo o en el mismo empalme.
   const queue = [...nodes.keys()];
   while (queue.length) {
     const id = queue.shift();
     const conns = touching(id);
-    if (conns.length <= MAX_CONNECTIONS) continue;
-    const moved = conns.slice(MAX_CONNECTIONS - 1);
+    const groups = new Map(); // vecino -> sus flechas, en orden de la primera
+    for (const e of conns) {
+      const other = e.from === id ? e.to : e.from;
+      if (!groups.has(other)) groups.set(other, []);
+      groups.get(other).push(e);
+    }
+    if (groups.size <= MAX_CONNECTIONS) continue;
+    const moved = [...groups.values()].slice(MAX_CONNECTIONS - 1).flat();
     // La extensión ocupa el sitio de la 4ª conexión en el orden de declaración; un @dir de una
     // conexión movida pasa a la rama que sale del empalme.
     const j = addJunction(nodes, edges, nodes.get(id), moved[0].index - 0.5, moved[0].line, opts.lineHeight);
@@ -436,7 +444,25 @@ function assignDirections(nodes, edges, metaDirs, warnings = []) {
     deferred.push(...assignSlots(node, ctx));
   }
   for (const d of deferred) resolveDeferred(d, ctx);
+  sameSide(edges);
   return ctx;
+}
+
+// Flechas entre el mismo par de nodos (ida y vuelta) que no recibieron lado: copian el de la que
+// sí lo tiene, visto desde su propio origen.
+function sameSide(edges) {
+  for (const e of edges) {
+    if (e.dir || e.bus) continue;
+    const mate = edges.find(
+      (x) => x !== e && x.dir && ((x.from === e.from && x.to === e.to) || (x.from === e.to && x.to === e.from))
+    );
+    if (!mate) continue;
+    const same = mate.from === e.from;
+    if (e.attached) {
+      e.slot = same ? mate.slot || OPPOSITE[mate.dir] : mate.dir;
+      e.dir = OPPOSITE[e.slot];
+    } else e.dir = same ? mate.dir : OPPOSITE[mate.dir];
+  }
 }
 
 // Reparte los lados de un nodo entre sus conexiones. anchor = { edge, side }: una salida que ya
@@ -471,8 +497,14 @@ function assignSlots(node, ctx, anchor = null) {
   if (anchor) take(anchor.edge, anchor.side, anchor.edge.line);
   // Primero los @dir explícitos (en una referencia, el @dir es la dirección de la flecha
   // ref -> nodo, así que la referencia va al lado opuesto); luego el resto recibe los
-  // valores por defecto libres, en orden de declaración.
-  const conns = [...out, ...att].sort((a, b) => a.index - b.index);
+  // valores por defecto libres, en orden de declaración. Las flechas hacia un mismo vecino (ida y
+  // vuelta de un ciclo) comparten lado: solo la primera reparte, las demás copian (sameSide).
+  const neighbor = (e) => (e.from === node.id ? e.to : e.from);
+  const seen = new Set();
+  const conns = [...out, ...att]
+    .sort((a, b) => a.index - b.index)
+    .filter((e) => (seen.has(neighbor(e)) ? false : seen.add(neighbor(e))));
+  const primaryOut = out.filter((e) => conns.includes(e));
   // Un @dir es una preferencia: se usa si ese lado está libre y, si no, la conexión toma un lado
   // por defecto como cualquier otra, con un aviso. Nunca es error ni provoca un choque (al colocar,
   // la cascada de la regla 10 puede moverla igual que a las demás).
@@ -493,7 +525,7 @@ function assignSlots(node, ctx, anchor = null) {
 
   const defaults = DEFAULT_DIRS[node.shape === "diamond" ? "diamond" : "other"];
   const free = defaults.filter((d) => !used.has(d));
-  let pendingOut = out.filter((e) => !e.dir).length;
+  let pendingOut = primaryOut.filter((e) => !e.dir).length;
   const deferred = [];
   for (const e of conns) {
     if (e.dir) continue;
@@ -994,6 +1026,7 @@ function placeInGrid(nodes, edges, warnings, ctx) {
         `sin padre: pegado a su hijo ${who(anchor.child)}, ${SIDE_AT[anchor.cell]}${later}`
       );
       assignSlots(root, ctx, { edge: anchor.edge, side: OPPOSITE[anchor.cell] }).forEach((d) => resolveDeferred(d, ctx));
+      sameSide(edges);
     } else {
       place(root, nextComponentCol, 0, step ? `inicio de un grupo nuevo, aparte${later}` : "nodo inicial");
     }

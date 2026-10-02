@@ -170,7 +170,9 @@ Sintaxis de Mermaid: `classDef nombre props`, `id:::nombre`, `class id1,id2 nomb
 2. **Rombo (IF)**: la 1ª salida declarada va a la **derecha**, la 2ª a la **izquierda**.
 3. **Cualquier otro nodo**: salidas por orden de declaración:
    1ª → **abajo**, 2ª → **derecha**, 3ª → **izquierda**.
-4. **Más de 4 conexiones** (padres + hijos, contando las referencias de su diagrama): un nodo solo
+4. **Más de 4 conexiones** (padres + hijos, contando las referencias de su diagrama; se cuentan
+   **vecinos**, no flechas: la ida y la vuelta con un mismo nodo, `a --> b` y `b --> a`, ocupan un
+   solo lado y van siempre juntas): un nodo solo
    tiene 4 lados, así que conserva las 3 primeras en orden de declaración y la 4ª es una
    **extensión**: una línea sin flecha hasta un **empalme**, del que salen las demás. Un empalme se
    dibuja como una **pastilla con el id de su dueño** (`● A8`) y ocupa ese tamaño en la rejilla.

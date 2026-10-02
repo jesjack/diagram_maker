@@ -1,0 +1,81 @@
+flowchart TD
+    input[/"Fuente Mermaid (texto)"/] --> main
+
+    subgraph orchestration ["Orquestación principal"]
+        main[["parseDiagram(source)<br/>Inicializa colecciones, recorre líneas,<br/>valida, resuelve estilos y devuelve el modelo"]]
+        lineLoop{"¿Qué contiene<br/>la línea?"}
+        finalize["Comprueba subgraphs abiertos,<br/>valida @dir y elimina nodos-subgraph"]
+        output["{ nodes, edges, meta,<br/>warnings, subgraphs }"]
+
+        main --> lineLoop
+        lineLoop -->|Comentario| comment
+        lineLoop -->|Estilo| styleStmt
+        lineLoop -->|Subgraph| sgHeader
+        lineLoop -->|end| closeSG["Cierra el subgraph de la pila"]
+        lineLoop -->|direction| warnDirection["Añade advertencia"]
+        lineLoop -->|Nodo o arista| statement
+        comment --> lineLoop
+        styleStmt --> lineLoop
+        sgHeader --> lineLoop
+        closeSG --> lineLoop
+        warnDirection --> lineLoop
+        statement --> lineLoop
+        lineLoop -->|Fin de líneas| finalize
+        finalize --> resolve
+        resolve --> output
+    end
+
+    subgraph sourceProcessing ["Preprocesamiento y metadatos"]
+        strip["stripTrailingComment(line)<br/>Elimina %% final fuera de comillas"]
+        comment["parseComment(body, line, meta)<br/>Procesa %% @dir origen -> destino : dirección"]
+        sgHeader["parseSubgraphHeader(line, line)<br/>Lee id, título y cabecera de subgraph"]
+    end
+
+    subgraph syntax ["Sintaxis de nodos y aristas"]
+        statement["parseStatement(line, line, nodes, edges, group, styles)<br/>Lee una cadena nodo → arista → nodo"]
+        nodeRef["parseNodeRef(line, pos, line, nodes, group, styles)<br/>Lee ID, forma, texto y :::clase"]
+        shapeText["parseShapeText(line, pos, cierre, line)<br/>Lee texto de forma, comillas y &lt;br&gt;"]
+        edge["parseEdge(line, pos, line)<br/>Lee flechas, etiqueta, dirección y estilo"]
+        label["labelText(text)<br/>Quita comillas y convierte &lt;br&gt; en salto"]
+
+        statement --> nodeRef
+        statement --> edge
+        edge --> nodeRef
+        nodeRef -->|Si hay forma| shapeText
+        edge --> label
+    end
+
+    subgraph styles ["Declaración y resolución de estilos"]
+        styleStmt["parseStyleStatement(match, line, styles)<br/>Gestiona classDef, class, style y linkStyle"]
+        props["parseProps(text, line)<br/>Convierte CSS en pares [propiedad, valor]"]
+        resolve["resolveStyles(styles, nodes, edges, subgraphs, warnings)<br/>Aplica prioridad y genera css final"]
+
+        styleStmt --> props
+    end
+
+    subgraph errors ["Errores"]
+        err["DiagramError(message, line)<br/>Crea errores con número de línea"]
+    end
+
+    main -.->|"usa antes de clasificar"| strip
+    main -.->|"lanza ante sintaxis inválida"| err
+    comment -.-> err
+    sgHeader -.-> err
+    statement -.-> err
+    nodeRef -.-> err
+    shapeText -.-> err
+    edge -.-> err
+    props -.-> err
+    styleStmt -.-> err
+
+    classDef core fill:#eef2ff,stroke:#818cf8,color:#1e1b4b
+    classDef parse fill:#f0fdfa,stroke:#2dd4bf,color:#042f2e
+    classDef styling fill:#f5f3ff,stroke:#a78bfa,color:#2e1065
+    classDef data fill:#fff7ed,stroke:#fb923c,color:#431407
+    classDef warning fill:#fef2f2,stroke:#f87171,color:#450a0a
+
+    class main,lineLoop,finalize core
+    class statement,nodeRef,shapeText,edge,label,strip,comment,sgHeader,closeSG parse
+    class styleStmt,props,resolve styling
+    class input,output data
+    class err,warnDirection warning

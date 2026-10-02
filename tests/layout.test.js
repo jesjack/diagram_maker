@@ -581,3 +581,16 @@ test("una copia no se crea si el original ya está pegado al padre (v3_uno: W1 -
   const e = L.edges.find((x) => x.from === "W1" && (x.to === "oApi" || L.nodes.find((n) => n.id === x.to).realId === "oApi"));
   assert.strictEqual(e.to, "oApi", "W1 apunta al original, que tiene a su lado");
 });
+
+test("la ida y la vuelta con un mismo nodo ocupan un solo lado: no crean empalmes de más (flujo_parser: lineLoop)", () => {
+  const L = layoutDiagram(parseDiagram(fs.readFileSync(path.join(__dirname, "../examples/flujo_parser.mmd"), "utf8")));
+  const empalmes = L.nodes.filter((n) => n.junctionOf === "lineLoop" && !n.copyOf);
+  assert.strictEqual(empalmes.length, 3, "8 vecinos: 3 en el nodo, el resto en empalmes encadenados");
+  const f = L.nodes.find((n) => n.id === "finalize");
+  const padre = L.nodes.find((n) => n.id === L.edges.find((e) => e.to === "finalize").from);
+  assert.strictEqual(Math.abs(f.col - padre.col) + Math.abs(f.row - padre.row), 1, "finalize junto a su empalme");
+  // Ciclo a --> b, b --> a con 4 vecinos más: ninguna excepción y sin choques.
+  const C = layout(["a --> b", "b --> a", "a --> c", "c --> a", "a --> d", "a --> e", "e --> a"].join("\n"));
+  assert.ok(!C.nodes.some((n) => n.shape === "junction"));
+  assert.ok(!C.warnings.some((w) => /Choque/.test(w.message)));
+});
