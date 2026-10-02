@@ -543,3 +543,38 @@ test("si el padre ya tiene al lado un representante del mismo nodo, la flecha lo
     assert.strictEqual(Math.abs(a.col - ref.col) + Math.abs(a.row - ref.row), 1);
   }
 });
+
+test("sin autogenerados de sobra: ninguna copia/referencia con un igual al lado de su pareja, ningún empalme de una rama alineada", () => {
+  const identidad = (n) => (n.shape === "junction" ? `●${n.junctionOf}` : n.realId || n.id);
+  for (const f of fs.readdirSync(path.join(__dirname, "../examples")).filter((x) => x.endsWith(".mmd"))) {
+    const L = layoutDiagram(parseDiagram(fs.readFileSync(path.join(__dirname, "../examples", f), "utf8")));
+    const byId = Object.fromEntries(L.nodes.map((n) => [n.id, n]));
+    const en = new Map(L.nodes.map((n) => [`${n.col},${n.row}|${n.group}`, n]));
+    const vecinos = (n) => [[0, 1], [1, 0], [-1, 0], [0, -1]].map(([dc, dr]) => en.get(`${n.col + dc},${n.row + dr}|${n.group}`)).filter(Boolean);
+    for (const r of L.nodes) {
+      const own = L.edges.filter((e) => e.from === r.id || e.to === r.id);
+      if ((r.copyOf || r.ref) && own.length === 1 && !own[0].bus) {
+        const p = byId[own[0].from === r.id ? own[0].to : own[0].from];
+        const igual = vecinos(p).find((m) => m !== r && identidad(m) === identidad(r));
+        assert.ok(!igual, `${f}: ${r.id} sobra (${p.id} ya tiene al lado ${igual && igual.id})`);
+      }
+      if (r.shape === "junction" && !r.copyOf && own.length === 2) {
+        const bus = own.find((e) => e.bus && e.to === r.id);
+        const rama = own.find((e) => !e.bus);
+        if (!bus || !rama) continue;
+        const o = byId[bus.from];
+        const b = byId[rama.from === r.id ? rama.to : rama.from];
+        const alineado =
+          (o.col === r.col && r.col === b.col && (o.row - r.row) * (b.row - r.row) < 0) ||
+          (o.row === r.row && r.row === b.row && (o.col - r.col) * (b.col - r.col) < 0);
+        assert.ok(!alineado, `${f}: el empalme ${r.id} sobra (una sola rama alineada con su dueño)`);
+      }
+    }
+  }
+});
+
+test("una copia no se crea si el original ya está pegado al padre (v3_uno: W1 -> oApi)", () => {
+  const L = layoutDiagram(parseDiagram(fs.readFileSync(path.join(__dirname, "../examples/v3_uno.mmd"), "utf8")));
+  const e = L.edges.find((x) => x.from === "W1" && (x.to === "oApi" || L.nodes.find((n) => n.id === x.to).realId === "oApi"));
+  assert.strictEqual(e.to, "oApi", "W1 apunta al original, que tiene a su lado");
+});

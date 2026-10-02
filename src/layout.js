@@ -909,11 +909,13 @@ function placeInGrid(nodes, edges, warnings, ctx) {
   const identity = (n) => (n.shape === "junction" ? `\u25cf${n.junctionOf}` : n.realId || n.id);
   // También vale una celda reservada para un representante que aún no se ha colocado (con el
   // recorrido en profundidad, el hermano que lo colocará puede no haberlo hecho todavía).
-  const twinNextTo = (parent, target) => {
+  // exclude: el nodo que se quiere sustituir (no cuenta como representante de sí mismo). Al buscar
+  // en lugar de una copia, el original sí vale: no se excluye nada.
+  const twinNextTo = (parent, target, exclude = target) => {
     for (const d of ["down", "right", "left", "up"]) {
       const key = cellAt(parent, d);
       const m = occupied.get(key) || (pending.has(key) && nodes.get(pending.get(key)));
-      if (m && m !== target && m !== parent && identity(m) === identity(target)) return { node: m, side: d };
+      if (m && m !== exclude && m !== parent && identity(m) === identity(target)) return { node: m, side: d };
     }
     return null;
   };
@@ -965,7 +967,7 @@ function placeInGrid(nodes, edges, warnings, ctx) {
         // Hijo ya colocado lejos y sin hijos: se le pone una copia aquí, en su turno (regla 12).
         const leaf = farLeaf(parent, child);
         if (!leaf) continue; // TODO (SPEC): bucles / varios padres
-        const twin = twinNextTo(parent, leaf);
+        const twin = twinNextTo(parent, leaf, null);
         if (twin) {
           reuseTwin(e, parent, twin, "en vez de otra copia");
           continue;
@@ -1275,6 +1277,54 @@ function placeInGrid(nodes, edges, warnings, ctx) {
     pruneJunctions();
   };
 
+  // Limpieza final de nodos autogenerados que han quedado de sobra (se repite hasta que no cambia):
+  //  a) una copia, referencia o conector con una sola arista cuyo otro extremo tiene ya pegado otro
+  //     representante del mismo nodo (algo se movió después): la arista va a ese y este se quita;
+  //  b) un empalme que solo conserva una rama alineada con su dueño (el empalme se creó de antemano,
+  //     pero las demás conexiones acabaron en copias): la flecha va recta al dueño y se quita.
+  const removeNode = (n) => {
+    for (const x of edges.filter((y) => y.from === n.id || y.to === n.id)) edges.splice(edges.indexOf(x), 1);
+    nodes.delete(n.id);
+    if (occupied.get(`${n.col},${n.row}`) === n) occupied.delete(`${n.col},${n.row}`);
+  };
+  const tidyUp = () => {
+    for (let changed = true; changed; ) {
+      changed = false;
+      for (const r of [...nodes.values()]) {
+        if (!nodes.has(r.id) || r.col === undefined || !(r.copyOf || r.ref)) continue;
+        const own = edges.filter((x) => x.from === r.id || x.to === r.id);
+        if (own.length !== 1 || own[0].bus) continue;
+        const e = own[0];
+        const p = nodes.get(e.from === r.id ? e.to : e.from);
+        const twin = twinNextTo(p, r);
+        if (!twin || twin.node.col === undefined) continue;
+        if (e.from === r.id) e.from = twin.node.id;
+        else e.to = twin.node.id;
+        twin.node.why += ` · también recibe la flecha de ${who(p)} (limpieza final: sobraba otro igual)`;
+        removeNode(r);
+        changed = true;
+      }
+      for (const j of [...nodes.values()]) {
+        if (!nodes.has(j.id) || j.shape !== "junction" || j.copyOf || j.col === undefined) continue;
+        const own = edges.filter((x) => x.from === j.id || x.to === j.id);
+        const bus = own.filter((x) => x.bus && x.to === j.id);
+        const branches = own.filter((x) => !x.bus);
+        if (bus.length !== 1 || branches.length !== 1 || own.length !== 2) continue;
+        const owner = nodes.get(bus[0].from);
+        const x = branches[0];
+        const b = nodes.get(x.from === j.id ? x.to : x.from);
+        const inLine =
+          (owner.col === j.col && j.col === b.col && (owner.row - j.row) * (b.row - j.row) < 0) ||
+          (owner.row === j.row && j.row === b.row && (owner.col - j.col) * (b.col - j.col) < 0);
+        if (!inLine) continue;
+        if (x.from === j.id) x.from = owner.id;
+        else x.to = owner.id;
+        removeNode(j);
+        changed = true;
+      }
+    }
+  };
+
   // Fija la geometría de una arista sabiendo en qué lado de u está el otro extremo.
   const setSide = (e, u, side) => {
     if (e.attached) {
@@ -1315,6 +1365,7 @@ function placeInGrid(nodes, edges, warnings, ctx) {
   }
   copyLeaves();
   fixLongLinks();
+  tidyUp();
   history[step - 1] = snapshot(); // el último paso, ya con la limpieza de empalmes
   // Los empalmes que se quitaron al final (sin ramas) desaparecen de toda la historia y los pasos
   // se renumeran, para que el paso k siga teniendo k+1 nodos.

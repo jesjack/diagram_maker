@@ -242,6 +242,11 @@ Sintaxis de Mermaid: `classDef nombre props`, `id:::nombre`, `class id1,id2 nomb
     tiene **pegado** (o reservado a su lado) un representante de X —una referencia, una copia o el
     propio X; para un empalme, cualquier pastilla de su dueño—, la flecha va a ese en vez de crear
     otro.
+    El original también cuenta: si el padre ya tiene pegado el nodo original, no se crea copia.
+15. **Limpieza final:** se quitan los autogenerados que han quedado de sobra: una copia, referencia
+    o conector con una sola flecha cuyo otro extremo tiene ya pegado otro representante del mismo
+    nodo (la flecha va a ese), y un empalme que solo conserva una rama alineada con su dueño (la
+    flecha va recta al dueño).
 
 ### Rejilla
 
