@@ -78,6 +78,7 @@ diagrama.mmd ──► CLI (Python) ──► genera HTML autocontenido ──�
 | `id{{"texto"}}`    | Hexágono                  |
 | `id[["texto"]]`    | Subrutina                 |
 | `id[("texto")]`    | Cilindro (base de datos)  |
+| `id@{ shape: cyl\|manual-input\|display\|fork, label: "texto" }` | Forma extendida Mermaid 11.3+ |
 
 Convención: IDs descriptivos (`tomaCaja`, `ventasDb`) y textos entre comillas.
 

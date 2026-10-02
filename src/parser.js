@@ -32,6 +32,25 @@ const SHAPES = [
   { open: "(", close: ")", shape: "round" },
   { open: "{", close: "}", shape: "diamond" },
 ];
+const EXT_SHAPES = {
+  // Mermaid 11.3+ (id@{ shape: ... }) y alias básicos.
+  rect: "rect",
+  rectangle: "rect",
+  round: "round",
+  stadium: "stadium",
+  diamond: "diamond",
+  circle: "circle",
+  hexagon: "hexagon",
+  subroutine: "subroutine",
+  parallelogram: "parallelogram",
+  "parallelogram-alt": "parallelogram-alt",
+  cylinder: "cylinder",
+  cyl: "cylinder",
+  // Formas pedidas en el issue (se aproximan con formas ya soportadas por el render).
+  "manual-input": "parallelogram-alt",
+  display: "stadium",
+  fork: "rect",
+};
 
 const STYLE_RE = /^(classDef|class|style|linkStyle)\s+(\S+)(?:\s+(.*))?$/;
 // Propiedades de HTML que no tienen efecto en un elemento SVG: se avisa para que no parezca un fallo.
@@ -303,13 +322,30 @@ function parseNodeRef(line, pos, lineNo, nodes, group, styles) {
 
   let shape = null;
   let text = null;
+  let declared = false;
+  let textDeclared = false;
   const spec = SHAPES.find((s) => line.startsWith(s.open, pos));
   if (spec) {
     pos += spec.open.length;
     const parsed = parseShapeText(line, pos, spec.close, lineNo);
     shape = spec.shape;
     text = parsed.text;
+    declared = true;
+    textDeclared = true;
     pos = parsed.end;
+  }
+
+  const ext = parseExtendedNodeSpec(line, pos, lineNo);
+  if (ext) {
+    pos = ext.end;
+    if (ext.shape) {
+      shape = ext.shape;
+      declared = true;
+    }
+    if (ext.text !== null) {
+      text = ext.text;
+      textDeclared = true;
+    }
   }
 
   // Clase de Mermaid "a:::clase".
@@ -322,14 +358,76 @@ function parseNodeRef(line, pos, lineNo, nodes, group, styles) {
   const existing = nodes.get(id);
   if (!existing) {
     // El nodo pertenece al subgraph donde aparece por primera vez.
-    nodes.set(id, { id, shape: shape || "rect", text: text ?? id, line: lineNo, group, declared: !!shape });
-  } else if (shape) {
-    existing.declared = true;
-    // Una definición posterior con forma sustituye a la anterior (como en Mermaid).
-    existing.shape = shape;
-    existing.text = text;
+    nodes.set(id, { id, shape: shape || "rect", text: text ?? id, line: lineNo, group, declared });
+  } else if (declared || textDeclared) {
+    if (declared) {
+      existing.declared = true;
+      // Una definición posterior con forma sustituye a la anterior (como en Mermaid).
+      existing.shape = shape;
+    }
+    if (textDeclared) existing.text = text;
   }
   return { id, end: pos };
+}
+
+function parseExtendedNodeSpec(line, pos, lineNo) {
+  let i = pos;
+  while (i < line.length && /\s/.test(line[i])) i++;
+  if (line[i] !== "@") return null;
+  i++;
+  while (i < line.length && /\s/.test(line[i])) i++;
+  if (line[i] !== "{") throw new DiagramError("Se esperaba '{' después de '@' en la forma extendida", lineNo);
+  i++;
+  const start = i;
+  let inQuotes = false;
+  for (; i < line.length; i++) {
+    if (line[i] === '"' && line[i - 1] !== "\\") inQuotes = !inQuotes;
+    if (!inQuotes && line[i] === "}") break;
+  }
+  if (i >= line.length || line[i] !== "}") throw new DiagramError("Falta cerrar '@{ ... }' con '}'", lineNo);
+  const body = line.slice(start, i);
+  i++;
+  return { ...parseExtendedNodeAttrs(body, lineNo), end: i };
+}
+
+function parseExtendedNodeAttrs(body, lineNo) {
+  const fields = [];
+  let token = "";
+  let inQuotes = false;
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i];
+    if (ch === '"' && body[i - 1] !== "\\") inQuotes = !inQuotes;
+    if (ch === "," && !inQuotes) {
+      fields.push(token);
+      token = "";
+      continue;
+    }
+    token += ch;
+  }
+  if (token.trim()) fields.push(token);
+
+  let shape = null;
+  let text = null;
+  for (const rawField of fields) {
+    const field = rawField.trim();
+    if (!field) continue;
+    const m = field.match(/^([\w-]+)\s*:\s*(.+)$/);
+    if (!m) throw new DiagramError(`Propiedad inválida en '@{ ... }': '${field}'`, lineNo);
+    const key = m[1].toLowerCase();
+    let value = m[2].trim();
+    const q = value.match(/^"(.*)"$/);
+    if (q) value = q[1].replace(/\\"/g, '"');
+    if (key === "shape") shape = mapExtendedShape(value, lineNo);
+    if (key === "label") text = value.replace(/<br\s*\/?>/gi, "\n");
+  }
+  return { shape, text };
+}
+
+function mapExtendedShape(shape, lineNo) {
+  const key = String(shape).trim().toLowerCase();
+  const mapped = EXT_SHAPES[key];
+  if (!mapped) throw new DiagramError(`forma no soportada: ${shape}`, lineNo);
+  return mapped;
 }
 
 function parseShapeText(line, pos, close, lineNo) {

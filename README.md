@@ -117,6 +117,7 @@ Subconjunto de Mermaid flowchart; el detalle está en [`SPEC.md`](SPEC.md).
 | `id[["texto"]]` | Subrutina |
 | `id[("texto")]` | Cilindro (base de datos) |
 | `id[/"texto"/]`, `id[\"texto"\]` | Paralelogramos |
+| `id@{ shape: cyl\|manual-input\|display\|fork, label: "texto" }` | Forma extendida de Mermaid 11.3+ |
 
 - **Aristas**: `-->`, `<-->`, `---`, `==>`, `-.->`, con etiqueta `-->|texto|` o `-- texto -->`, y
   cadenas `a --> b --> c`.

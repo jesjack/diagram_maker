@@ -27,6 +27,30 @@ test("formas y texto sin comillas", () => {
   assert.strictEqual(g.nodes.get("C").shape, "diamond");
 });
 
+test("forma extendida id@{ shape: ..., label: ... }", () => {
+  const g = parseDiagram(
+    [
+      "flowchart TD",
+      'A["a"] --> X@{ shape: cyl, label: "cil" }',
+      'A --> Y@{ shape: manual-input, label: "teclea" }',
+      'A --> Z@{ shape: display, label: "pantalla" }',
+      "A --> W@{ shape: fork }",
+    ].join("\n")
+  );
+  assert.strictEqual(g.nodes.get("X").shape, "cylinder");
+  assert.strictEqual(g.nodes.get("X").text, "cil");
+  assert.strictEqual(g.nodes.get("Y").shape, "parallelogram-alt");
+  assert.strictEqual(g.nodes.get("Y").text, "teclea");
+  assert.strictEqual(g.nodes.get("Z").shape, "stadium");
+  assert.strictEqual(g.nodes.get("Z").text, "pantalla");
+  assert.strictEqual(g.nodes.get("W").shape, "rect");
+  assert.strictEqual(g.edges.length, 4);
+});
+
+test("forma extendida: error claro si no está soportada", () => {
+  assert.throws(() => parseDiagram("flowchart TD\na --> b@{ shape: no-such-shape }"), /forma no soportada: no-such-shape/);
+});
+
 test("estadio ([...]) con paréntesis dentro del texto", () => {
   const g = parseDiagram('flowchart TD\nA(["Avisa y sale<br/>(supuesto: o trae la otra al frente)"]):::app --> B([Corto])');
   assert.strictEqual(g.nodes.get("A").shape, "stadium");
