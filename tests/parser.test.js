@@ -172,6 +172,15 @@ test("subrutina [[...]] (no se confunde con el rectángulo ni el cilindro)", () 
   assert.strictEqual(g.nodes.get("c").shape, "cylinder");
 });
 
+test("forma asimétrica >...]", () => {
+  const g = parseDiagram('flowchart TD\na["a"] --> x>"bandera"]\nx --> y>sin comillas]');
+  assert.strictEqual(g.nodes.get("x").shape, "asymmetric");
+  assert.strictEqual(g.nodes.get("x").text, "bandera");
+  assert.strictEqual(g.nodes.get("y").shape, "asymmetric");
+  assert.strictEqual(g.nodes.get("y").text, "sin comillas");
+  assert.strictEqual(g.edges.length, 2);
+});
+
 test("etiqueta de arista con <br>: salto de línea, como en los nodos", () => {
   const g = parseDiagram('a -- "una<br>dos" --> b\nb -->|"tres<br/>cuatro"| c');
   assert.strictEqual(g.edges[0].label, "una\ndos");

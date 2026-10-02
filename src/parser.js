@@ -26,6 +26,7 @@ const SHAPES = [
   { open: "[[", close: "]]", shape: "subroutine" },
   { open: "[(", close: ")]", shape: "cylinder" },
   { open: "([", close: "])", shape: "stadium" },
+  { open: ">", close: "]", shape: "asymmetric" },
   { open: "[/", close: "/]", shape: "parallelogram" },
   { open: "[\\", close: "\\]", shape: "parallelogram-alt" },
   { open: "[", close: "]", shape: "rect" },

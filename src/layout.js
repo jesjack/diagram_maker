@@ -20,6 +20,7 @@ const LAYOUT_DEFAULTS = {
     rect: 170,
     round: 170,
     stadium: 170,
+    asymmetric: 170,
     parallelogram: 170,
     "parallelogram-alt": 170,
     hexagon: 170,
@@ -403,6 +404,7 @@ function sizeNode(node, rawMeasure, opts) {
       w = Math.max(tw + h * 0.8 + 16, 90);
       break;
     case "hexagon":
+    case "asymmetric":
     case "parallelogram":
     case "parallelogram-alt": {
       // skew: desplazamiento horizontal de los lados inclinados (lo usa también render.js). En el
@@ -1456,6 +1458,7 @@ function borderDistance(node, ux, uy) {
     case "diamond":
       return 1 / (ax / hw + ay / hh);
     case "parallelogram":
+    case "asymmetric":
     case "parallelogram-alt": {
       // A media altura los lados inclinados quedan a skew/2 hacia dentro.
       const sx = hw - node.skew / 2;

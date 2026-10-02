@@ -203,6 +203,7 @@ function pillAnchor(n) {
     case "circle":
       return { x: n.x - hw * Math.SQRT1_2, y: n.y - hh * Math.SQRT1_2, centered: true };
     case "hexagon":
+    case "asymmetric":
     case "parallelogram":
       return { x: n.x - hw + n.skew, y: n.y - hh };
     default:
@@ -297,6 +298,16 @@ function nodeShape(n, style, arcStyle) {
         n.shape === "parallelogram"
           ? [[l + k, t], [r, t], [r - k, b], [l, b]]
           : [[l, t], [r - k, t], [r, b], [l + k, b]];
+      shape = `<polygon points="${pts.map(([x, y]) => `${fmt(x)},${fmt(y)}`).join(" ")}" ${style}/>`;
+      break;
+    }
+    case "asymmetric": {
+      const l = n.x - hw;
+      const r = n.x + hw;
+      const t = n.y - hh;
+      const b = n.y + hh;
+      const k = n.skew;
+      const pts = [[l, n.y], [l + k, t], [r, t], [r, b], [l + k, b]];
       shape = `<polygon points="${pts.map(([x, y]) => `${fmt(x)},${fmt(y)}`).join(" ")}" ${style}/>`;
       break;
     }

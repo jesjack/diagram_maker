@@ -116,6 +116,15 @@ test("hexágono: polígono de 6 puntos con el texto dentro", () => {
   assert.ok(n.skew > 0 && n.w > n.skew * 2);
 });
 
+test("forma asimétrica: polígono de 5 puntos", () => {
+  const layout = layoutDiagram(parseDiagram('x>"bandera"]'));
+  const n = layout.nodes[0];
+  const svg = renderSvg(layout, undefined, { shadow: false });
+  const pts = svg.match(/<polygon points="([^"]+)"/)[1].split(" ");
+  assert.strictEqual(n.shape, "asymmetric");
+  assert.strictEqual(pts.length, 5);
+});
+
 test("empalme: pastilla con el id de su dueño y extensión sin flecha", () => {
   const layout = layoutDiagram(parseDiagram("p --> x\nx --> a\nx --> b\nx --> c\nx --> d"));
   const svg = renderSvg(layout, undefined, { shadow: false });

@@ -71,6 +71,7 @@ diagrama.mmd ──► CLI (Python) ──► genera HTML autocontenido ──�
 | `id["texto"]`      | Rectángulo                |
 | `id("texto")`      | Rectángulo redondeado     |
 | `id(["texto"])`    | Estadio (píldora)         |
+| `id>"texto"]`      | Asimétrica (bandera)      |
 | `id[/"texto"/]`    | Paralelogramo inclinado a la derecha |
 | `id[\"texto"\]`    | Paralelogramo inclinado a la izquierda |
 | `id(("texto"))`    | Círculo                   |
