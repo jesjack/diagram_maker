@@ -265,7 +265,7 @@ function parseStatement(line, lineNo, nodes, edges, group, styles) {
   };
 
   skipSpaces();
-  let prev = parseNodeRef(line, pos, lineNo, nodes, group, styles);
+  let prev = parseNodeRefs(line, pos, lineNo, nodes, group, styles);
   pos = prev.end;
 
   for (;;) {
@@ -278,20 +278,40 @@ function parseStatement(line, lineNo, nodes, edges, group, styles) {
     skipSpaces();
     if (pos >= line.length) throw new DiagramError("Falta el nodo destino de la arista", lineNo);
 
-    const next = parseNodeRef(line, pos, lineNo, nodes, group, styles);
+    const next = parseNodeRefs(line, pos, lineNo, nodes, group, styles);
     pos = next.end;
-    edges.push({
-      index: edges.length,
-      from: prev.id,
-      to: next.id,
-      label: edge.label,
-      arrowStart: edge.arrowStart,
-      arrowEnd: edge.arrowEnd,
-      style: edge.style,
-      line: lineNo,
-    });
+    for (const from of prev.ids) {
+      for (const to of next.ids) {
+        edges.push({
+          index: edges.length,
+          from,
+          to,
+          label: edge.label,
+          arrowStart: edge.arrowStart,
+          arrowEnd: edge.arrowEnd,
+          style: edge.style,
+          line: lineNo,
+        });
+      }
+    }
     prev = next;
   }
+}
+
+function parseNodeRefs(line, pos, lineNo, nodes, group, styles) {
+  const first = parseNodeRef(line, pos, lineNo, nodes, group, styles);
+  const ids = [first.id];
+  pos = first.end;
+  for (;;) {
+    while (pos < line.length && /\s/.test(line[pos])) pos++;
+    if (line[pos] !== "&") break;
+    pos++;
+    while (pos < line.length && /\s/.test(line[pos])) pos++;
+    const next = parseNodeRef(line, pos, lineNo, nodes, group, styles);
+    ids.push(next.id);
+    pos = next.end;
+  }
+  return { ids, end: pos };
 }
 
 // id, opcionalmente seguido de forma y texto: a["texto"], a(("texto")), a{texto}...

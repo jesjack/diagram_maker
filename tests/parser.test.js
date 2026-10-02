@@ -43,6 +43,23 @@ test("cadenas de aristas y nodos sin forma", () => {
   assert.strictEqual(g.nodes.get("b").shape, "rect");
 });
 
+test("varias aristas con '&' en origen y/o destino", () => {
+  const g = parseDiagram("A & B --> C\nA --> B & C\nA & B --> C & D");
+  assert.deepStrictEqual(
+    g.edges.map((e) => [e.from, e.to]),
+    [
+      ["A", "C"],
+      ["B", "C"],
+      ["A", "B"],
+      ["A", "C"],
+      ["A", "C"],
+      ["A", "D"],
+      ["B", "C"],
+      ["B", "D"],
+    ]
+  );
+});
+
 test("variantes de aristas", () => {
   const g = parseDiagram("a -- texto largo --> b\nb --- c\nc ==> d\nd -.-> e\ne -->|\"x\"| f");
   assert.strictEqual(g.edges[0].label, "texto largo");
