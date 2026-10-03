@@ -194,3 +194,28 @@ test("etiqueta de arista con <br>: salto de línea, como en los nodos", () => {
   assert.strictEqual(g.edges[0].label, "una\ndos");
   assert.strictEqual(g.edges[1].label, "tres\ncuatro");
 });
+
+test("asimétrica, trapecios y doble círculo con la sintaxis clásica", () => {
+  const g = parseDiagram('a>"bandera"] --> b[/"ancho abajo"\\] --> c[\\ancho arriba/] --> d(((fin)))\ne[/par/] --> f[\\alt\\]');
+  const shapes = Object.fromEntries([...g.nodes.values()].map((n) => [n.id, n.shape]));
+  assert.deepStrictEqual(shapes, { a: "asymmetric", b: "trap-b", c: "trap-t", d: "dbl-circ", e: "parallelogram", f: "parallelogram-alt" });
+  assert.strictEqual(g.nodes.get("b").text, "ancho abajo");
+});
+
+test("formas id@{ shape: … } con nombres y alias de Mermaid", () => {
+  const g = parseDiagram(
+    'A["a"] --> X@{ shape: cyl, label: "cil" }\nA --> Y@{ shape: manual-input, label: "teclea, ya" }\n' +
+      "A --> Z@{ shape: display, label: pantalla }\nA --> W@{ shape: fork }\nZ@{ label: \"nuevo texto\" }",
+  );
+  const n = (id) => g.nodes.get(id);
+  assert.deepStrictEqual([n("X").shape, n("Y").shape, n("Z").shape, n("W").shape], ["cylinder", "sl-rect", "curv-trap", "fork"]);
+  assert.strictEqual(n("Y").text, "teclea, ya");
+  assert.strictEqual(n("Z").text, "nuevo texto");
+  assert.strictEqual(n("Z").shape, "curv-trap"); // solo label: conserva la forma
+  assert.strictEqual(g.edges.length, 4);
+});
+
+test("forma @{ } desconocida o sin cerrar: error claro", () => {
+  assert.throws(() => parseDiagram("A@{ shape: nube }"), /Forma no soportada: 'nube'/);
+  assert.throws(() => parseDiagram('A@{ shape: doc, label: "x" --> B'), /Falta cerrar '@\{'/);
+});

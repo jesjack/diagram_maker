@@ -19,19 +19,75 @@ class DiagramError extends Error {
 
 const DIRECTIONS = ["down", "right", "left", "up"];
 
-// Aperturas de forma, de la más larga a la más corta para que "((" gane a "(".
+// Aperturas de forma, de la más larga a la más corta para que "((" gane a "(". Con varios cierres
+// posibles ("[/" cierra con "/]" o con "\\]"), close es { cierre: forma }.
 const SHAPES = [
+  { open: "(((", close: ")))", shape: "dbl-circ" },
   { open: "((", close: "))", shape: "circle" },
   { open: "{{", close: "}}", shape: "hexagon" },
   { open: "[[", close: "]]", shape: "subroutine" },
   { open: "[(", close: ")]", shape: "cylinder" },
   { open: "([", close: "])", shape: "stadium" },
-  { open: "[/", close: "/]", shape: "parallelogram" },
-  { open: "[\\", close: "\\]", shape: "parallelogram-alt" },
+  { open: "[/", close: { "/]": "parallelogram", "\\]": "trap-b" } },
+  { open: "[\\", close: { "\\]": "parallelogram-alt", "/]": "trap-t" } },
+  { open: ">", close: "]", shape: "asymmetric" },
   { open: "[", close: "]", shape: "rect" },
   { open: "(", close: ")", shape: "round" },
   { open: "{", close: "}", shape: "diamond" },
 ];
+
+// Formas de `id@{ shape: … }` (Mermaid 11.3+): nombre o alias -> forma interna. Las clásicas
+// conservan su nombre; las nuevas usan el nombre corto de Mermaid (ver src/shapes.js).
+const EXT_SHAPES = {};
+for (const [shape, names] of Object.entries({
+  rect: "rect proc process rectangle",
+  round: "rounded event",
+  stadium: "stadium pill terminal",
+  subroutine: "fr-rect subproc subprocess subroutine framed-rectangle",
+  cylinder: "cyl cylinder database db",
+  circle: "circle circ",
+  diamond: "diam diamond decision question",
+  hexagon: "hex hexagon prepare",
+  parallelogram: "lean-r lean-right in-out",
+  "parallelogram-alt": "lean-l lean-left out-in",
+  asymmetric: "odd asymmetric",
+  "trap-b": "trap-b trapezoid trapezoid-bottom priority",
+  "trap-t": "trap-t inv-trapezoid trapezoid-top manual",
+  "dbl-circ": "dbl-circ double-circle",
+  text: "text",
+  "notch-rect": "notch-rect notched-rectangle card",
+  "lin-rect": "lin-rect lined-rectangle lin-proc lined-process shaded-process",
+  "sm-circ": "sm-circ small-circle start",
+  "fr-circ": "fr-circ framed-circle stop",
+  "f-circ": "f-circ filled-circle junction",
+  "cross-circ": "cross-circ crossed-circle summary",
+  fork: "fork join",
+  hourglass: "hourglass collate",
+  bolt: "bolt com-link lightning-bolt",
+  brace: "brace brace-l comment",
+  "brace-r": "brace-r",
+  braces: "braces",
+  doc: "doc document",
+  "lin-doc": "lin-doc lined-document",
+  "tag-doc": "tag-doc tagged-document",
+  docs: "docs documents st-doc stacked-document multi-doc",
+  processes: "processes procs st-rect stacked-rectangle multi-proc",
+  "tag-rect": "tag-rect tag-proc tagged-rectangle tagged-process",
+  delay: "delay half-rounded-rectangle",
+  "h-cyl": "h-cyl das horizontal-cylinder",
+  "lin-cyl": "lin-cyl disk lined-cylinder",
+  "curv-trap": "curv-trap curved-trapezoid display",
+  "div-rect": "div-rect div-proc divided-rectangle divided-process",
+  tri: "tri triangle extract",
+  "flip-tri": "flip-tri flipped-triangle manual-file",
+  "win-pane": "win-pane window-pane internal-storage",
+  "notch-pent": "notch-pent notched-pentagon loop-limit",
+  "sl-rect": "sl-rect sloped-rectangle manual-input",
+  flag: "flag paper-tape",
+  "bow-rect": "bow-rect bow-tie-rectangle stored-data",
+})) {
+  for (const name of names.split(" ")) EXT_SHAPES[name] = shape;
+}
 
 const STYLE_RE = /^(classDef|class|style|linkStyle)\s+(\S+)(?:\s+(.*))?$/;
 // Propiedades de HTML que no tienen efecto en un elemento SVG: se avisa para que no parezca un fallo.
@@ -327,9 +383,19 @@ function parseNodeRef(line, pos, lineNo, nodes, group, styles) {
   if (spec) {
     pos += spec.open.length;
     const parsed = parseShapeText(line, pos, spec.close, lineNo);
-    shape = spec.shape;
+    shape = typeof spec.close === "string" ? spec.shape : spec.close[parsed.close];
     text = parsed.text;
     pos = parsed.end;
+  }
+
+  // Forma de Mermaid 11.3+: id@{ shape: doc, label: "texto" }.
+  if (line[pos] === "@" && line[pos + 1] === "{") {
+    const ext = parseExtendedShape(line, pos + 2, lineNo);
+    if (ext.shape) shape = ext.shape;
+    if (ext.text !== null) text = ext.text;
+    if (!shape) shape = nodes.get(id)?.shape || "rect";
+    if (text === null) text = nodes.get(id)?.text ?? id;
+    pos = ext.end;
   }
 
   // Clase de Mermaid "a:::clase".
@@ -352,23 +418,64 @@ function parseNodeRef(line, pos, lineNo, nodes, group, styles) {
   return { id, end: pos };
 }
 
+// close: un cierre o { cierre: forma }; devuelve también el cierre encontrado.
 function parseShapeText(line, pos, close, lineNo) {
+  const closes = typeof close === "string" ? [close] : Object.keys(close);
+  const shown = closes.map((c) => `'${c}'`).join(" o ");
   let text;
+  let found;
   if (line[pos] === '"') {
     const endQuote = line.indexOf('"', pos + 1);
     if (endQuote < 0) throw new DiagramError("Comilla sin cerrar", lineNo);
     text = line.slice(pos + 1, endQuote);
     pos = endQuote + 1;
-    if (!line.startsWith(close, pos)) throw new DiagramError(`Se esperaba '${close}' después del texto`, lineNo);
+    found = closes.find((c) => line.startsWith(c, pos));
+    if (!found) throw new DiagramError(`Se esperaba ${shown} después del texto`, lineNo);
   } else {
-    const endIdx = line.indexOf(close, pos);
-    if (endIdx < 0) throw new DiagramError(`Falta cerrar la forma con '${close}'`, lineNo);
+    let endIdx = -1;
+    for (const c of closes) {
+      const i = line.indexOf(c, pos);
+      if (i >= 0 && (endIdx < 0 || i < endIdx)) [endIdx, found] = [i, c];
+    }
+    if (endIdx < 0) throw new DiagramError(`Falta cerrar la forma con ${shown}`, lineNo);
     text = line.slice(pos, endIdx).trim();
     pos = endIdx;
   }
   // "<br>" de Mermaid como salto de línea explícito.
   text = text.replace(/<br\s*\/?>/gi, "\n");
-  return { text, end: pos + close.length };
+  return { text, end: pos + found.length, close: found };
+}
+
+// Cuerpo de "@{ … }" desde pos (después de "@{"): pares clave: valor separados por comas, valores
+// con o sin comillas. Se usan shape y label; el resto (icon, img, pos…) se ignora.
+function parseExtendedShape(line, pos, lineNo) {
+  const fields = [];
+  let current = "";
+  let quoted = false;
+  let i = pos;
+  for (; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') quoted = !quoted;
+    else if (!quoted && ch === "}") break;
+    if (!quoted && ch === ",") {
+      fields.push(current);
+      current = "";
+    } else current += ch;
+  }
+  if (i >= line.length) throw new DiagramError("Falta cerrar '@{' con '}'", lineNo);
+  fields.push(current);
+  let shape = null;
+  let text = null;
+  for (const field of fields.map((f) => f.trim()).filter(Boolean)) {
+    const m = field.match(/^([\w-]+)\s*:\s*(.*)$/);
+    if (!m) throw new DiagramError(`Se esperaba 'clave: valor' en '@{ … }' y hay '${field}'`, lineNo);
+    const value = m[2].trim().replace(/^"(.*)"$/, "$1");
+    if (m[1] === "shape") {
+      shape = EXT_SHAPES[value];
+      if (!shape) throw new DiagramError(`Forma no soportada: '${value}'`, lineNo);
+    } else if (m[1] === "label") text = value.replace(/<br\s*\/?>/gi, "\n");
+  }
+  return { shape, text, end: i + 1 };
 }
 
 // Texto de una etiqueta de arista: sin comillas y con "<br>" como salto de línea, como en los nodos.

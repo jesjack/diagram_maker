@@ -49,7 +49,8 @@ El HTML generado es un único archivo autocontenido: ningún `.js` puede contene
 ### Hecho
 
 - **Motor**: parser (formas: rect, redondeado, estadio, círculo, rombo, hexágono, cilindro,
-  subrutina, paralelogramos; aristas con etiqueta, `&` en origen/destino, estilos de Mermaid),
+  subrutina, paralelogramos, trapecios, asimétrica, círculo doble y todas las
+  de `id@{ shape: … }`; aristas con etiqueta, `&` en origen/destino, estilos de Mermaid),
   subgraphs como diagramas aparte, layout sin choques ni diagonales (reglas 1–15 de SPEC.md),
   render SVG con pastillas de id (los empalmes son pastillas `● dueño`).
 - **Layout, arreglos recientes**: un empalme solo lo coloca su dueño; se cuentan vecinos y no
@@ -76,11 +77,9 @@ El HTML generado es un único archivo autocontenido: ningún `.js` puede contene
 
 1. **Publicar 0.1.1 en npm** con lo de `main` (`npm version patch`, `git push --follow-tags`,
    `npm publish` desde una terminal normal de Termux para confirmar con la huella).
-2. **PR de Copilot por revisar** (comentados el 2026-10-02, Copilot los recogió con 👀):
-   - #4 forma asimétrica `>texto]`: está dibujada al revés (debe tener la muesca hacia dentro).
-   - #5 formas `id@{ shape: … }`: la sintaxis está bien, pero aproxima `manual-input`, `display`
-     y `fork` con otras formas; hay que dibujarlas de verdad y reconocer todas las de Mermaid.
-   Al revisarlos: fusionar con `main` en un worktree temporal y pasar toda la batería de tests.
+2. **Formas extra de Mermaid** (issues #2 y #3, rama `formas-mermaid`): hechas a mano en
+   `src/shapes.js` en lugar de las PR #4/#5 de Copilot (cerradas). Pendiente: que el usuario
+   revise `formas-mermaid.png` y fusionar la PR.
 3. **Estética**: nodos con aspecto de "pegatina" (generar variantes en PNG para que elija) y
    ajustes de la interfaz.
 4. **Paquete pip**: envoltorio que llame a `dmk` (publicar en PyPI con su cuenta).

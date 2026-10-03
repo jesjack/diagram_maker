@@ -1,9 +1,9 @@
 // Layout: de la rejilla a coordenadas (ancho de columnas, alto de filas) y trazado de aristas.
 
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory(require("./text.js"));
-  else root.LayoutGeometry = factory(root.LayoutText);
-})(typeof self !== "undefined" ? self : this, function ({ textMetrics }) {
+  if (typeof module === "object" && module.exports) module.exports = factory(require("./text.js"), require("../shapes.js"));
+  else root.LayoutGeometry = factory(root.LayoutText, root.Shapes);
+})(typeof self !== "undefined" ? self : this, function ({ textMetrics }, Shapes) {
 function computeCoordinates(nodes, edges, measure, opts) {
   const colWidth = new Map();
   const rowHeight = new Map();
@@ -70,6 +70,7 @@ function borderDistance(node, ux, uy) {
   const hh = node.h / 2;
   const ax = Math.abs(ux);
   const ay = Math.abs(uy);
+  if (Shapes.isRound(node.shape)) return hw;
   switch (node.shape) {
     case "circle":
       return hw;
@@ -81,8 +82,13 @@ function borderDistance(node, ux, uy) {
       const sx = hw - node.skew / 2;
       return Math.min(ax ? sx / ax : Infinity, ay ? hh / ay : Infinity);
     }
-    default:
-      return Math.min(ax ? hw / ax : Infinity, ay ? hh / ay : Infinity);
+    default: {
+      // inset (formas de shapes.js): cuánto entra el contorno en el centro de cada lado de la caja.
+      const i = node.inset || {};
+      const sx = hw - ((ux > 0 ? i.r : i.l) || 0);
+      const sy = hh - ((uy > 0 ? i.b : i.t) || 0);
+      return Math.min(ax ? sx / ax : Infinity, ay ? sy / ay : Infinity);
+    }
   }
 }
 
