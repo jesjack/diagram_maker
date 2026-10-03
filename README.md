@@ -56,6 +56,9 @@ dmk archivo.mmd --png           # exporta archivo.png (--escala 3 para más reso
 dmk archivo.mmd --html          # solo genera el HTML
 dmk archivo.mmd --sin-servidor  # abre el HTML guardado como archivo, sin servidor
 dmk archivo.mmd --ligero        # HTML sin Mermaid incrustado (más pequeño, sin botón «Mermaid»)
+dmk archivo.mmd --tema oscuro   # tema oscuro (visor, SVG y PNG); el visor sigue al sistema y su botón ◐ lo cambia
+dmk a.mmd b.mmd --svg           # varios archivos: cada resultado junto a su .mmd
+dmk *.mmd --comprobar           # valida sin dibujar: errores, avisos y tamaño de cada diagrama
 dmk                             # escribe el diagrama en la terminal (termina con Ctrl+D)
 cat archivo.mmd | dmk --svg -o diagrama.svg
 ```

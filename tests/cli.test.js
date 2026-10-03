@@ -78,3 +78,36 @@ test("el HTML lleva Mermaid incrustado (botón sin internet); con --ligero no", 
   assert.ok(fs.statSync(ligero).size < 300000);
   assert.ok(!fs.readFileSync(completo, "utf8").includes("cdn.jsdelivr"), "no depende de internet");
 });
+
+test("--comprobar valida varios archivos sin generar nada; los errores no paran el resto", () => {
+  const malo = path.join(tmp, "malo.mmd");
+  fs.writeFileSync(malo, "a -- > b\n");
+  const antes = fs.readdirSync(tmp).length;
+  const r = dmk([ejemplo, malo, "--comprobar"]);
+  assert.strictEqual(r.status, 1);
+  assert.match(r.stdout, /ok +.*ej\.mmd: 4 nodos, 3 aristas/);
+  assert.match(r.stderr, /error +.*malo\.mmd: Línea 1: Se esperaba una arista/);
+  assert.match(r.stdout, /1 de 2 sin errores/);
+  assert.strictEqual(fs.readdirSync(tmp).length, antes);
+  assert.strictEqual(dmk(["-c"], "a --> b\n").status, 0);
+});
+
+test("varios archivos: cada resultado junto a su .mmd; -o no se admite", () => {
+  const otro = path.join(tmp, "otro.mmd");
+  fs.writeFileSync(otro, "x --> y\n");
+  const r = dmk([ejemplo, otro, "--svg"]);
+  assert.strictEqual(r.status, 0, r.stderr);
+  assert.ok(fs.existsSync(path.join(tmp, "ej.svg")) && fs.existsSync(path.join(tmp, "otro.svg")));
+  assert.match(dmk([ejemplo, otro, "--svg", "-o", "x.svg"]).stderr, /-o no se combina/);
+  assert.match(dmk([ejemplo, otro, "--watch"]).stderr, /un solo archivo/);
+});
+
+test("--tema oscuro: SVG con colores oscuros y el visor arranca en oscuro", () => {
+  const svg = path.join(tmp, "osc.svg");
+  assert.strictEqual(dmk([ejemplo, "--svg", svg, "--tema", "oscuro"]).status, 0);
+  assert.match(fs.readFileSync(svg, "utf8"), /fill="#161b22"/);
+  const html = path.join(tmp, "osc.html");
+  assert.strictEqual(dmk([ejemplo, "--html", "--ligero", "--oscuro", "-o", html]).status, 0);
+  assert.match(fs.readFileSync(html, "utf8"), /theme: "oscuro"/);
+  assert.match(dmk(["--tema", "rosa"]).stderr, /claro, oscuro o auto/);
+});

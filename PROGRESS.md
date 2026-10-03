@@ -81,17 +81,21 @@ desde una terminal normal de Termux (el agente no puede: pide confirmar con la h
   funcionan con `require` y pegados en el HTML sin compilar. Resultado idéntico al de antes en los
   ejemplos y 2.000 diagramas aleatorios. En el navegador la API queda en `DiagramLayout`.
 
+- **Utilidades** (2026-10-03): `dmk --comprobar` (`-c`, valida sin dibujar), varios archivos a
+  la vez (cada resultado junto a su .mmd; sin `-o` ni `--watch`), tema oscuro (`--tema
+  claro|oscuro|auto`, `--oscuro`; `DARK_THEME` en render.js, `data-theme` en la plantilla, botón ◐
+  del visor recordado en localStorage; SVG/PNG en claro salvo `--tema oscuro`).
+
 ### Pendiente
 
 1. **Estética**: nodos con aspecto de "pegatina" (generar variantes en PNG para que elija) y
    ajustes de la interfaz.
 2. **Paquete pip**: envoltorio que llame a `dmk` (publicar en PyPI con su cuenta).
-3. **Utilidades**: `dmk --comprobar` (validar sin dibujar), varios archivos a la vez, tema oscuro.
-4. **Layout**: rotación "como engranajes" (el usuario la ve más sofisticada que solo girar bloques:
+3. **Layout**: rotación "como engranajes" (el usuario la ve más sofisticada que solo girar bloques:
    hablarlo antes); semilla 111; referencias repetidas entre subgraphs.
-5. TODO de SPEC.md: estilos de subgraph.
-6. Sin probar en navegador por el agente: `dmk` + `--watch` + `--sin-servidor` en el móvil.
-7. **`direction` para el crecimiento de cada árbol** (que `flowchart LR` haga crecer las ramas hacia
+4. TODO de SPEC.md: estilos de subgraph.
+5. Sin probar en navegador por el agente: `dmk` + `--watch` + `--sin-servidor` en el móvil.
+6. **`direction` para el crecimiento de cada árbol** (que `flowchart LR` haga crecer las ramas hacia
    la derecha): de momento la dirección solo coloca los subgraphs y los grupos desconectados.
 
 ## Decisiones y preferencias del usuario

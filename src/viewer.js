@@ -6,11 +6,41 @@ const DiagramViewer = (() => {
   const MIN_SCALE = 0.1;
   const MAX_SCALE = 8;
 
-  function start({ source: initialSource, title, live }) {
+  function start({ source: initialSource, title, live, theme: themeOption = "auto" }) {
     const stage = document.getElementById("stage");
     const canvas = document.getElementById("canvas");
     const status = document.getElementById("status");
     document.title = title;
+
+    // Tema: "claro", "oscuro" o "auto" (el del sistema). El botón ◐ lo cambia y se recuerda en
+    // este navegador; dmk --tema elige el de partida.
+    const dark = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+    let themeChoice = themeOption;
+    try {
+      themeChoice = localStorage.getItem("dmk-tema") || themeOption;
+    } catch (err) {}
+    const themeName = () => (themeChoice === "auto" ? (dark && dark.matches ? "oscuro" : "claro") : themeChoice);
+    let theme = THEMES[themeName()] || THEME;
+    const applyTheme = () => {
+      theme = THEMES[themeName()] || THEME;
+      document.documentElement.dataset.theme = themeName();
+    };
+    applyTheme();
+    const btnTheme = document.getElementById("btn-theme");
+    const retheme = () => {
+      applyTheme();
+      if (result) mount(source);
+    };
+    if (btnTheme) {
+      btnTheme.onclick = () => {
+        themeChoice = themeName() === "oscuro" ? "claro" : "oscuro";
+        try {
+          localStorage.setItem("dmk-tema", themeChoice);
+        } catch (err) {}
+        retheme();
+      };
+    }
+    if (dark && dark.addEventListener) dark.addEventListener("change", () => themeChoice === "auto" && retheme());
 
     // Estado del diagrama montado; mount() lo reemplaza entero cuando llega código nuevo.
     // Si el código tiene un error, result queda en null y los controles no hacen nada.
@@ -189,7 +219,7 @@ const DiagramViewer = (() => {
       else {
         const snap = result.snapshotAt(shown - 1);
         const tmp = document.createElement("div");
-        tmp.innerHTML = renderSvg(snap, THEME, { shadow: false, ids: true });
+        tmp.innerHTML = renderSvg(snap, theme, { shadow: false, ids: true });
         showLayout(snap, tmp.firstElementChild);
         const el = shownSvg.querySelector(`g.node[data-id="${CSS.escape(current.id)}"], g.junction[data-id="${CSS.escape(current.id)}"]`);
         if (el) el.classList.add("step-current");
@@ -269,10 +299,10 @@ const DiagramViewer = (() => {
 
     // Lo exportado sale como se ve (pastillas incluidas: los empalmes se refieren a los nodos por su
     // id), con la sombra difuminada real dentro del SVG.
-    const exportSvg = () => renderSvg(result, THEME, { ids: true });
+    const exportSvg = () => renderSvg(result, theme, { ids: true });
     document.getElementById("btn-svg").onclick = () =>
       result && download(new Blob([exportSvg()], { type: "image/svg+xml" }), `${title}.svg`);
-    document.getElementById("btn-png").onclick = () => result && exportPng(exportSvg(), size, title);
+    document.getElementById("btn-png").onclick = () => result && exportPng(exportSvg(), size, title, theme.pngBackground);
 
     // En móvil "resize" salta cada vez que aparece o se oculta la barra del navegador:
     // se conserva el punto que estaba en el centro en lugar de volver a ajustar.
@@ -310,12 +340,12 @@ const DiagramViewer = (() => {
 
       result = next;
       generation++;
-      canvas.innerHTML = renderSvg(result, THEME, { shadow: false, ids: true });
+      canvas.innerHTML = renderSvg(result, theme, { shadow: false, ids: true });
       svg = canvas.querySelector("svg");
       size = { w: parseFloat(svg.getAttribute("width")), h: parseFloat(svg.getAttribute("height")) };
-      if (THEME.shadow) {
+      if (theme.shadow) {
         const gen = generation;
-        paintShadow(renderShadowSvg(result), size, canvas, () => gen === generation);
+        paintShadow(renderShadowSvg(result, theme), size, canvas, () => gen === generation);
       }
       showWarnings(result.warnings);
 
@@ -463,7 +493,7 @@ const DiagramViewer = (() => {
     };
   }
 
-  function exportPng(svgText, size, title, scale = 2) {
+  function exportPng(svgText, size, title, background = "#ffffff", scale = 2) {
     const url = URL.createObjectURL(new Blob([svgText], { type: "image/svg+xml" }));
     const img = new Image();
     img.onload = () => {
@@ -471,9 +501,9 @@ const DiagramViewer = (() => {
       c.width = Math.ceil(size.w * scale);
       c.height = Math.ceil(size.h * scale);
       const ctx = c.getContext("2d");
-      // El SVG no tiene fondo; en el PNG se pinta blanco para que se lea en cualquier visor
+      // El SVG no tiene fondo; en el PNG se pinta el del tema para que se lea en cualquier visor
       // (muchas galerías muestran lo transparente en negro).
-      ctx.fillStyle = "#ffffff";
+      ctx.fillStyle = background;
       ctx.fillRect(0, 0, c.width, c.height);
       ctx.scale(scale, scale);
       ctx.drawImage(img, 0, 0, size.w, size.h);

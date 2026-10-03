@@ -16,6 +16,25 @@
     --danger: #cf222e;
     --danger-bg: #ffebe9;
     --warn-bg: #fff8c5;
+    --hover: rgba(0, 0, 0, .06);
+    --ok: #1a7f37;
+    color-scheme: light;
+  }
+  /* Tema oscuro: data-theme lo pone el visor (sistema, botón ◐ o dmk --tema). */
+  :root[data-theme="oscuro"] {
+    --bg: #0d1117;
+    --dot: #30363d;
+    --panel: #161b22;
+    --panel-translucent: rgba(22, 27, 34, .6);
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --danger: #f85149;
+    --danger-bg: #3c1618;
+    --warn-bg: #3b2e00;
+    --hover: rgba(255, 255, 255, .08);
+    --ok: #3fb950;
+    color-scheme: dark;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; }
@@ -68,7 +87,7 @@
     font: inherit;
     cursor: pointer;
   }
-  .stepper button:hover { background: rgba(0, 0, 0, .06); }
+  .stepper button:hover { background: var(--hover); }
   #step-label { min-width: 64px; text-align: center; color: var(--muted); font-variant-numeric: tabular-nums; }
   #step-why { padding: 2px 8px 4px; font-size: 13px; }
   #step-why:empty { display: none; }
@@ -106,11 +125,11 @@
     font: inherit;
     cursor: pointer;
   }
-  .toolbar button:hover { background: rgba(0, 0, 0, .06); }
+  .toolbar button:hover { background: var(--hover); }
   .toolbar, #warnings { touch-action: manipulation; }
   .toolbar .sep { width: 1px; height: 20px; background: var(--border); margin: 0 2px; }
   /* Recarga en vivo (diagram.py --watch) */
-  #live { padding: 0 6px; color: #1a7f37; font-size: 12px; white-space: nowrap; }
+  #live { padding: 0 6px; color: var(--ok); font-size: 12px; white-space: nowrap; }
   #live.off { color: var(--muted); }
   #live[hidden] { display: none; }
   #status { min-width: 48px; text-align: center; color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -142,7 +161,7 @@
   @media (pointer: coarse) {
     .toolbar button { min-width: 40px; height: 40px; }
     .toolbar button:hover { background: transparent; }
-    .toolbar button:active { background: rgba(0, 0, 0, .06); }
+    .toolbar button:active { background: var(--hover); }
   }
   @media (max-width: 480px) {
     .toolbar {
@@ -208,6 +227,7 @@
   <button id="btn-mermaid" title="Abrir este diagrama con Mermaid oficial en otra pestaña, para comparar">Mermaid</button>
   <button id="btn-svg" title="Descargar como SVG">SVG</button>
   <button id="btn-png" title="Descargar como PNG">PNG</button>
+  <button id="btn-theme" title="Cambiar entre tema claro y oscuro">◐</button>
 </div>
 
 <div class="stepper">
@@ -237,6 +257,7 @@ __DIAGRAM_SCRIPTS__
     source: JSON.parse(document.getElementById("diagram-source").textContent),
     title: __DIAGRAM_TITLE__,
     live: __DIAGRAM_LIVE__,
+    theme: __DIAGRAM_THEME__,
   });
 </script>
 </body>

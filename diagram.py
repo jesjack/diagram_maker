@@ -51,6 +51,7 @@ def build_html(source, title, live=None):
         "__DIAGRAM_SOURCE__": js_literal(source),
         "__DIAGRAM_TITLE__": js_literal(title),
         "__DIAGRAM_LIVE__": js_literal(live),
+        "__DIAGRAM_THEME__": js_literal("auto"),
         "__DIAGRAM_MERMAID__": base64.b64encode(MERMAID.read_bytes()).decode("ascii") if MERMAID.exists() else "",
         "__DIAGRAM_SCRIPTS__": scripts,
     }

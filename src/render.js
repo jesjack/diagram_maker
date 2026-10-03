@@ -20,7 +20,25 @@ const THEME = {
   padding: 40,
   // Sombra difuminada bajo todas las formas. null = sin sombra.
   shadow: { dx: 0, dy: 1, blur: 1.5, color: "#000000", opacity: 0.18 },
+  // Fondo del PNG (el SVG es transparente; muchas galerías muestran lo transparente en negro).
+  pngBackground: "#ffffff",
 };
+
+// Tema oscuro (dmk --tema oscuro, o el visor con el sistema en modo oscuro).
+const DARK_THEME = {
+  ...THEME,
+  nodeFill: "#161b22",
+  nodeStroke: "#c9d1d9",
+  text: "#e6edf3",
+  edge: "#c9d1d9",
+  labelText: "#e6edf3",
+  labelBackground: "#0d1117",
+  title: "#8b949e",
+  idPill: { ...THEME.idPill, fill: "#8b949e", text: "#0d1117" },
+  shadow: { ...THEME.shadow, opacity: 0.5 },
+  pngBackground: "#0d1117",
+};
+const THEMES = { claro: THEME, oscuro: DARK_THEME };
 
 function escapeXml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -360,4 +378,4 @@ function renderLabel(e, theme) {
   );
 }
 
-if (typeof module !== "undefined") module.exports = { renderSvg, renderShadowSvg, THEME };
+if (typeof module !== "undefined") module.exports = { renderSvg, renderShadowSvg, THEME, DARK_THEME, THEMES };
