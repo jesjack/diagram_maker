@@ -97,6 +97,12 @@ desde una terminal normal de Termux (el agente no puede: pide confirmar con la h
 5. Sin probar en navegador por el agente: `dmk` + `--watch` + `--sin-servidor` en el móvil.
 6. **`direction` para el crecimiento de cada árbol** (que `flowchart LR` haga crecer las ramas hacia
    la derecha): de momento la dirección solo coloca los subgraphs y los grupos desconectados.
+7. **jesjack engine** (`src/engines/jesjack.js`): motor de colocación desde cero, alternativo a
+   main engine, con **cada decisión auditada por el usuario** (proponer alternativas, no decidir).
+   Recibe nodos y conexiones crudos y decide él los empalmes; contrato en la cabecera del archivo,
+   adaptador `layoutJesjack` en src/layout.js (`layoutDiagram(g, { engine: "jesjack" })`).
+   Progreso: `node --test tests/jesjack.test.js` (primera semilla que falla y cuántas de 400 pasan);
+   detalle de una: `node tests/jesjack.test.js <semilla>`. Estado: vacío (0/400).
 
 ## Decisiones y preferencias del usuario
 

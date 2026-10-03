@@ -321,12 +321,12 @@ function choquePermitido(message, conDir, g) {
 }
 
 // Procesa un texto y devuelve la lista de invariantes rotos (vacía si todo va bien).
-function revisar(src) {
+function revisar(src, opciones = {}) {
   let g;
   let L;
   try {
     g = parseDiagram(src);
-    L = layoutDiagram(g);
+    L = layoutDiagram(g, opciones);
   } catch (err) {
     return [{ inv: err instanceof DiagramError ? "error fatal" : "excepción", detalle: err.message }];
   }

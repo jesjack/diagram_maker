@@ -16,7 +16,8 @@
       require("./layout/directions.js"),
       require("./layout/junctions.js"),
       require("./layout/grid.js"),
-      require("./layout/geometry.js")
+      require("./layout/geometry.js"),
+      require("./engines/jesjack.js")
     );
   } else {
     root.DiagramLayout = factory(
@@ -25,10 +26,11 @@
       root.LayoutDirections,
       root.LayoutJunctions,
       root.LayoutGrid,
-      root.LayoutGeometry
+      root.LayoutGeometry,
+      root.JesjackEngine
     );
   }
-})(typeof self !== "undefined" ? self : this, function (base, text, dirs, junctions, grid, geometry) {
+})(typeof self !== "undefined" ? self : this, function (base, text, dirs, junctions, grid, geometry, jesjack) {
 const { LAYOUT_DEFAULTS, PILL_HEIGHT, pillWidth, junctionLabel } = base;
 const { wrapText, baseFont, sizeNode } = text;
 const { assignDirections } = dirs;
@@ -230,6 +232,7 @@ function splitBySubgraph(graph, warnings) {
 }
 
 function layoutSingle(graph, measure, opts, warnings) {
+  if (opts.engine === "jesjack") return layoutJesjack(graph, measure, opts);
   const nodes = new Map();
   // Un empalme elegido con @bus mide lo que su pastilla, como los automáticos.
   const size = (n) =>
@@ -269,6 +272,48 @@ function layoutSingle(graph, measure, opts, warnings) {
     return { nodes: [...snapNodes.values()], edges: snapEdges, bounds: b };
   };
   return { nodes: [...nodes.values()], edges, bounds, steps: history.length, snapshotAt };
+}
+
+// Adaptador de jesjack engine (contrato en src/engines/jesjack.js): el motor solo recibe ids y
+// conexiones y devuelve celdas; aquí se miden los nodos, se pasan sus x,y (celdas) a col,row y se
+// reutiliza la conversión a píxeles y el trazado de main engine. El paso k muestra los k+1 primeros
+// nodos en el orden en que el motor los devolvió.
+function layoutJesjack(graph, measure, opts) {
+  const input = {
+    nodes: [...graph.nodes.values()].map((n) => ({ id: n.id })),
+    connections: graph.edges.map((e) => ({ index: e.index, from: e.from, to: e.to })),
+  };
+  const out = jesjack.jesjackEngine(input);
+  const original = new Map(graph.edges.map((e) => [e.index, e]));
+  const nodes = new Map();
+  out.nodes.forEach((o, step) => {
+    const n = o.junctionOf
+      ? { id: o.id, shape: "junction", text: "", lines: [], w: pillWidth(junctionLabel(o.junctionOf)), h: PILL_HEIGHT,
+          lineHeight: opts.lineHeight, junctionOf: o.junctionOf }
+      : graph.nodes.get(o.id);
+    if (!n) throw new Error(`jesjack engine: nodo desconocido '${o.id}'`);
+    const sized = o.junctionOf ? n : { ...n, ...sizeNode(n, measure, opts) };
+    nodes.set(o.id, { ...sized, col: o.x, row: o.y, step, why: "jesjack engine" });
+  });
+  for (const id of graph.nodes.keys()) if (!nodes.has(id)) throw new Error(`jesjack engine: falta el nodo '${id}'`);
+  const edges = out.connections.map((c) => {
+    if (!nodes.has(c.from) || !nodes.has(c.to)) throw new Error(`jesjack engine: conexión ${c.from} -> ${c.to} con un extremo desconocido`);
+    if (c.index === undefined)
+      return { from: c.from, to: c.to, label: null, arrowStart: false, arrowEnd: false, style: "solid", bus: true };
+    if (!original.has(c.index)) throw new Error(`jesjack engine: conexión con index ${c.index} desconocido`);
+    return { ...original.get(c.index), from: c.from, to: c.to };
+  });
+  const bounds = computeCoordinates(nodes, edges, measure, opts);
+  for (const e of edges) routeEdge(e, nodes.get(e.from), nodes.get(e.to), measure, opts);
+  const order = [...nodes.values()];
+  const snapshotAt = (k) => {
+    const snapNodes = new Map(order.slice(0, k + 1).map((n) => [n.id, { ...n }]));
+    const snapEdges = edges.filter((e) => snapNodes.has(e.from) && snapNodes.has(e.to)).map((e) => ({ ...e }));
+    const b = computeCoordinates(snapNodes, snapEdges, measure, opts);
+    for (const x of snapEdges) routeEdge(x, snapNodes.get(x.from), snapNodes.get(x.to), measure, opts);
+    return { nodes: [...snapNodes.values()], edges: snapEdges, bounds: b };
+  };
+  return { nodes: order, edges, bounds, steps: order.length, snapshotAt };
 }
 
 return { layoutDiagram, wrapText, LAYOUT_DEFAULTS };
