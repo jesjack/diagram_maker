@@ -158,6 +158,7 @@ lib/                HTML, servidores (una vez / --watch), exportar SVG/PNG, fuen
 diagram.py          versión anterior del comando, en Python sin dependencias
 src/parser.js       texto Mermaid -> nodos, aristas, subgraphs, estilos y metadatos
 src/layout.js       reglas de colocación -> rejilla -> coordenadas (y la historia del paso a paso)
+src/layout/        módulos del layout (UMD: valen para Node y para el navegador sin compilar)
 src/render.js       SVG (formas, flechas, etiquetas, pastillas, sombra)
 src/viewer.js       visor: zoom, gestos, paso a paso, exportar
 src/template.html   plantilla de la página

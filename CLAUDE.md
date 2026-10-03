@@ -13,13 +13,15 @@ JS: `src/` (motor y visor), `bin/dmk.js` + `lib/` (comando, npm `@jesjack/diagra
 - Git: `git -c user.name="Edgar Jesús Moreno Castañeda" -c user.email="jesjack25_03@hotmail.com" commit …`
 - Entorno: Termux (Android). `node`, `rsvg-convert` en el PATH. Temporales en `$PREFIX/tmp`.
 
-## Mapa de src/layout.js (línea: función)
-60 layoutDiagram · 154 splitBySubgraph · 233 layoutSingle · 304 addJunctions · 383 sizeNode
-439 assignDirections · 470 assignSlots · 574 placeInGrid (historia, place) · 645 placeNextTo
-682 makeRoom · 712 applyRoom · 750 insertLine (desplazar bloque) · 906 findAnchor
-946 twinNextTo · 963 expand/visit · 1018 placeRoot · 1065 simulateGroup · 1112 placeGroupByLink
-1159 planExtension · 1212 farLeaf · 1233 copyLeaves · 1279 fixLongLinks · 1324 tidyUp
-1449 computeCoordinates · 1510 borderDistance · 1531 routeEdge
+## Mapa del layout (módulos UMD en src/layout/; archivo: línea función)
+layout.js (entrada): 39 layoutDiagram · 133 splitBySubgraph · 212 layoutSingle
+base.js (constantes, late) · text.js: 59 sizeNode · junctions.js: 42 addJunctions
+directions.js: 16 assignDirections · 47 assignSlots · geometry.js: 7 computeCoordinates · 89 routeEdge
+grid.js: 18 placeInGrid (estado g, historia) · 70 place · 94 placeNextTo · 130 findAnchor · 187 expand
+grid-room.js: 25 makeRoom · 55 applyRoom · 93 insertLine (desplazar bloque)
+grid-groups.js: 39 simulateGroup · 86 placeGroupByLink · 133 planExtension
+grid-cleanup.js: 24 farLeaf · 45 copyLeaves · 91 fixLongLinks · 136 tidyUp
+Los grid-*.js reciben g (estado de placeInGrid). Orden de carga en el navegador: SCRIPTS de lib/html.js.
 Otros: parser.js (sintaxis, estilos), render.js (SVG, pastillas), viewer.js (visor), template.html.
 
 ## Reglas de ahorro

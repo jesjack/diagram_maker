@@ -297,7 +297,7 @@ const DiagramViewer = (() => {
       let next;
       try {
         const graph = parseDiagram(src);
-        next = layoutDiagram(graph, { measure: makeMeasure() });
+        next = DiagramLayout.layoutDiagram(graph, { measure: makeMeasure() });
       } catch (err) {
         result = null;
         showError(err, src);
@@ -455,7 +455,7 @@ const DiagramViewer = (() => {
   // Mide texto con la fuente con la que se va a pintar (la del nodo si su estilo la cambia).
   function makeMeasure() {
     const ctx = document.createElement("canvas").getContext("2d");
-    const base = `${LAYOUT_DEFAULTS.fontSize}px ${LAYOUT_DEFAULTS.fontFamily}`;
+    const base = `${DiagramLayout.LAYOUT_DEFAULTS.fontSize}px ${DiagramLayout.LAYOUT_DEFAULTS.fontFamily}`;
     return (text, font) => {
       ctx.font = base; // si la fuente del nodo no es válida, el canvas la ignora: que no herede la anterior
       if (font) ctx.font = `${font.style} ${font.weight} ${font.size}px ${font.family}`;

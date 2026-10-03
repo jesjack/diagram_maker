@@ -31,7 +31,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 SRC = ROOT / "src"
-SCRIPTS = ["parser.js", "layout.js", "render.js", "viewer.js"]
+SCRIPTS = ["parser.js", "layout/base.js", "layout/text.js", "layout/directions.js", "layout/junctions.js", "layout/grid-room.js", "layout/grid-groups.js", "layout/grid-cleanup.js", "layout/grid.js", "layout/geometry.js", "layout.js", "render.js", "viewer.js"]
 MERMAID = ROOT / "vendor" / "mermaid.min.js.gz"  # para el botón «Mermaid» sin internet
 SERVE_TIMEOUT = 30  # segundos que se espera a que el navegador pida la página
 WATCH_INTERVAL = 0.5  # segundos entre comprobaciones del .mmd con --watch
