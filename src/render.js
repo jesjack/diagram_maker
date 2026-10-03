@@ -15,7 +15,8 @@ const THEME = {
   // Pastilla con el id de cada nodo, en su esquina superior izquierda (renderSvg con { ids: true }).
   // (las medidas deben coincidir con PILL_FONT / PILL_HEIGHT de layout.js, que reserva el sitio de
   // los empalmes)
-  idPill: { fill: "#57606a", text: "#ffffff", fontSize: 12, height: 18 },
+  // opacity: solo el fondo de las pastillas de id, que dejan ver un poco la forma de debajo.
+  idPill: { fill: "#57606a", text: "#ffffff", fontSize: 12, height: 18, opacity: 0.8 },
   padding: 40,
   // Sombra difuminada bajo todas las formas. null = sin sombra.
   shadow: { dx: 0, dy: 1, blur: 1.5, color: "#000000", opacity: 0.18 },
@@ -184,7 +185,7 @@ function renderIdPills(nodes, theme) {
     const left = centered ? x - w / 2 : x - 4;
     parts.push(
       `<g class="id-pill" data-id="${escapeXml(n.id)}"><rect x="${fmt(left)}" y="${fmt(y - p.height / 2)}" width="${fmt(w)}" height="${p.height}" ` +
-        `rx="${p.height / 2}" fill="${p.fill}"/>` +
+        `rx="${p.height / 2}" fill="${p.fill}" fill-opacity="${p.opacity}"/>` +
         `<text x="${fmt(left + w / 2)}" y="${fmt(y)}" text-anchor="middle" dominant-baseline="central" fill="${p.text}">` +
         `${escapeXml(id)}</text></g>`
     );
