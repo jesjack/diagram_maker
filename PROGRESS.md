@@ -65,7 +65,8 @@ El HTML generado es un único archivo autocontenido: ningún `.js` puede contene
 - **Comando `dmk`** (Node): HTML + navegador, `--watch`, `--svg`/`--png` sin navegador (texto
   medido y pintado con DejaVu; PNG con resvg WASM), `--html`, `--sin-servidor`, `--ligero`,
   entrada por tubería o `<<EOF`.
-- **Tests**: 94 en Node (incluye 400 diagramas aleatorios; solo falla la semilla 111, registrada
+- **Pastillas de id** con el fondo al 80 % de opacidad (dejan ver la forma de debajo).
+- **Tests**: 99 en Node (incluye 400 diagramas aleatorios; solo falla la semilla 111, registrada
   como conocida) + 8 en Python. `tools/comparar.js` genera imágenes antes/después.
 - **Ahorro de tokens**: `CLAUDE.md` corto con comandos y mapa del layout;
   `.claude/settings.json` bloquea leer `node_modules/`, `vendor/`, `examples/*.html`.
@@ -77,19 +78,16 @@ El HTML generado es un único archivo autocontenido: ningún `.js` puede contene
 
 1. **Publicar 0.1.1 en npm** con lo de `main` (`npm version patch`, `git push --follow-tags`,
    `npm publish` desde una terminal normal de Termux para confirmar con la huella).
-2. **Formas extra de Mermaid** (issues #2 y #3, rama `formas-mermaid`): hechas a mano en
-   `src/shapes.js` en lugar de las PR #4/#5 de Copilot (cerradas). Pendiente: que el usuario
-   revise `formas-mermaid.png` y fusionar la PR.
-3. **Estética**: nodos con aspecto de "pegatina" (generar variantes en PNG para que elija) y
+2. **Estética**: nodos con aspecto de "pegatina" (generar variantes en PNG para que elija) y
    ajustes de la interfaz.
-4. **Paquete pip**: envoltorio que llame a `dmk` (publicar en PyPI con su cuenta).
-5. **Utilidades**: `dmk --comprobar` (validar sin dibujar), varios archivos a la vez, tema oscuro.
-6. **Layout**: rotación "como engranajes" (el usuario la ve más sofisticada que solo girar bloques:
+3. **Paquete pip**: envoltorio que llame a `dmk` (publicar en PyPI con su cuenta).
+4. **Utilidades**: `dmk --comprobar` (validar sin dibujar), varios archivos a la vez, tema oscuro.
+5. **Layout**: rotación "como engranajes" (el usuario la ve más sofisticada que solo girar bloques:
    hablarlo antes); semilla 111; diagramas con muchos subgraphs muy anchos (en fila); referencias
    repetidas entre subgraphs.
-7. TODO de SPEC.md: estilos de subgraph, `@bus`, `flowchart LR`.
-8. Sin probar en navegador por el agente: `dmk` + `--watch` + `--sin-servidor` en el móvil.
-9. **Soporte de `direction`** de Mermaid (`direction LR` dentro de un subgraph y `flowchart LR/RL/BT`):
+6. TODO de SPEC.md: estilos de subgraph, `@bus`, `flowchart LR`.
+7. Sin probar en navegador por el agente: `dmk` + `--watch` + `--sin-servidor` en el móvil.
+8. **Soporte de `direction`** de Mermaid (`direction LR` dentro de un subgraph y `flowchart LR/RL/BT`):
    hoy se ignora con un aviso. Cambia reglas de SPEC.md: hablarlo antes de hacerlo.
 
 ## Decisiones y preferencias del usuario
