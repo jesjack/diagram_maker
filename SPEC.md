@@ -189,6 +189,11 @@ Sintaxis de Mermaid: `classDef nombre props`, `id:::nombre`, `class id1,id2 nomb
    empalme solo lo coloca su dueño, por su extensión: una rama que llega a él espera a que esté. Las
    ramas conservan su flecha y su etiqueta (si la flecha entraba al nodo, termina en el empalme) y
    un `@dir` de una conexión movida pasa a su rama. Con 4 salidas y sin padre, la 4ª va arriba.
+   **Empalme a mano** (`%% @bus X === A`): el nodo X pasa a ser un empalme de A (pastilla `● A`,
+   sin texto ni estilo) y la arista entre ambos, su extensión (sin flechas ni etiqueta; si no se
+   escribió, se crea justo antes de la primera conexión de X). Así se elige qué conexiones comparten
+   empalme; X sigue esta misma regla. X y A deben estar en el mismo subgraph y X no puede tener
+   aristas a otro subgraph.
 5. `a <--> b` cuenta como salida del nodo que la declara (`a`).
 6. El orden de declaración de las aristas es en sí mismo una forma de control del layout.
 7. **Nodo inicial**: el primer nodo declarado sin aristas entrantes.
@@ -341,8 +346,8 @@ flowchart TD
 
 - [ ] Estilos de un subgraph (`style ID …`): hoy se ignoran con aviso. Decidir si se aplican al
       título o como fondo del área de su diagrama.
-- [x] Nodos con más de 3 salidas / 4 conexiones: empalmes automáticos (regla 4). Pendiente: `@bus`
-      para elegir a mano qué conexiones comparten empalme.
+- [x] Nodos con más de 3 salidas / 4 conexiones: empalmes automáticos (regla 4) y a mano con
+      `@bus X === A` (un nodo X hace de empalme de A).
 - [x] Bucles y nodos con varios padres: copias de hojas (regla 12), conectores (regla 13) y
       reutilizar representantes al lado (regla 14); no hace falta un tipo de línea nuevo.
 - [x] Choques entre ramas: cascada para hacer sitio (regla 10) y grupos reconstruidos (regla 9).

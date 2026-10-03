@@ -97,7 +97,7 @@ const ID_RE = /^[\p{L}\p{N}_]+/u;
 function parseDiagram(source) {
   const nodes = new Map();
   const edges = [];
-  const meta = { dirs: [], flow: "TB" };
+  const meta = { dirs: [], buses: [], flow: "TB" };
   const warnings = [];
   const subgraphs = [];
   const open = []; // pila de subgraphs abiertos
@@ -182,6 +182,7 @@ function parseDiagram(source) {
   }
   for (const n of nodes.values()) delete n.declared;
   resolveStyles(styles, nodes, edges, subgraphs, warnings);
+  applyBuses(meta.buses, nodes, edges, warnings);
 
   return { nodes, edges, meta, warnings, subgraphs };
 }
@@ -313,7 +314,65 @@ function parseComment(body, lineNo, meta) {
     return;
   }
 
+  if (directive === "bus") {
+    const b = args.match(/^([\p{L}\p{N}_]+)\s*===\s*([\p{L}\p{N}_]+)$/u);
+    if (!b) throw new DiagramError("Formato de @bus inválido. Uso: %% @bus empalme === dueño", lineNo);
+    meta.buses.push({ id: b[1], owner: b[2], line: lineNo });
+    return;
+  }
+
   throw new DiagramError(`Metadato desconocido '@${directive}'`, lineNo);
+}
+
+// "%% @bus X === A": el nodo X pasa a ser un empalme de A (pastilla "● A") y la arista entre ambos,
+// su extensión (sin flechas ni etiqueta; si no existe, se crea). Así se elige a mano qué conexiones
+// comparten empalme; la regla 4 sigue igual (X tiene sus 3 lados libres y encadena si no le bastan).
+function applyBuses(buses, nodes, edges, warnings) {
+  const busOf = new Map();
+  for (const b of buses) {
+    for (const id of [b.id, b.owner]) {
+      if (!nodes.has(id)) throw new DiagramError(`@bus: no existe el nodo '${id}'`, b.line);
+    }
+    if (b.id === b.owner) throw new DiagramError(`@bus: '${b.id}' no puede ser empalme de sí mismo`, b.line);
+    if (busOf.has(b.id)) throw new DiagramError(`@bus: '${b.id}' ya es empalme de '${busOf.get(b.id).owner}'`, b.line);
+    if (nodes.get(b.id).group !== nodes.get(b.owner).group) {
+      throw new DiagramError(`@bus: '${b.id}' y '${b.owner}' deben estar en el mismo subgraph`, b.line);
+    }
+    busOf.set(b.id, b);
+  }
+  // Un empalme de un empalme es del mismo dueño (cadena); un ciclo de @bus no tiene dueño.
+  const ownerOf = (id, seen = new Set()) => {
+    const b = busOf.get(id);
+    if (!b) return id;
+    if (seen.has(id)) throw new DiagramError(`@bus: ciclo de empalmes en '${id}'`, b.line);
+    seen.add(id);
+    return ownerOf(b.owner, seen);
+  };
+  for (const b of buses) {
+    const n = nodes.get(b.id);
+    for (const e of edges) {
+      const other = nodes.get(e.from === b.id ? e.to : e.to === b.id ? e.from : null);
+      if (other && other.group !== n.group) {
+        throw new DiagramError(`@bus: el empalme '${b.id}' no puede tener aristas a otro subgraph`, b.line);
+      }
+    }
+    const links = edges.filter((e) => (e.from === b.id && e.to === b.owner) || (e.from === b.owner && e.to === b.id));
+    if (links.length > 1) throw new DiagramError(`@bus: entre '${b.owner}' y '${b.id}' solo puede haber una arista (la extensión)`, b.line);
+    const own = edges.filter((e) => (e.from === b.id || e.to === b.id) && !links.includes(e));
+    if (!own.length) warnings.push({ line: b.line, message: `@bus: el empalme '${b.id}' no tiene más conexiones que su extensión` });
+    let link = links[0];
+    if (!link) {
+      // La extensión va justo antes de la primera conexión del empalme en el orden de declaración.
+      const first = Math.min(...own.map((e) => e.index), edges.length);
+      link = { index: first - 0.5, from: b.owner, to: b.id, style: "solid", line: b.line };
+      edges.push(link);
+    } else if (link.label) {
+      warnings.push({ line: b.line, message: `@bus: la etiqueta de la arista '${b.owner}'–'${b.id}' se ignora (es la extensión)` });
+    }
+    Object.assign(link, { from: b.owner, to: b.id, label: null, arrowStart: false, arrowEnd: false, bus: true });
+    Object.assign(n, { shape: "junction", text: "", css: null, junctionOf: ownerOf(b.owner) });
+  }
+  edges.sort((a, b) => a.index - b.index);
 }
 
 // Quita "%% ..." al final de una línea, respetando el texto entre comillas.

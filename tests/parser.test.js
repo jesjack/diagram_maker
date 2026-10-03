@@ -231,3 +231,18 @@ test("dirección: cabecera, TD = TB, por defecto TB, desconocida y direction fue
   assert.ok(g.warnings.some((w) => w.line === 1 && /desconocida/.test(w.message)));
   assert.ok(g.warnings.some((w) => w.line === 2 && /fuera de un subgraph/.test(w.message)));
 });
+
+test("@bus: un nodo pasa a ser empalme de otro y la arista entre ambos es la extensión", () => {
+  const g = parseDiagram("flowchart TB\nA --> B\nX --> C\nX --> D\n%% @bus X === A");
+  const x = g.nodes.get("X");
+  assert.strictEqual(x.shape, "junction");
+  assert.strictEqual(x.junctionOf, "A");
+  const ext = g.edges.find((e) => e.bus);
+  assert.deepStrictEqual([ext.from, ext.to, ext.arrowEnd, ext.label], ["A", "X", false, null]);
+  assert.deepStrictEqual(g.edges.map((e) => `${e.from}-${e.to}`), ["A-B", "A-X", "X-C", "X-D"]);
+  // Un empalme de un empalme es del mismo dueño.
+  const h = parseDiagram("flowchart TB\nA --> X\nX --> Y\nY --> C\n%% @bus X === A\n%% @bus Y === X");
+  assert.strictEqual(h.nodes.get("Y").junctionOf, "A");
+  assert.throws(() => parseDiagram("flowchart TB\nA --> B\n%% @bus Z === A"), /no existe el nodo 'Z'/);
+  assert.throws(() => parseDiagram("flowchart TB\nA --> X\nX --> A\n%% @bus X === A"), /solo puede haber una arista/);
+});

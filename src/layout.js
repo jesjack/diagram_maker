@@ -29,7 +29,7 @@
     );
   }
 })(typeof self !== "undefined" ? self : this, function (base, text, dirs, junctions, grid, geometry) {
-const { LAYOUT_DEFAULTS } = base;
+const { LAYOUT_DEFAULTS, PILL_HEIGHT, pillWidth, junctionLabel } = base;
 const { wrapText, baseFont, sizeNode } = text;
 const { assignDirections } = dirs;
 const { addJunctions } = junctions;
@@ -231,7 +231,10 @@ function splitBySubgraph(graph, warnings) {
 
 function layoutSingle(graph, measure, opts, warnings) {
   const nodes = new Map();
-  for (const n of graph.nodes.values()) nodes.set(n.id, { ...n, ...sizeNode(n, measure, opts) });
+  // Un empalme elegido con @bus mide lo que su pastilla, como los automáticos.
+  const size = (n) =>
+    n.shape === "junction" ? { lines: [], w: pillWidth(junctionLabel(n.junctionOf)), h: PILL_HEIGHT, lineHeight: opts.lineHeight } : sizeNode(n, measure, opts);
+  for (const n of graph.nodes.values()) nodes.set(n.id, { ...n, ...size(n) });
 
   const edges = graph.edges.map((e) => ({ ...e }));
   const dirs = graph.meta.dirs.map((d) => ({ ...d }));
