@@ -70,7 +70,8 @@ El HTML generado es un único archivo autocontenido: ningún `.js` puede contene
   van los diagramas de los subgraphs y los grupos desconectados. Sin dirección es TB, como en
   Mermaid (antes todo iba en fila a la derecha, como LR). Los nodos y aristas de salida llevan
   `diagram` (índice del diagrama), que usa el comprobador de los tests aleatorios. Ejemplo:
-  `examples/direcciones.mmd`.
+  `examples/direcciones_{TB,BT,LR,RL}.mmd`. `dmk` avisa al abrir el navegador (con qué orden, si
+  falla, mientras espera y cuando la página llega).
 - **Tests**: 101 en Node (incluye 400 diagramas aleatorios en TB; la semilla 111 solo falla en
   LR/RL, registrada como conocida) + 8 en Python. `tools/comparar.js` genera imágenes antes/después.
 - **Ahorro de tokens**: `CLAUDE.md` corto con comandos y mapa del layout;

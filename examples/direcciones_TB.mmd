@@ -1,23 +1,23 @@
-flowchart LR
-    %% La cabecera (LR) decide hacia dónde van los diagramas de los subgraphs y los grupos sueltos:
-    %% aquí, a la derecha. Cada árbol sigue creciendo hacia abajo.
+flowchart TB
+    %% La cabecera (TB) decide hacia dónde van los diagramas de los subgraphs y los grupos sueltos:
+    %% aquí, hacia abajo. Cada árbol sigue creciendo hacia abajo.
     pedido(["Pedido"]) --> validar{"¿Válido?"}
     validar -->|sí| cobrar["Cobrar"]
     validar -->|no| rechazar["Rechazar"]
 
-    %% Grupo suelto (sin conexión con el anterior): va a su derecha.
+    %% Grupo suelto (sin conexión con el anterior): va debajo del primero.
     alta(["Alta de cliente"]) --> ficha["Crear ficha"]
 
     subgraph ALM["Almacén"]
-        %% direction TB: los grupos sueltos de este subgraph se apilan hacia abajo.
-        direction TB
+        %% direction LR: los grupos sueltos de este subgraph van en fila hacia la derecha.
+        direction LR
         recibir(["Recibir mercancía"]) --> revisar["Revisar"] --> ubicar["Ubicar"]
         inventario(["Inventario mensual"]) --> contar["Contar"]
         devolucion(["Devolución"]) --> reponer["Reponer en estantería"]
     end
 
     subgraph ENV["Envío"]
-        %% Sin direction: hereda la de la cabecera (LR), sus grupos van en fila.
+        %% Sin direction: hereda la de la cabecera (TB), sus grupos van hacia abajo.
         preparar(["Preparar paquete"]) --> etiquetar["Etiquetar"]
         recoger(["Recogida del transportista"]) --> entregar["Entregar"]
     end
