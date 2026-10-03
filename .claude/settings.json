@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./node_modules/**)",
+      "Read(./examples/*.html)",
+      "Read(./vendor/**)",
+      "Read(./x.html)"
+    ]
+  }
+}
