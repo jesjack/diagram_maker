@@ -159,7 +159,9 @@ test("subgraphs: pertenencia, anidados, título y referencia al subgraph entero"
   assert.strictEqual(g.nodes.get("b").text, "OUT b");
   assert.ok(!g.nodes.has("APP"), "el id del subgraph no es un nodo");
   assert.strictEqual(g.edges[2].to, "APP");
-  assert.ok(g.warnings.some((w) => w.line === 4 && /direction/.test(w.message)));
+  assert.strictEqual(g.meta.flow, "LR");
+  assert.strictEqual(g.subgraphs.find((s) => s.direction).direction, "TB");
+  assert.ok(!g.warnings.some((w) => /direction/i.test(w.message)));
 });
 
 test("subgraphs: errores de apertura y cierre", () => {
@@ -218,4 +220,14 @@ test("formas id@{ shape: … } con nombres y alias de Mermaid", () => {
 test("forma @{ } desconocida o sin cerrar: error claro", () => {
   assert.throws(() => parseDiagram("A@{ shape: nube }"), /Forma no soportada: 'nube'/);
   assert.throws(() => parseDiagram('A@{ shape: doc, label: "x" --> B'), /Falta cerrar '@\{'/);
+});
+
+test("dirección: cabecera, TD = TB, por defecto TB, desconocida y direction fuera de un subgraph", () => {
+  assert.strictEqual(parseDiagram("flowchart TD;\na --> b").meta.flow, "TB");
+  assert.strictEqual(parseDiagram("graph RL\na --> b").meta.flow, "RL");
+  assert.strictEqual(parseDiagram("a --> b").meta.flow, "TB");
+  const g = parseDiagram("flowchart XY\ndirection LR\na --> b");
+  assert.strictEqual(g.meta.flow, "TB");
+  assert.ok(g.warnings.some((w) => w.line === 1 && /desconocida/.test(w.message)));
+  assert.ok(g.warnings.some((w) => w.line === 2 && /fuera de un subgraph/.test(w.message)));
 });

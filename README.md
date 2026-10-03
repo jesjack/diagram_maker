@@ -127,7 +127,11 @@ Subconjunto de Mermaid flowchart; el detalle está en [`SPEC.md`](SPEC.md).
 - **Aristas**: `-->`, `<-->`, `---`, `==>`, `-.->`, con etiqueta `-->|texto|` o `-- texto -->`, y
   cadenas `a --> b --> c`.
 - **Subgraphs** (`subgraph ID["Título"] … end`, también anidados): cada uno se dibuja como un
-  diagrama aparte, a la derecha del anterior; las flechas entre diagramas usan nodos de referencia.
+  diagrama aparte, a continuación del anterior; las flechas entre diagramas usan nodos de referencia.
+- **Dirección**: `flowchart TB` (o `TD`, o sin dirección) apila los diagramas de los subgraphs y
+  los grupos sin conexión entre sí hacia abajo; `LR` los pone en fila a la derecha, `RL` a la
+  izquierda y `BT` hacia arriba. `direction LR` dentro de un subgraph hace lo mismo con sus grupos.
+  La dirección no cambia cómo crece cada árbol (ver abajo).
 - **Estilos**: `classDef`, `:::clase`, `class`, `style` y `linkStyle`; el CSS se pasa tal cual al SVG.
 - `<br/>` en un texto es un salto de línea.
 
@@ -148,7 +152,7 @@ mínimo de nodos necesario. Las reglas completas están en [`SPEC.md`](SPEC.md).
 ## Ejemplos
 
 En [`examples/`](examples): `proyecto.mmd` (el diagrama de arriba), `inicio_app.mmd` (el ejemplo de
-la especificación), `prueba_movil.mmd`
+la especificación), `direcciones.mmd` (`flowchart LR` y `direction` en un subgraph), `prueba_movil.mmd`
 y los diagramas `v3_*.mmd`, sacados de un proyecto real (procesos con subgraphs, pines de entrada y
 salida, y estilos por proceso). `agente_proyecto.mmd` y `agente_reglas.mmd` los escribió un agente de IA
 sin ver ninguno de los otros ejemplos, para probar el motor con un Mermaid de otro estilo (el

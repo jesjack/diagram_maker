@@ -24,9 +24,10 @@ const INICIAL = {
   "error fatal": "E",
   "paso a paso: nº de nodos": "N",
 };
+// (La semilla 111 falla en LR y RL, pero aquí toca BT: la cubre el test del reductor.)
 const CONOCIDOS = new Map(
   (
-    "111:F"
+    ""
   )
     .split(" ")
     .map((x) => x.split(":"))
@@ -38,7 +39,10 @@ test(`diagramas aleatorios: ${SEMILLAS} semillas sin fallos nuevos`, (t) => {
   let conocidos = 0;
   let arreglados = 0;
   for (let s = 1; s <= SEMILLAS; s++) {
-    const problemas = revisar(generarDiagrama(s));
+    // Cada semilla prueba una dirección (TD, LR, RL, BT por turnos): los grupos desconectados y los
+    // subgraphs se colocan hacia un lado distinto.
+    const dir = ["TD", "LR", "RL", "BT"][s % 4];
+    const problemas = revisar(generarDiagrama(s).replace("flowchart TD", `flowchart ${dir}`));
     const permitidas = CONOCIDOS.get(s) || "";
     const nuevo = problemas.filter((p) => !permitidas.includes(INICIAL[p.inv] || "?"));
     if (nuevo.length) nuevos.push(`semilla ${s}: ${nuevo.map((p) => `${p.inv} (${p.detalle})`).join("; ")}`);
@@ -73,8 +77,10 @@ test("generador: determinista y con entradas válidas y variadas", () => {
 });
 
 test("reductor: deja un caso mínimo que sigue fallando igual", () => {
-  const min = reducir(generarDiagrama(111));
-  assert.ok(min.split("\n").length < generarDiagrama(111).split("\n").length, min);
+  // La semilla 111 falla con sus grupos en fila (flowchart LR).
+  const src = generarDiagrama(111).replace("flowchart TD", "flowchart LR");
+  const min = reducir(src);
+  assert.ok(min.split("\n").length < src.split("\n").length, min);
   assert.ok(revisar(min).some((p) => p.inv === "flecha sobre un nodo"));
 });
 

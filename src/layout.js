@@ -52,13 +52,13 @@ function layoutDiagram(graph, options = {}) {
     return { ...single, titles: [], warnings, options: opts, snapshotAt: at };
   }
 
-  // Un diagrama por grupo (el nivel superior y cada subgraph), de izquierda a derecha.
+  // Un diagrama por grupo (el nivel superior y cada subgraph), uno tras otro hacia donde marque
+  // la cabecera (flowchart TB: hacia abajo; LR: a la derecha; BT: hacia arriba; RL: a la izquierda).
   const parts = splitBySubgraph(graph, warnings);
+  const flow = graph.meta.flow || "TB";
   const nodes = [];
   const edges = [];
   const titles = [];
-  let bounds = null;
-  let cursor = 0;
   let stepOffset = 0; // los pasos de colocación siguen la numeración entre diagramas
   const done = []; // por diagrama: lo necesario para reconstruir sus pasos
   for (const part of parts) {
@@ -71,43 +71,61 @@ function layoutDiagram(graph, options = {}) {
     stepOffset += r.nodes.length;
     const titleH = part.title ? opts.lineHeight + opts.titleGap : 0;
     const titleW = part.title ? measure(part.title, { ...baseFont(opts), weight: "600", bold: true }) : 0;
-    const dx = cursor - r.bounds.minX;
-    const dy = titleH - r.bounds.minY;
+    const w = Math.max(r.bounds.maxX - r.bounds.minX, titleW);
+    const h = titleH + r.bounds.maxY - r.bounds.minY;
+    done.push({ r, part, firstStep, steps: r.steps, titleH, w, h });
+  }
+  // Esquina superior izquierda de cada bloque; en BT y RL el primero queda abajo o a la derecha.
+  const horizontal = flow === "LR" || flow === "RL";
+  const order = flow === "BT" || flow === "RL" ? [...done].reverse() : done;
+  let cursor = 0;
+  for (const d of order) {
+    d.left = horizontal ? cursor : 0;
+    d.top = horizontal ? 0 : cursor;
+    cursor += (horizontal ? d.w : d.h) + opts.diagramGap;
+  }
+  let bounds = null;
+  for (const [i, d] of done.entries()) {
+    const { r, part } = d;
+    d.index = i;
+    d.dx = d.left - r.bounds.minX;
+    d.dy = d.top + d.titleH - r.bounds.minY;
     for (const n of r.nodes) {
-      n.x += dx;
-      n.y += dy;
+      n.x += d.dx;
+      n.y += d.dy;
+      n.diagram = i; // índice del diagrama (nivel superior y subgraphs, en orden de declaración)
       nodes.push(n);
     }
     for (const e of r.edges) {
       for (const p of e.points) {
-        p.x += dx;
-        p.y += dy;
+        p.x += d.dx;
+        p.y += d.dy;
       }
       if (e.labelBox) {
-        e.labelBox.x += dx;
-        e.labelBox.y += dy;
+        e.labelBox.x += d.dx;
+        e.labelBox.y += d.dy;
       }
+      e.diagram = i;
       edges.push(e);
     }
-    const width = Math.max(r.bounds.maxX - r.bounds.minX, titleW);
-    if (part.title) titles.push({ text: part.title, x: cursor, y: opts.lineHeight / 2 });
-    done.push({ r, firstStep, steps: r.steps, cursor, titleH, nodes: [...r.nodes], edges: [...r.edges], titles: [...titles] });
-    const b = { minX: cursor, minY: 0, maxX: cursor + width, maxY: titleH + r.bounds.maxY - r.bounds.minY };
+    if (part.title) titles.push({ text: part.title, x: d.left, y: d.top + opts.lineHeight / 2 });
+    Object.assign(d, { nodes: [...r.nodes], edges: [...r.edges], titles: [...titles] });
+    const b = { minX: d.left, minY: d.top, maxX: d.left + d.w, maxY: d.top + d.h };
     bounds = bounds
-      ? { minX: bounds.minX, minY: 0, maxX: b.maxX, maxY: Math.max(bounds.maxY, b.maxY) }
-      : b;
-    cursor += width + opts.diagramGap;
+      ? { minX: 0, minY: 0, maxX: Math.max(bounds.maxX, b.maxX), maxY: Math.max(bounds.maxY, b.maxY) }
+      : { ...b, minX: 0, minY: 0 };
   }
   // Paso k: los diagramas anteriores completos y el del paso k tal como estaba entonces.
   const snapshotAt = (k) => {
     const i = Math.max(0, done.findIndex((d) => k < d.firstStep + d.steps));
     const cur = done[i] || done[done.length - 1];
     const snap = cur.r.snapshotAt(Math.min(k - cur.firstStep, cur.steps - 1));
-    const dx = cur.cursor - snap.bounds.minX;
-    const dy = cur.titleH - snap.bounds.minY;
-    const moved = snap.nodes.map((n) => ({ ...n, x: n.x + dx, y: n.y + dy }));
+    const dx = cur.left - snap.bounds.minX;
+    const dy = cur.top + cur.titleH - snap.bounds.minY;
+    const moved = snap.nodes.map((n) => ({ ...n, x: n.x + dx, y: n.y + dy, diagram: cur.index }));
     const movedEdges = snap.edges.map((e) => ({
       ...e,
+      diagram: cur.index,
       points: e.points.map((p) => ({ x: p.x + dx, y: p.y + dy })),
       labelBox: e.labelBox && { ...e.labelBox, x: e.labelBox.x + dx, y: e.labelBox.y + dy },
     }));
@@ -133,11 +151,13 @@ function layoutDiagram(graph, options = {}) {
 function splitBySubgraph(graph, warnings) {
   const byId = new Map(graph.subgraphs.map((s) => [s.id, s]));
   const fullTitle = (sg) => (sg.parent ? `${fullTitle(byId.get(sg.parent))} › ${sg.title}` : sg.title);
+  // Un subgraph sin direction hereda la del que lo contiene y, al final, la de la cabecera.
+  const flowOf = (g) => (g ? byId.get(g).direction || flowOf(byId.get(g).parent) : graph.meta.flow);
   const groups = [null, ...graph.subgraphs.map((s) => s.id)];
   const parts = new Map(
     groups.map((g) => [
       g,
-      { group: g, nodes: new Map(), edges: [], meta: { dirs: [] }, title: g ? fullTitle(byId.get(g)) : null },
+      { group: g, nodes: new Map(), edges: [], meta: { dirs: [], flow: flowOf(g) }, title: g ? fullTitle(byId.get(g)) : null },
     ])
   );
   // Nodo absorbido: está fuera de todo subgraph y todas sus aristas van a nodos de subgraphs. Su
@@ -217,6 +237,7 @@ function layoutSingle(graph, measure, opts, warnings) {
   const dirs = graph.meta.dirs.map((d) => ({ ...d }));
   addJunctions(nodes, edges, dirs, opts);
   const ctx = assignDirections(nodes, edges, dirs, warnings);
+  ctx.flow = graph.meta.flow || "TB";
   const history = placeInGrid(nodes, edges, warnings, ctx);
   const bounds = computeCoordinates(nodes, edges, measure, opts);
   for (const e of edges) routeEdge(e, nodes.get(e.from), nodes.get(e.to), measure, opts);

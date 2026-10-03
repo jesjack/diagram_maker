@@ -261,18 +261,16 @@ function aristasEsperadas(g) {
 // Diagrama (índice) al que pertenece una x: cada subgraph es un diagrama aparte a la derecha del
 // anterior y su título marca dónde empieza (el nivel superior, sin título, es el 0). Hace falta
 // porque cada diagrama tiene su propia rejilla y un nodo absorbido puede repetirse con el mismo id.
-const diagramaDe = (titles) => (x) => titles.filter((t) => t.x <= x + 1e-6).length;
 
 // Comprueba col/row de un conjunto de nodos y aristas: sin celdas compartidas, extremos existentes,
 // sin diagonales y sin flechas rectas por encima de otro nodo. Devuelve los problemas encontrados.
-function revisarRejilla({ nodes, edges, titles }, { completo = true } = {}) {
+function revisarRejilla({ nodes, edges }, { completo = true } = {}) {
   const problemas = [];
-  const enDiagrama = diagramaDe(titles || []);
   const diag = new Map(); // nodo -> diagrama
   const porDiagrama = new Map(); // diagrama -> Map id -> nodo
   const celdas = new Map(); // "d|col,row" -> nodo
   for (const n of nodes) {
-    const d = enDiagrama(n.x - n.w / 2);
+    const d = n.diagram || 0; // con subgraphs, el layout marca a qué diagrama pertenece
     diag.set(n, d);
     if (!porDiagrama.has(d)) porDiagrama.set(d, new Map());
     porDiagrama.get(d).set(n.id, n);
@@ -281,7 +279,7 @@ function revisarRejilla({ nodes, edges, titles }, { completo = true } = {}) {
     celdas.set(key, n);
   }
   for (const e of edges) {
-    const d = enDiagrama(Math.min(e.points[0].x, e.points[1].x));
+    const d = e.diagram || 0;
     const m = porDiagrama.get(d) || new Map();
     const a = m.get(e.from);
     const b = m.get(e.to);

@@ -114,8 +114,10 @@ end
 ```
 
 - **Cada subgraph es un diagrama aparte.** No se dibujan rectángulos: el nivel superior va primero y
-  cada subgraph (hijos directos y anidados, en orden de aparición) va a la derecha del anterior,
-  con su propio layout. Ningún diagrama invade el área de otro.
+  cada subgraph (hijos directos y anidados, en orden de aparición) va a continuación del anterior,
+  con su propio layout, hacia donde marque la cabecera: `flowchart TB`/`TD` (o sin dirección)
+  hacia abajo, `BT` hacia arriba, `LR` a la derecha y `RL` a la izquierda. Ningún diagrama invade
+  el área de otro.
 - **Título:** un label encima de cada diagrama. En los anidados incluye la ruta: `APP › Ventas`.
 - **Pertenencia:** un nodo pertenece al subgraph donde aparece por primera vez (declarado o en una arista).
 - **Aristas entre diagramas:** se dibujan en los dos. En cada uno, el extremo ajeno se sustituye por
@@ -146,7 +148,9 @@ end
   no se absorbe. Un diagrama que se queda sin nodos no se dibuja.
 - **Arista hacia o desde un subgraph entero** (`a --> APP`): solo se dibuja en el diagrama del nodo,
   con una referencia que lleva el título del subgraph. Entre dos subgraphs enteros se ignora con aviso.
-- `direction` dentro de un subgraph se ignora con aviso; `style` de un subgraph, como todos los estilos.
+- `direction X` dentro de un subgraph decide hacia dónde van sus grupos desconectados (regla 9);
+  sin ella, hereda la del subgraph que lo contiene y, al final, la de la cabecera. Fuera de un
+  subgraph, o con una dirección desconocida, se ignora con aviso. `style` de un subgraph, como todos los estilos.
 
 ### Estilos
 
@@ -190,7 +194,10 @@ Sintaxis de Mermaid: `classDef nombre props`, `id:::nombre`, `class id1,id2 nomb
 7. **Nodo inicial**: el primer nodo declarado sin aristas entrantes.
 8. Las salidas con `@dir` se asignan primero; las demás toman, en orden, las direcciones por defecto que queden libres.
    (Un rombo con 3 salidas usa `down` para la tercera.)
-9. Los grupos de nodos desconectados se colocan a la derecha de lo ya dibujado. Un nodo sin padre
+9. Los grupos de nodos desconectados se colocan a continuación de lo ya dibujado, dejando una celda
+   libre, hacia donde marque la dirección del diagrama (cabecera o `direction` del subgraph): TB
+   debajo, BT encima, LR a la derecha, RL a la izquierda. La dirección no cambia cómo crece cada
+   árbol (las salidas siguen tomando abajo, derecha, izquierda). Un nodo sin padre
    (que no es el inicial) con algún hijo ya colocado no está desconectado: se pega al primero de
    esos hijos, en orden de declaración, en su primer lado libre (abajo, derecha, izquierda, arriba;
    `@dir` en esa arista lo elige). El hijo hace de padre sin cambiar el sentido de la flecha.
@@ -341,4 +348,5 @@ flowchart TD
 - [x] Choques entre ramas: cascada para hacer sitio (regla 10) y grupos reconstruidos (regla 9).
 - [ ] Rotar subárboles ya colocados ("engranajes") para evitar empalmes, como pasada final.
 - [ ] Diagramas con muchos subgraphs: hoy van todos en una fila (quedan muy anchos).
-- [ ] `flowchart LR` / `direction`: hoy se ignoran (el layout usa sus propias reglas).
+- [x] `flowchart LR/RL/BT` / `direction`: deciden hacia dónde van los diagramas de los subgraphs y
+      los grupos desconectados (no cómo crece cada árbol).

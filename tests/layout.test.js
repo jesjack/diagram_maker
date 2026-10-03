@@ -78,9 +78,10 @@ test("@dir hacia la celda del padre: se ignora con aviso en vez de chocar", () =
   assert.ok(L.warnings.some((w) => /@dir b -> c : up no se pudo respetar/.test(w.message)));
 });
 
-test("subgraphs: un diagrama por grupo, en fila, con referencias en ambos lados", () => {
+test("subgraphs: un diagrama por grupo, en fila (flowchart LR), con referencias en ambos lados", () => {
   const L = layout(
     [
+      "flowchart LR",
       'fuera["Fuera"]',
       'subgraph S["Sistema"]',
       '  a["A"] --> b["B"]',
@@ -353,10 +354,52 @@ test("grupo aparte: se reconstruye desde su primera conexión (a,b,c + A,B,C con
   assert.ok(!L.warnings.some((w) => /Choque/.test(w.message)));
 });
 
-test("grupo sin ninguna conexión con lo colocado: sigue aparte", () => {
-  const L = layout(["a --> b", "x --> y"].join("\n"));
-  const [a, x] = ["a", "x"].map((id) => L.nodes.find((n) => n.id === id));
-  assert.ok(x.col - a.col >= 2);
+test("grupo sin ninguna conexión con lo colocado: sigue aparte, hacia donde marque la cabecera", () => {
+  const at = (head) => {
+    const L = layout([head, "a --> b", "x --> y"].join("\n"));
+    const [a, b, x] = ["a", "b", "x"].map((id) => L.nodes.find((n) => n.id === id));
+    return { a, b, x };
+  };
+  let { a, x, b } = at("flowchart LR");
+  assert.ok(x.col - a.col >= 2 && x.row === a.row);
+  ({ a, b, x } = at("flowchart RL"));
+  assert.ok(a.col - x.col >= 2 && x.row === a.row);
+  ({ a, b, x } = at("flowchart TD"));
+  assert.ok(x.row - b.row >= 2 && x.col === a.col);
+  ({ a, b, x } = at("graph"));
+  assert.ok(x.row - b.row >= 2, "sin dirección: TB, como Mermaid");
+  ({ a, b, x } = at("flowchart BT"));
+  assert.ok(a.row - x.row >= 2 && x.col === a.col);
+});
+
+test("subgraphs: los diagramas se apilan según la cabecera; direction del subgraph para sus grupos", () => {
+  const src = (head) =>
+    [head, "a --> b", "subgraph S", "  direction LR", "  c --> d", "  e --> f", "end", "subgraph T", "  g --> h", "end"].join("\n");
+  const box = (L, ids) => {
+    const ns = L.nodes.filter((n) => ids.includes(n.id));
+    return {
+      x0: Math.min(...ns.map((n) => n.x - n.w / 2)),
+      x1: Math.max(...ns.map((n) => n.x + n.w / 2)),
+      y0: Math.min(...ns.map((n) => n.y - n.h / 2)),
+      y1: Math.max(...ns.map((n) => n.y + n.h / 2)),
+    };
+  };
+  const boxes = (head) => {
+    const L = layout(src(head));
+    return [box(L, ["a", "b"]), box(L, ["c", "d", "e", "f"]), box(L, ["g", "h"]), L];
+  };
+  let [top, s, t, L] = boxes("flowchart TB");
+  assert.ok(top.y1 < s.y0 && s.y1 < t.y0, "TB: hacia abajo");
+  // Dentro de S (direction LR) el grupo suelto e --> f va a la derecha de c --> d.
+  const n = (id) => L.nodes.find((x) => x.id === id);
+  assert.ok(n("e").col - n("c").col >= 2 && n("e").row === n("c").row);
+  // T no tiene direction: hereda la de la cabecera.
+  [top, s, t] = boxes("flowchart BT");
+  assert.ok(t.y1 < s.y0 && s.y1 < top.y0, "BT: hacia arriba");
+  [top, s, t] = boxes("flowchart RL");
+  assert.ok(t.x1 < s.x0 && s.x1 < top.x0, "RL: hacia la izquierda");
+  [top, s, t] = boxes("flowchart LR");
+  assert.ok(top.x1 < s.x0 && s.x1 < t.x0, "LR: hacia la derecha");
 });
 
 test("reconstrucción de grupo: el nodo que no cabe se coloca después con la cascada (extensión)", () => {

@@ -17,7 +17,7 @@ const { sameSide, assignSlots, dirIgnored, resolveDeferred, nodeLabel } = dirs;
 
 function placeInGrid(nodes, edges, warnings, ctx) {
   // Estado compartido con los módulos grid-room, grid-groups y grid-cleanup (se completa abajo).
-  const g = { nodes, edges, warnings, ctx, nextComponentCol: 0 };
+  const g = { nodes, edges, warnings, ctx };
   // Funciones de esos módulos que se usan antes de completar g: se buscan en g al llamarlas.
   const makeRoom = late(g, "makeRoom");
   const farLeaf = late(g, "farLeaf");
@@ -239,6 +239,18 @@ function placeInGrid(nodes, edges, warnings, ctx) {
   // Recorrido en profundidad, en orden de declaración: cada nodo termina toda su rama antes de
   // pasar a su siguiente hermano (los hermanos ya tienen su lado reservado).
   const visit = (u) => expand(u, visit);
+  // Un grupo desconectado empieza a continuación de todo lo colocado, hacia donde marque la
+  // dirección del diagrama (flowchart TB/BT/LR/RL o direction del subgraph), dejando una celda libre.
+  const nextStart = () => {
+    const placed = [...nodes.values()].filter((n) => n.col !== undefined);
+    if (!placed.length) return { col: 0, row: 0 };
+    const cols = placed.map((n) => n.col);
+    const rows = placed.map((n) => n.row);
+    if (ctx.flow === "LR") return { col: Math.max(...cols) + 2, row: 0 };
+    if (ctx.flow === "RL") return { col: Math.min(...cols) - 2, row: 0 };
+    if (ctx.flow === "BT") return { col: 0, row: Math.min(...rows) - 2 };
+    return { col: 0, row: Math.max(...rows) + 2 };
+  };
   const placeRoot = (root, anchor, retry = false) => {
     const later = retry ? " (aplazado y reintentado)" : "";
     if (anchor) {
@@ -252,14 +264,11 @@ function placeInGrid(nodes, edges, warnings, ctx) {
       assignSlots(root, ctx, { edge: anchor.edge, side: OPPOSITE[anchor.cell] }).forEach((d) => resolveDeferred(d, ctx));
       sameSide(edges);
     } else {
-      place(root, g.nextComponentCol, 0, step ? `inicio de un grupo nuevo, aparte${later}` : "nodo inicial");
+      const at = nextStart();
+      place(root, at.col, at.row, step ? `inicio de un grupo nuevo, aparte${later}` : "nodo inicial");
     }
 
     visit(root);
-
-    // El siguiente componente desconectado va a la derecha de todo lo colocado.
-    const maxCol = Math.max(...[...nodes.values()].filter((n) => n.col !== undefined).map((n) => n.col));
-    g.nextComponentCol = maxCol + 2;
   };
 
   // Fija la geometría de una arista sabiendo en qué lado de u está el otro extremo.

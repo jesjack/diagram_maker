@@ -125,8 +125,6 @@ function groupTools(g) {
     for (const [e, u, d] of best.sim.sides) setSide(e, u, d);
     // Cada nodo del grupo se expande en su turno (copias de hojas lejanas, regla 12).
     for (const id of best.sim.pos.keys()) if (!nodes.get(id).ref) visit(nodes.get(id));
-    const maxCol = Math.max(...[...nodes.values()].filter(isPlaced).map((n) => n.col));
-    g.nextComponentCol = maxCol + 2;
     return true;
   };
   const MAX_EXTENSION = 8; // celdas que puede cruzar una extensión
@@ -168,8 +166,6 @@ function groupTools(g) {
     setSide(link, junction, s2);
     for (const [e, u, side] of sim.sides) setSide(e, u, side);
     for (const id of sim.pos.keys()) if (!nodes.get(id).ref) visit(nodes.get(id));
-    const maxCol = Math.max(...[...nodes.values()].filter(isPlaced).map((n) => n.col));
-    g.nextComponentCol = maxCol + 2;
     return true;
   };
   return { placeGroupByLink };

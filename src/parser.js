@@ -3,8 +3,8 @@
 // nodes:  Map id -> { id, shape, text, line, group }   (group: id del subgraph, o null)
 // edges:  [{ index, from, to, label, arrowStart, arrowEnd, style, line }]  (orden de declaración)
 //         from/to pueden ser el id de un subgraph entero.
-// meta:   { dirs: [{ from, to, dir, line }] }
-// subgraphs: [{ id, title, parent, line }]  (orden de aparición; parent: id o null)
+// meta:   { dirs: [{ from, to, dir, line }], flow }  (flow: TB, BT, LR o RL, de la cabecera)
+// subgraphs: [{ id, title, parent, line, direction? }]  (orden de aparición; parent: id o null)
 //
 // Estilos (classDef, class, :::, style, linkStyle): se resuelven al final. Cada nodo o arista con
 // estilo lleva css = [[propiedad, valor], ...], que el render pasa tal cual al SVG.
@@ -97,7 +97,7 @@ const ID_RE = /^[\p{L}\p{N}_]+/u;
 function parseDiagram(source) {
   const nodes = new Map();
   const edges = [];
-  const meta = { dirs: [] };
+  const meta = { dirs: [], flow: "TB" };
   const warnings = [];
   const subgraphs = [];
   const open = []; // pila de subgraphs abiertos
@@ -120,6 +120,8 @@ function parseDiagram(source) {
 
     if (!headerSeen && /^(graph|flowchart)\b/.test(line)) {
       headerSeen = true;
+      const d = line.split(/[\s;]+/)[1];
+      if (d) meta.flow = flowDir(d, lineNo, warnings) || meta.flow;
       return;
     }
     headerSeen = true;
@@ -147,7 +149,9 @@ function parseDiagram(source) {
       return;
     }
     if (/^direction\b/.test(line)) {
-      warnings.push({ line: lineNo, message: "'direction' ignorada: el layout usa sus propias reglas" });
+      const d = flowDir(line.split(/[\s;]+/)[1] || "", lineNo, warnings);
+      if (!open.length) warnings.push({ line: lineNo, message: "'direction' fuera de un subgraph ignorada: va en la cabecera (flowchart LR)" });
+      else if (d) open[open.length - 1].direction = d;
       return;
     }
 
@@ -271,6 +275,15 @@ function resolveStyles(styles, nodes, edges, subgraphs, warnings) {
 }
 
 // subgraph ID["título"] | subgraph ID[título] | subgraph "título" | subgraph título
+// Dirección en la que se colocan los grupos sueltos y los subgraphs (TD es lo mismo que TB).
+function flowDir(word, lineNo, warnings) {
+  const d = word.toUpperCase();
+  if (d === "TD") return "TB";
+  if (["TB", "BT", "LR", "RL"].includes(d)) return d;
+  warnings.push({ line: lineNo, message: `Dirección '${word}' desconocida: usa TB, TD, BT, LR o RL` });
+  return null;
+}
+
 function parseSubgraphHeader(line, lineNo) {
   const rest = line.slice("subgraph".length).trim();
   if (!rest) throw new DiagramError("Falta el nombre del subgraph", lineNo);

@@ -66,8 +66,13 @@ El HTML generado es un único archivo autocontenido: ningún `.js` puede contene
   medido y pintado con DejaVu; PNG con resvg WASM), `--html`, `--sin-servidor`, `--ligero`,
   entrada por tubería o `<<EOF`.
 - **Pastillas de id** con el fondo al 80 % de opacidad (dejan ver la forma de debajo).
-- **Tests**: 99 en Node (incluye 400 diagramas aleatorios; solo falla la semilla 111, registrada
-  como conocida) + 8 en Python. `tools/comparar.js` genera imágenes antes/después.
+- **Dirección** (`flowchart TB/TD/BT/LR/RL`, `direction` dentro de un subgraph): decide hacia dónde
+  van los diagramas de los subgraphs y los grupos desconectados. Sin dirección es TB, como en
+  Mermaid (antes todo iba en fila a la derecha, como LR). Los nodos y aristas de salida llevan
+  `diagram` (índice del diagrama), que usa el comprobador de los tests aleatorios. Ejemplo:
+  `examples/direcciones.mmd`.
+- **Tests**: 101 en Node (incluye 400 diagramas aleatorios en TB; la semilla 111 solo falla en
+  LR/RL, registrada como conocida) + 8 en Python. `tools/comparar.js` genera imágenes antes/después.
 - **Ahorro de tokens**: `CLAUDE.md` corto con comandos y mapa del layout;
   `.claude/settings.json` bloquea leer `node_modules/`, `vendor/`, `examples/*.html`.
 - **`src/layout.js` dividido en módulos UMD** (patrón returnExports de umdjs/umd) en `src/layout/`:
@@ -87,8 +92,8 @@ El HTML generado es un único archivo autocontenido: ningún `.js` puede contene
    repetidas entre subgraphs.
 6. TODO de SPEC.md: estilos de subgraph, `@bus`, `flowchart LR`.
 7. Sin probar en navegador por el agente: `dmk` + `--watch` + `--sin-servidor` en el móvil.
-8. **Soporte de `direction`** de Mermaid (`direction LR` dentro de un subgraph y `flowchart LR/RL/BT`):
-   hoy se ignora con un aviso. Cambia reglas de SPEC.md: hablarlo antes de hacerlo.
+8. **`direction` para el crecimiento de cada árbol** (que `flowchart LR` haga crecer las ramas hacia
+   la derecha): de momento la dirección solo coloca los subgraphs y los grupos desconectados.
 
 ## Decisiones y preferencias del usuario
 

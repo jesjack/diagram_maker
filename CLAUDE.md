@@ -14,10 +14,10 @@ JS: `src/` (motor y visor), `bin/dmk.js` + `lib/` (comando, npm `@jesjack/diagra
 - Entorno: Termux (Android). `node`, `rsvg-convert` en el PATH. Temporales en `$PREFIX/tmp`.
 
 ## Mapa del layout (módulos UMD en src/layout/; archivo: línea función)
-layout.js (entrada): 39 layoutDiagram · 133 splitBySubgraph · 212 layoutSingle
+src/layout.js (entrada): 39 layoutDiagram · 151 splitBySubgraph · 232 layoutSingle
 base.js (constantes, late) · text.js: 59 sizeNode · junctions.js: 42 addJunctions
 directions.js: 16 assignDirections · 47 assignSlots · geometry.js: 7 computeCoordinates · 89 routeEdge
-grid.js: 18 placeInGrid (estado g, historia) · 70 place · 94 placeNextTo · 130 findAnchor · 187 expand
+grid.js: 18 placeInGrid (estado g, historia) · 70 place · 94 placeNextTo · 130 findAnchor · 187 expand · nextStart (grupos sueltos según la dirección)
 grid-room.js: 25 makeRoom · 55 applyRoom · 93 insertLine (desplazar bloque)
 grid-groups.js: 39 simulateGroup · 86 placeGroupByLink · 133 planExtension
 grid-cleanup.js: 24 farLeaf · 45 copyLeaves · 91 fixLongLinks · 136 tidyUp
