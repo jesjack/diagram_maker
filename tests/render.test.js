@@ -159,7 +159,7 @@ test("pastilla anclada al contorno: en rombos y círculos va centrada sobre su l
 test("ningún script del visor contiene '</script' (se incrustan dentro de <script> en el HTML)", () => {
   const fs = require("node:fs");
   const path = require("node:path");
-  for (const f of ["parser.js", "layout.js", "render.js", "viewer.js"]) {
+  for (const f of ["parser.js", "shapes.js", "layout.js", "render.js", "viewer.js"]) {
     const src = fs.readFileSync(path.join(__dirname, "../src", f), "utf8");
     assert.ok(!/<\/script/i.test(src), `${f} contiene '</script': escríbelo como '<\\/script'`);
   }
@@ -172,4 +172,32 @@ test("etiqueta de varias líneas: un tspan por línea y caja más alta", () => {
   const svg = renderSvg(layout, undefined, { shadow: false });
   assert.match(svg, /<g class="label"[^>]*>.*<tspan[^>]*>una<\/tspan><tspan[^>]*>dos<\/tspan>/);
   assert.ok(!svg.includes("&lt;br"));
+});
+
+test("asimétrica >texto]: la muesca del lado izquierdo apunta hacia dentro", () => {
+  const layout = layoutDiagram(parseDiagram('a>"bandera"]'));
+  const n = layout.nodes.find((x) => x.id === "a");
+  const pts = renderSvg(layout).match(/<g class="node"[^>]*><polygon points="([^"]+)"/)[1].split(" ").map((p) => p.split(",").map(Number));
+  const left = n.x - n.w / 2;
+  const notch = pts.find(([, y]) => Math.abs(y - n.y) < 0.01);
+  assert.ok(notch[0] > left + 1, "la punta de la muesca queda dentro de la caja");
+  assert.ok(pts.filter(([x]) => Math.abs(x - left) < 0.01).length === 2, "las esquinas izquierdas están en el borde");
+});
+
+test("todas las formas de @{ shape } se dibujan y las flechas llegan a su contorno", () => {
+  const names = ["odd", "trap-b", "trap-t", "dbl-circ", "text", "notch-rect", "lin-rect", "sm-circ", "fr-circ", "f-circ",
+    "cross-circ", "fork", "hourglass", "bolt", "brace", "brace-r", "braces", "doc", "lin-doc", "tag-doc", "docs",
+    "processes", "tag-rect", "delay", "h-cyl", "lin-cyl", "curv-trap", "div-rect", "tri", "flip-tri", "win-pane",
+    "notch-pent", "sl-rect", "flag", "bow-rect"];
+  const src = names.map((s, i) => `a${i}["x"] --> n${i}@{ shape: ${s}, label: "texto de prueba" }`).join("\n");
+  const layout = layoutDiagram(parseDiagram(src));
+  const svg = renderSvg(layout);
+  assert.ok(!/NaN|undefined/.test(svg));
+  for (const e of layout.edges) {
+    const [p, q] = e.points;
+    assert.ok(p.x === q.x || p.y === q.y, `${e.from} -> ${e.to} en diagonal`);
+    assert.ok(Math.hypot(q.x - p.x, q.y - p.y) > 5, `${e.from} -> ${e.to} sin longitud`);
+  }
+  // Fork, inicio, fin, unión, resumen, reloj de arena y rayo no muestran texto (como en Mermaid).
+  for (const i of [7, 8, 9, 10, 11, 12, 13]) assert.ok(!layout.nodes.find((n) => n.id === `n${i}`).lines.some(Boolean));
 });

@@ -80,6 +80,11 @@ diagrama.mmd ──► CLI (Python) ──► genera HTML autocontenido ──�
 | `id{{"texto"}}`    | Hexágono                  |
 | `id[["texto"]]`    | Subrutina                 |
 | `id[("texto")]`    | Cilindro (base de datos)  |
+| `id>"texto"]`      | Asimétrica (bandera con la muesca hacia dentro a la izquierda) |
+| `id[/"texto"\]`    | Trapecio (ancho abajo)    |
+| `id[\"texto"/]`    | Trapecio invertido (ancho arriba) |
+| `id((("texto")))`  | Círculo doble             |
+| `id@{ shape: doc, label: "texto" }` | Formas de Mermaid 11.3+: todas sus formas y alias (`doc`, `manual-input`, `display`, `fork`, `cyl`, `tri`…). Una forma desconocida da el error «Forma no soportada». `fork`, `hourglass`, `bolt` y los círculos pequeños (`sm-circ`, `fr-circ`, `f-circ`, `cross-circ`) no muestran texto, como en Mermaid. Con solo `label` se cambia el texto y se conserva la forma |
 
 Convención: IDs descriptivos (`tomaCaja`, `ventasDb`) y textos entre comillas.
 

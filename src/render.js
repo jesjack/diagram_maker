@@ -15,7 +15,8 @@ const THEME = {
   // Pastilla con el id de cada nodo, en su esquina superior izquierda (renderSvg con { ids: true }).
   // (las medidas deben coincidir con PILL_FONT / PILL_HEIGHT de layout.js, que reserva el sitio de
   // los empalmes)
-  idPill: { fill: "#57606a", text: "#ffffff", fontSize: 12, height: 18 },
+  // opacity: solo el fondo de las pastillas de id, que dejan ver un poco la forma de debajo.
+  idPill: { fill: "#57606a", text: "#ffffff", fontSize: 12, height: 18, opacity: 0.8 },
   padding: 40,
   // Sombra difuminada bajo todas las formas. null = sin sombra.
   shadow: { dx: 0, dy: 1, blur: 1.5, color: "#000000", opacity: 0.18 },
@@ -26,6 +27,8 @@ function escapeXml(s) {
 }
 
 const fmt = (n) => Number(n.toFixed(2));
+// Formas extra de Mermaid (src/shapes.js). En el navegador ya está cargado como global.
+const shapeLib = typeof module !== "undefined" ? require("./shapes.js") : self.Shapes;
 
 // css de Mermaid ([[prop, valor], ...]) -> atributo style. El CSS de style gana a los atributos
 // de presentación (fill="..."), así que lo que no se indique queda con los valores del tema.
@@ -182,7 +185,7 @@ function renderIdPills(nodes, theme) {
     const left = centered ? x - w / 2 : x - 4;
     parts.push(
       `<g class="id-pill" data-id="${escapeXml(n.id)}"><rect x="${fmt(left)}" y="${fmt(y - p.height / 2)}" width="${fmt(w)}" height="${p.height}" ` +
-        `rx="${p.height / 2}" fill="${p.fill}"/>` +
+        `rx="${p.height / 2}" fill="${p.fill}" fill-opacity="${p.opacity}"/>` +
         `<text x="${fmt(left + w / 2)}" y="${fmt(y)}" text-anchor="middle" dominant-baseline="central" fill="${p.text}">` +
         `${escapeXml(id)}</text></g>`
     );
@@ -197,13 +200,17 @@ function renderIdPills(nodes, theme) {
 function pillAnchor(n) {
   const hw = n.w / 2;
   const hh = n.h / 2;
+  if (shapeLib.isRound(n.shape)) return { x: n.x - hw * Math.SQRT1_2, y: n.y - hh * Math.SQRT1_2, centered: true };
   switch (n.shape) {
+    case "tri":
+      return { x: n.x - hw / 2, y: n.y, centered: true };
     case "diamond":
       return { x: n.x - hw / 2, y: n.y - hh / 2, centered: true };
     case "circle":
       return { x: n.x - hw * Math.SQRT1_2, y: n.y - hh * Math.SQRT1_2, centered: true };
     case "hexagon":
     case "parallelogram":
+    case "trap-b":
       return { x: n.x - hw + n.skew, y: n.y - hh };
     default:
       return { x: n.x - hw, y: n.y - hh };
@@ -242,15 +249,18 @@ function renderNode(n, theme, opts) {
   const base = `stroke="${theme.nodeStroke}" stroke-width="${theme.nodeStrokeWidth}"`;
   const style = `fill="${theme.nodeFill}" ${base}${styleAttr(css.shape)}`;
   const arc = `fill="none" ${base}${styleAttr([...css.shape, ["fill", "none"]])}`;
-  const shape = nodeShape(n, style, arc);
-  // En el cilindro el texto se centra en el cuerpo, bajo la tapa.
-  const textY = n.shape === "cylinder" ? n.y + n.w * 0.06 : n.y;
-  const text = renderText(n.lines, n.x, textY, theme.text, n.lineHeight || opts.lineHeight, css.text);
+  const solid = `fill="${theme.nodeStroke}" ${base}${styleAttr(css.shape)}`;
+  const shape = nodeShape(n, style, arc, solid);
+  // En el cilindro el texto se centra en el cuerpo, bajo la tapa; las formas extra dicen dónde va.
+  const textY = n.shape === "cylinder" ? n.y + n.w * 0.06 : n.y + (n.textDy || 0);
+  const text = renderText(n.lines, n.x + (n.textDx || 0), textY, theme.text, n.lineHeight || opts.lineHeight, css.text);
   return `<g class="node" data-id="${escapeXml(n.id)}"${styleAttr(css.group)}>${shape}${text}</g>`;
 }
 
-// arcStyle: atributos de la tapa del cilindro (una línea sin relleno).
-function nodeShape(n, style, arcStyle) {
+// arcStyle: atributos de la tapa del cilindro (una línea sin relleno). solidStyle: formas rellenas
+// del color del borde (barra de fork, círculo de unión); la sombra usa su propio estilo.
+function nodeShape(n, style, arcStyle, solidStyle = style) {
+  if (shapeLib.has(n.shape)) return shapeLib.draw(n, { style, arc: arcStyle, solid: solidStyle });
   const hw = n.w / 2;
   const hh = n.h / 2;
   let shape;

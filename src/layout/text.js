@@ -1,9 +1,9 @@
 // Layout: tamaño de los nodos según su texto (partir en líneas, fuentes, estilos de texto).
 
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory();
-  else root.LayoutText = factory();
-})(typeof self !== "undefined" ? self : this, function () {
+  if (typeof module === "object" && module.exports) module.exports = factory(require("../shapes.js"));
+  else root.LayoutText = factory(root.Shapes);
+})(typeof self !== "undefined" ? self : this, function (Shapes) {
 function wrapText(text, maxWidth, measure) {
   const lines = [];
   for (const paragraph of String(text).split("\n")) {
@@ -59,9 +59,13 @@ function textMetrics(css, measure, opts) {
 function sizeNode(node, rawMeasure, opts) {
   const tm = textMetrics(node.css, rawMeasure, opts);
   const measure = tm.measure;
-  const lines = wrapText(node.text, opts.wrapWidth[node.shape] * tm.scale, measure);
+  // Algunas formas (barra de fork, círculos de inicio y fin…) no muestran texto, como en Mermaid.
+  const text = Shapes.hasText(node.shape) ? node.text : "";
+  const lines = wrapText(text, (opts.wrapWidth[node.shape] || 170) * tm.scale, measure);
   const tw = Math.max(...lines.map((l) => measure(l)), 0);
   const th = lines.length * tm.lineHeight;
+  const extra = Shapes.size(node.shape, tw, th);
+  if (extra) return { lines, ...extra, lineHeight: tm.lineHeight };
   let w;
   let h;
   switch (node.shape) {

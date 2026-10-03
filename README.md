@@ -119,6 +119,10 @@ Subconjunto de Mermaid flowchart; el detalle está en [`SPEC.md`](SPEC.md).
 | `id[["texto"]]` | Subrutina |
 | `id[("texto")]` | Cilindro (base de datos) |
 | `id[/"texto"/]`, `id[\"texto"\]` | Paralelogramos |
+| `id[/"texto"\]`, `id[\"texto"/]` | Trapecios |
+| `id>"texto"]` | Asimétrica |
+| `id((("texto")))` | Círculo doble |
+| `id@{ shape: doc, label: "texto" }` | Todas las formas de Mermaid 11.3+ (`doc`, `manual-input`, `display`, `fork`…) |
 
 - **Aristas**: `-->`, `<-->`, `---`, `==>`, `-.->`, con etiqueta `-->|texto|` o `-- texto -->`, y
   cadenas `a --> b --> c`.
