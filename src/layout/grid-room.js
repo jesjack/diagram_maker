@@ -150,7 +150,15 @@ function roomTools(g) {
           if (x.from !== n.id && x.to !== n.id) continue;
           const o = nodes.get(x.from === n.id ? x.to : x.from);
           const perpendicular = vertical ? o.row === n.row : o.col === n.col;
-          if (perpendicular && !add(o)) return null;
+          if (!perpendicular) continue;
+          if (!add(o)) return null;
+          // la línea se mueve entera: los nodos sobre los que caería se mueven también
+          const len = Math.abs(o.col - n.col) + Math.abs(o.row - n.row);
+          for (let i = 1; i < len; i++) {
+            const c = n.col + Math.sign(o.col - n.col) * i + v.dc;
+            const r = n.row + Math.sign(o.row - n.row) * i + v.dr;
+            if (!add(occupied.get(key(c, r)))) return null;
+          }
         }
       }
       return S;

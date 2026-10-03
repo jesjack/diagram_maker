@@ -24,7 +24,6 @@ const INICIAL = {
   "error fatal": "E",
   "paso a paso: nº de nodos": "N",
 };
-// (La semilla 111 falla en LR y RL, pero aquí toca BT: la cubre el test del reductor.)
 const CONOCIDOS = new Map(
   (
     ""
@@ -77,11 +76,11 @@ test("generador: determinista y con entradas válidas y variadas", () => {
 });
 
 test("reductor: deja un caso mínimo que sigue fallando igual", () => {
-  // La semilla 111 falla con sus grupos en fila (flowchart LR).
-  const src = generarDiagrama(111).replace("flowchart TD", "flowchart LR");
+  // La semilla 1400 (fuera de las 400 del test) da un aviso de choque.
+  const src = generarDiagrama(1400);
   const min = reducir(src);
   assert.ok(min.split("\n").length < src.split("\n").length, min);
-  assert.ok(revisar(min).some((p) => p.inv === "flecha sobre un nodo"));
+  assert.ok(revisar(min).some((p) => p.inv === "choque"));
 });
 
 // ---------------------------------------------------------------- fallos conocidos (casos mínimos)
@@ -112,6 +111,19 @@ test(
       [
         "n2 --> n8", "n2 ==> n16", "n9 --> n30", "n2 ==> n29", "n4 --> n7", "n7 --- n14", "n23 --> n6", "n2 --> n7",
         "n30 --> n23", "n7 --> n9", "n7 --> n30",
+      ].join("\n")
+    )
+);
+
+test(
+  "hacer sitio: una línea que se desplaza entera arrastra los nodos sobre los que caería (antes: flecha sobre un nodo; semilla 111 en LR)",
+  () =>
+    sinProblemas(
+      [
+        "flowchart LR", 'n50[\\"x"\\]', "n1 --> n2", 'n0["x"] --> n3[("x")]', 'n4 --> n8[("x")]', 'n4 --> n7{"x"}',
+        'n28(["x"]) ==> n21["x"]', "n41 --> n42", "n0 --> n21", 'n0 --> n16[\\"x"\\]', "n24 --> n26", "n0 --- n27",
+        "n0 --> n1", "n26 --> n28", "n16 --> n35", "n2 --> n41", 'n2 ==> n44[/"x"/]', 'n2 --> n49[("x")]', "n42 --- n39",
+        "n16 --- n4", "n0 ==> n42", "n21 --> n30", "n7 --> n24", "n1 --> n49",
       ].join("\n")
     )
 );

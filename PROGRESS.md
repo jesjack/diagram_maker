@@ -73,8 +73,8 @@ desde una terminal normal de Termux (el agente no puede: pide confirmar con la h
   `diagram` (índice del diagrama), que usa el comprobador de los tests aleatorios. Ejemplo:
   `examples/direcciones_{TB,BT,LR,RL}.mmd`. `dmk` avisa al abrir el navegador (con qué orden, si
   falla, mientras espera y cuando la página llega).
-- **Tests**: 101 en Node (incluye 400 diagramas aleatorios en TB; la semilla 111 solo falla en
-  LR/RL, registrada como conocida) + 8 en Python. `tools/comparar.js` genera imágenes antes/después.
+- **Tests**: 106 en Node (incluye 400 diagramas aleatorios, sin fallos conocidos; por encima de
+  400 aún fallan, entre otras, 889, 1247, 1281, 1400, 1665 y 1728) + 8 en Python. `tools/comparar.js` genera imágenes antes/después.
 - **Ahorro de tokens**: `CLAUDE.md` corto con comandos y mapa del layout;
   `.claude/settings.json` bloquea leer `node_modules/`, `vendor/`, `examples/*.html`.
 - **`src/layout.js` dividido en módulos UMD** (patrón returnExports de umdjs/umd) en `src/layout/`:
@@ -92,7 +92,7 @@ desde una terminal normal de Termux (el agente no puede: pide confirmar con la h
    ajustes de la interfaz.
 2. **Paquete pip**: envoltorio que llame a `dmk` (publicar en PyPI con su cuenta).
 3. **Layout**: rotación "como engranajes" (el usuario la ve más sofisticada que solo girar bloques:
-   hablarlo antes); semilla 111; referencias repetidas entre subgraphs.
+   hablarlo antes); semillas >400 que fallan (ver Tests); referencias repetidas entre subgraphs.
 4. TODO de SPEC.md: estilos de subgraph.
 5. Sin probar en navegador por el agente: `dmk` + `--watch` + `--sin-servidor` en el móvil.
 6. **`direction` para el crecimiento de cada árbol** (que `flowchart LR` haga crecer las ramas hacia
