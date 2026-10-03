@@ -143,6 +143,7 @@ orden en que escribes las aristas ya controla el dibujo. Para el resto, metadato
 
 ```
 %% @dir origen -> destino : down|right|left|up
+%% @bus X === A      el nodo X es un empalme de A: sus conexiones comparten la pastilla ● A
 ```
 
 Nunca se pisa un nodo ni una línea: si no hay sitio, el layout usa extensiones con empalmes, copia
@@ -152,7 +153,7 @@ mínimo de nodos necesario. Las reglas completas están en [`SPEC.md`](SPEC.md).
 ## Ejemplos
 
 En [`examples/`](examples): `proyecto.mmd` (el diagrama de arriba), `inicio_app.mmd` (el ejemplo de
-la especificación), `direcciones_TB.mmd`, `_BT`, `_LR` y `_RL` (el mismo diagrama en cada dirección, con `direction` en un subgraph), `prueba_movil.mmd`
+la especificación), `direcciones_TB.mmd`, `_BT`, `_LR` y `_RL` (el mismo diagrama en cada dirección, con `direction` en un subgraph), `bus.mmd` (empalme elegido con `@bus`), `prueba_movil.mmd`
 y los diagramas `v3_*.mmd`, sacados de un proyecto real (procesos con subgraphs, pines de entrada y
 salida, y estilos por proceso). `agente_proyecto.mmd` y `agente_reglas.mmd` los escribió un agente de IA
 sin ver ninguno de los otros ejemplos, para probar el motor con un Mermaid de otro estilo (el
