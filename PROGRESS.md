@@ -43,8 +43,9 @@ El HTML generado es un único archivo autocontenido: ningún `.js` puede contene
 
 ## Estado
 
-Última actualización: 2026-10-03. Versión publicada en npm: `@jesjack/diagram-maker` 0.1.0
-(etiqueta `v0.1.0`); `main` va por delante (ver "Pendiente" 1).
+Última actualización: 2026-10-03. Versión publicada en npm: `@jesjack/diagram-maker` 0.1.1
+(etiqueta `v0.1.1`). Para publicar: `npm version patch`, `git push --follow-tags` y `npm publish`
+desde una terminal normal de Termux (el agente no puede: pide confirmar con la huella).
 
 ### Hecho
 
@@ -82,17 +83,15 @@ El HTML generado es un único archivo autocontenido: ningún `.js` puede contene
 
 ### Pendiente
 
-1. **Publicar 0.1.1 en npm** con lo de `main` (`npm version patch`, `git push --follow-tags`,
-   `npm publish` desde una terminal normal de Termux para confirmar con la huella).
-2. **Estética**: nodos con aspecto de "pegatina" (generar variantes en PNG para que elija) y
+1. **Estética**: nodos con aspecto de "pegatina" (generar variantes en PNG para que elija) y
    ajustes de la interfaz.
-3. **Paquete pip**: envoltorio que llame a `dmk` (publicar en PyPI con su cuenta).
-4. **Utilidades**: `dmk --comprobar` (validar sin dibujar), varios archivos a la vez, tema oscuro.
-5. **Layout**: rotación "como engranajes" (el usuario la ve más sofisticada que solo girar bloques:
+2. **Paquete pip**: envoltorio que llame a `dmk` (publicar en PyPI con su cuenta).
+3. **Utilidades**: `dmk --comprobar` (validar sin dibujar), varios archivos a la vez, tema oscuro.
+4. **Layout**: rotación "como engranajes" (el usuario la ve más sofisticada que solo girar bloques:
    hablarlo antes); semilla 111; referencias repetidas entre subgraphs.
-6. TODO de SPEC.md: estilos de subgraph.
-7. Sin probar en navegador por el agente: `dmk` + `--watch` + `--sin-servidor` en el móvil.
-8. **`direction` para el crecimiento de cada árbol** (que `flowchart LR` haga crecer las ramas hacia
+5. TODO de SPEC.md: estilos de subgraph.
+6. Sin probar en navegador por el agente: `dmk` + `--watch` + `--sin-servidor` en el móvil.
+7. **`direction` para el crecimiento de cada árbol** (que `flowchart LR` haga crecer las ramas hacia
    la derecha): de momento la dirección solo coloca los subgraphs y los grupos desconectados.
 
 ## Decisiones y preferencias del usuario
