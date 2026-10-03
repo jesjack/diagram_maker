@@ -347,6 +347,6 @@ flowchart TD
       reutilizar representantes al lado (regla 14); no hace falta un tipo de línea nuevo.
 - [x] Choques entre ramas: cascada para hacer sitio (regla 10) y grupos reconstruidos (regla 9).
 - [ ] Rotar subárboles ya colocados ("engranajes") para evitar empalmes, como pasada final.
-- [ ] Diagramas con muchos subgraphs: hoy van todos en una fila (quedan muy anchos).
+- [x] Diagramas con muchos subgraphs: van uno tras otro según la cabecera (en TB, en columna).
 - [x] `flowchart LR/RL/BT` / `direction`: deciden hacia dónde van los diagramas de los subgraphs y
       los grupos desconectados (no cómo crece cada árbol).

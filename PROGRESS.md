@@ -89,9 +89,8 @@ El HTML generado es un único archivo autocontenido: ningún `.js` puede contene
 3. **Paquete pip**: envoltorio que llame a `dmk` (publicar en PyPI con su cuenta).
 4. **Utilidades**: `dmk --comprobar` (validar sin dibujar), varios archivos a la vez, tema oscuro.
 5. **Layout**: rotación "como engranajes" (el usuario la ve más sofisticada que solo girar bloques:
-   hablarlo antes); semilla 111; diagramas con muchos subgraphs muy anchos (en fila); referencias
-   repetidas entre subgraphs.
-6. TODO de SPEC.md: estilos de subgraph, `@bus`, `flowchart LR`.
+   hablarlo antes); semilla 111; referencias repetidas entre subgraphs.
+6. TODO de SPEC.md: estilos de subgraph, `@bus`.
 7. Sin probar en navegador por el agente: `dmk` + `--watch` + `--sin-servidor` en el móvil.
 8. **`direction` para el crecimiento de cada árbol** (que `flowchart LR` haga crecer las ramas hacia
    la derecha): de momento la dirección solo coloca los subgraphs y los grupos desconectados.
