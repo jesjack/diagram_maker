@@ -41,55 +41,59 @@ El HTML generado es un único archivo autocontenido: ningún `.js` puede contene
 
 ## Estado
 
+Última actualización: 2026-10-03. Versión publicada en npm: `@jesjack/diagram-maker` 0.1.0
+(etiqueta `v0.1.0`); `main` va por delante (ver "Pendiente" 1).
+
 ### Hecho
 
-- **Fase 1, prototipo**: parser con errores por línea, layout en rejilla, render SVG, visor y CLI.
-- **Fase 2, estética** (en parte): sombra difuminada pintada una vez en un canvas (rendimiento),
-  diagrama sin fondo sobre rejilla de puntos, barra translúcida, pastillas con el id de cada nodo,
-  estilos de Mermaid (`classDef`, `:::`, `class`, `style`, `linkStyle`) pasados tal cual al SVG.
-- **Formas**: rectángulo, redondeado, estadio, círculo, rombo, hexágono, cilindro, subrutina y los
-  dos paralelogramos.
-- **Subgraphs**: cada uno es un diagrama aparte, en fila; referencias en ambos lados, nodos
-  absorbidos, títulos.
-- **Layout sin choques ni diagonales** (reglas 4 y 9–14 de SPEC.md): recorrido en profundidad con
-  reserva de celdas, empalmes para más de 4 conexiones, cascada para hacer sitio (extensión flexible
-  → desplazar el bloque mínimo validado con las posiciones finales → fila/columna entera), copias de
-  hojas, conectores, reutilizar representantes al lado, grupos reconstruidos desde su conexión.
-  `@dir` es una preferencia: nunca error ni choque, avisa si no se respeta.
-- **Visor**: móvil (un dedo arrastra, dos hacen zoom, doble toque ajusta), paso a paso con la
-  historia real de cada paso y su motivo, tocar la pastilla de un empalme lleva a su nodo, exportar
-  SVG/PNG, botón para comparar con Mermaid oficial.
-- **CLI**: `--watch` (recarga en vivo conservando zoom y posición), apertura en Termux con
-  `termux-open-url`.
-- **Tests**: 83 en Node, incluidos 400 diagramas aleatorios con reductor de casos
-  (`node tests/random-diagrams.js <semilla> reducir`); solo falla la semilla 111 (registrada como
-  conocida).
+- **Motor**: parser (formas: rect, redondeado, estadio, círculo, rombo, hexágono, cilindro,
+  subrutina, paralelogramos; aristas con etiqueta, `&` en origen/destino, estilos de Mermaid),
+  subgraphs como diagramas aparte, layout sin choques ni diagonales (reglas 1–15 de SPEC.md),
+  render SVG con pastillas de id (los empalmes son pastillas `● dueño`).
+- **Layout, arreglos recientes**: un empalme solo lo coloca su dueño; se cuentan vecinos y no
+  flechas (la ida y la vuelta de un ciclo comparten lado); reutilizar el original o un
+  representante que ya está al lado; limpieza final (copias de sobra, empalmes de una rama
+  alineada, empalmes de cadena vacíos → se saltan o pasan a ser un codo); desplazamientos
+  validados con posiciones finales; grupos reconstruidos sin forzar nodos sin sitio; `@dir` es
+  una preferencia (nunca error ni choque, avisa si no se respeta).
+- **Visor**: móvil (gestos), paso a paso con la historia real de cada paso, tocar un empalme
+  lleva a su dueño, exportar SVG/PNG, botón «Mermaid» **sin internet** (Mermaid incrustado en el
+  HTML; `--ligero` lo quita y oculta el botón).
+- **Comando `dmk`** (Node): HTML + navegador, `--watch`, `--svg`/`--png` sin navegador (texto
+  medido y pintado con DejaVu; PNG con resvg WASM), `--html`, `--sin-servidor`, `--ligero`,
+  entrada por tubería o `<<EOF`.
+- **Tests**: 94 en Node (incluye 400 diagramas aleatorios; solo falla la semilla 111, registrada
+  como conocida) + 8 en Python. `tools/comparar.js` genera imágenes antes/después.
+- **Ahorro de tokens**: `CLAUDE.md` corto con comandos y mapa de `layout.js`;
+  `.claude/settings.json` bloquea leer `node_modules/`, `vendor/`, `examples/*.html`.
 
 ### Pendiente
 
-1. **Herramienta seria** (lo siguiente que pidió el usuario):
-   - comando global de consola;
-   - paquetes de npm y pip;
-   - exportar directamente a SVG/PNG desde el comando;
-   - opción de generar el HTML y abrir el archivo sin levantar servidor;
-   - otras utilidades.
-   Hay que decidir antes dónde corre el motor fuera del navegador: es JavaScript, así que exportar
-   desde la consola necesita Node (y medir el texto sin canvas, por estimación).
-2. **Estética**: nodos con aspecto de "pegatina" y ajustes de la interfaz.
-3. **Rotación "como engranajes"**: girar subárboles ya colocados para evitar empalmes, como pasada
-   final que nunca empeore el diagrama, y visible como pasos propios en el paso a paso.
-4. Semilla 111 (flechas sobre nodos).
-5. Diagramas con muchos subgraphs quedan muy anchos (en fila): quizá varias filas.
-6. Referencias repetidas cuando varios nodos lejanos apuntan al mismo nodo de otro subgraph.
-7. Ordenar `src/layout.js` (~1500 líneas) apoyándose en los tests aleatorios.
+1. **Publicar 0.1.1 en npm** con lo de `main` (`npm version patch`, `git push --follow-tags`,
+   `npm publish` desde una terminal normal de Termux para confirmar con la huella).
+2. **PR de Copilot por revisar** (comentados el 2026-10-02, Copilot los recogió con 👀):
+   - #4 forma asimétrica `>texto]`: está dibujada al revés (debe tener la muesca hacia dentro).
+   - #5 formas `id@{ shape: … }`: la sintaxis está bien, pero aproxima `manual-input`, `display`
+     y `fork` con otras formas; hay que dibujarlas de verdad y reconocer todas las de Mermaid.
+   Al revisarlos: fusionar con `main` en un worktree temporal y pasar toda la batería de tests.
+3. **Estética**: nodos con aspecto de "pegatina" (generar variantes en PNG para que elija) y
+   ajustes de la interfaz.
+4. **Paquete pip**: envoltorio que llame a `dmk` (publicar en PyPI con su cuenta).
+5. **Utilidades**: `dmk --comprobar` (validar sin dibujar), varios archivos a la vez, tema oscuro.
+6. **Layout**: rotación "como engranajes" (el usuario la ve más sofisticada que solo girar bloques:
+   hablarlo antes); semilla 111; diagramas con muchos subgraphs muy anchos (en fila); referencias
+   repetidas entre subgraphs.
+7. **Ordenar `src/layout.js`** (~1.560 líneas) en módulos, apoyándose en los tests aleatorios.
 8. TODO de SPEC.md: estilos de subgraph, `@bus`, `flowchart LR`.
+9. Sin probar en navegador por el agente: `dmk` + `--watch` + `--sin-servidor` en el móvil.
 
 ## Decisiones y preferencias del usuario
 
 - Lo usa sobre todo desde un **móvil Android con Termux** y Edge; también un PC Linux (Edge flatpak,
   por eso el mini servidor en 127.0.0.1 en vez de `file://`).
 - Revisa los arreglos **visualmente**: para cada arreglo se le genera un PNG "antes / después"
-  (`rsvg-convert` está disponible en Termux) y se le enseñan los casos difíciles antes de decidir.
+  (`tools/comparar.js`) en `/storage/emulated/0/Pictures/diagram_maker/arreglos/`, pero el agente
+  **no abre** esas imágenes (ahorro de tokens): comprueba con datos. Sí mira sus capturas.
 - Le gustó la sombra difuminada (la "pegatina gris" sin desenfoque no), los empalmes como pastillas
   con el id de su dueño y las pastillas de id siempre visibles (también al exportar).
 - Subgraphs sin cajas; no pisar nunca un nodo ni una línea está por encima del orden de salidas.
@@ -97,6 +101,8 @@ El HTML generado es un único archivo autocontenido: ningún `.js` puede contene
   disjuntos; los agentes se pudieron escribir entre sí con `SendMessage`.
 - Commits con `git -c user.name="Edgar Jesús Moreno Castañeda" -c user.email="jesjack25_03@hotmail.com"`
   (no hay identidad global configurada en Termux).
+- Quiere ahorrar tokens (plan Pro): sesiones cortas por tema, salidas filtradas, subagentes solo
+  para tareas grandes. Ver `CLAUDE.md`.
 
 Notas del entorno: en Termux `node` está en el PATH; en el PC, Node v24 con nvm en `~/.config/nvm`
 (`export PATH=$HOME/.config/nvm/versions/node/v24.21.0/bin:$PATH`).
