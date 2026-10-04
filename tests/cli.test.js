@@ -111,3 +111,35 @@ test("--tema oscuro: SVG con colores oscuros y el visor arranca en oscuro", () =
   assert.match(fs.readFileSync(html, "utf8"), /theme: "oscuro"/);
   assert.match(dmk(["--tema", "rosa"]).stderr, /claro, oscuro o auto/);
 });
+
+test("un .md: un diagrama por bloque ```mermaid; sin bloques es un error", () => {
+  const dir = fs.mkdtempSync(path.join(tmp, "md-"));
+  const md = path.join(dir, "notas.md");
+  fs.writeFileSync(md, "# Notas\n\n```mermaid\nx --> y\n```\n\n~~~mermaid\np --> q\n~~~\n\n```js\nno --> es\n```\n");
+  const r = dmk([md, "--svg"]);
+  assert.strictEqual(r.status, 0, r.stderr);
+  assert.deepStrictEqual(fs.readdirSync(dir).sort(), ["notas-1.svg", "notas-2.svg", "notas.md"]);
+  const uno = path.join(dir, "uno.md");
+  fs.writeFileSync(uno, "```mermaid\na --> b\n```\n");
+  assert.strictEqual(dmk([uno, "--html"]).status, 0);
+  assert.ok(fs.existsSync(path.join(dir, "uno.html")));
+  const vacio = path.join(dir, "vacio.md");
+  fs.writeFileSync(vacio, "# nada\n");
+  assert.match(dmk([vacio, "--svg"]).stderr, /no tiene bloques/);
+  assert.match(dmk([uno, "--watch"]).stderr, /un solo archivo \.mmd/);
+});
+
+test("una carpeta: sus .mmd y los bloques de sus .md, sin entrar en subcarpetas", () => {
+  const dir = fs.mkdtempSync(path.join(tmp, "dir-"));
+  fs.mkdirSync(path.join(dir, "sub"));
+  fs.writeFileSync(path.join(dir, "a.mmd"), "a --> b\n");
+  fs.writeFileSync(path.join(dir, "b.md"), "```mermaid\nc --> d\n```\n");
+  fs.writeFileSync(path.join(dir, "leeme.md"), "sin diagramas\n");
+  fs.writeFileSync(path.join(dir, "sub", "c.mmd"), "e --> f\n");
+  const r = dmk([dir, "--svg"]);
+  assert.strictEqual(r.status, 0, r.stderr);
+  assert.ok(fs.existsSync(path.join(dir, "a.svg")) && fs.existsSync(path.join(dir, "b.svg")));
+  assert.ok(!fs.existsSync(path.join(dir, "sub", "c.svg")) && !fs.existsSync(path.join(dir, "leeme.svg")));
+  assert.match(dmk([dir, "--comprobar"]).stdout, /2 de 2 sin errores/);
+  assert.match(dmk([fs.mkdtempSync(path.join(tmp, "nada-")), "--svg"]).stderr, /no hay diagramas/);
+});

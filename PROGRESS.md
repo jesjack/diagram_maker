@@ -43,7 +43,7 @@ El HTML generado es un único archivo autocontenido: ningún `.js` puede contene
 
 ## Estado
 
-Última actualización: 2026-10-03. Versión publicada en npm: `@jesjack/diagram-maker` 0.1.1
+Última actualización: 2026-10-04. Versión publicada en npm: `@jesjack/diagram-maker` 0.1.1
 (etiqueta `v0.1.1`). Para publicar: `npm version patch`, `git push --follow-tags` y `npm publish`
 desde una terminal normal de Termux (el agente no puede: pide confirmar con la huella).
 
@@ -64,7 +64,7 @@ desde una terminal normal de Termux (el agente no puede: pide confirmar con la h
   lleva a su dueño, exportar SVG/PNG, botón «Mermaid» **sin internet** (Mermaid incrustado en el
   HTML; `--ligero` lo quita y oculta el botón).
 - **Comando `dmk`** (Node): HTML + navegador, `--watch`, `--svg`/`--png` sin navegador (texto
-  medido y pintado con DejaVu; PNG con resvg WASM), `--html`, `--sin-servidor`, `--ligero`,
+  medido y pintado con DejaVu; PNG con resvg WASM), `--html`, `--servidor`, `--ligero`,
   entrada por tubería o `<<EOF`.
 - **Pastillas de id** con el fondo al 80 % de opacidad (dejan ver la forma de debajo).
 - **Dirección** (`flowchart TB/TD/BT/LR/RL`, `direction` dentro de un subgraph): decide hacia dónde
@@ -85,6 +85,10 @@ desde una terminal normal de Termux (el agente no puede: pide confirmar con la h
   la vez (cada resultado junto a su .mmd; sin `-o` ni `--watch`), tema oscuro (`--tema
   claro|oscuro|auto`, `--oscuro`; `DARK_THEME` en render.js, `data-theme` en la plantilla, botón ◐
   del visor recordado en localStorage; SVG/PNG en claro salvo `--tema oscuro`).
+- **Entradas y apertura** (2026-10-04): `dmk` abre el HTML como archivo (`termux-open`/`xdg-open`);
+  el servidor de una vez pasa a `--servidor` (`--sin-servidor` se acepta y no hace nada). Entradas
+  `.md` (cada bloque mermaid; `nombre-N` si hay varios) y carpetas (sin subcarpetas), en
+  lib/entradas.js (`expandir`: lista de trabajos con nombre, base de salida y fuente).
 
 ### Pendiente
 
@@ -94,7 +98,8 @@ desde una terminal normal de Termux (el agente no puede: pide confirmar con la h
 3. **Layout**: rotación "como engranajes" (el usuario la ve más sofisticada que solo girar bloques:
    hablarlo antes); semillas >400 que fallan (ver Tests); referencias repetidas entre subgraphs.
 4. TODO de SPEC.md: estilos de subgraph.
-5. Sin probar en navegador por el agente: `dmk` + `--watch` + `--sin-servidor` en el móvil.
+5. Sin probar en navegador por el agente: `dmk` (ahora abre el archivo, sin servidor) + `--watch`
+   en el móvil.
 6. **`direction` para el crecimiento de cada árbol** (que `flowchart LR` haga crecer las ramas hacia
    la derecha): de momento la dirección solo coloca los subgraphs y los grupos desconectados.
 7. **jesjack engine** (`src/engines/jesjack.js`): motor de colocación desde cero, alternativo a

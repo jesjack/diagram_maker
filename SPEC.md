@@ -22,9 +22,12 @@ diagrama.mmd ──► CLI (Python) ──► genera HTML autocontenido ──�
   SVG/PNG con el mismo motor (texto medido y pintado con DejaVu Sans; PNG con resvg en WebAssembly).
   `diagram.py` es la versión anterior, en Python sin dependencias (sin exportación).
 - **Motor en JavaScript**, embebido en el HTML generado (funciona sin servidor).
-- **Apertura**: el HTML se guarda junto al `.mmd` (o en `-o`) y se abre sirviéndolo **una sola vez**
-  desde un mini servidor en 127.0.0.1 (los navegadores en sandbox, como Edge en flatpak, no leen
-  cualquier carpeta); en Termux se abre con `termux-open-url`. `--no-open` solo genera el HTML.
+- **Apertura**: el HTML se guarda junto al `.mmd` (o en `-o`; sin archivo, en la carpeta temporal)
+  y se abre **como archivo** (en Termux con `termux-open`). Con `--servidor` se sirve **una sola vez**
+  desde un mini servidor en 127.0.0.1 (para navegadores en sandbox, como Edge en flatpak, que no
+  leen cualquier carpeta). `--no-open` solo genera el HTML.
+- **Entradas**: `.mmd`, `.md` (cada bloque ```` ```mermaid ````/`~~~mermaid` es un diagrama; con
+  varios, `nombre-1`, `nombre-2`…) y carpetas (sus `.mmd` y `.md`, sin subcarpetas).
 - **Recarga en vivo** (`dmk archivo.mmd --watch`): el servidor sigue abierto hasta
   Ctrl+C y vigila el `.mmd` (sondeo del mtime cada 0,5 s). La página servida pregunta cada segundo
   `GET /source?v=N`: `204` si sigue en la versión `N`, o `{"version", "source"}` si el archivo

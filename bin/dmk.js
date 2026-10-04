@@ -2,15 +2,19 @@
 // dmk: diagramas de flujo a partir de sintaxis Mermaid (ver README.md y SPEC.md).
 
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const { construirHtml } = require("../lib/html.js");
 const { servirUnaVez, vigilar } = require("../lib/servir.js");
 const { abrir } = require("../lib/abrir.js");
+const { expandir } = require("../lib/entradas.js");
 
 const AYUDA = `dmk: diagramas de flujo a partir de sintaxis Mermaid.
 
 Uso:
   dmk archivo.mmd               genera archivo.html junto al .mmd y lo abre en el navegador
+  dmk notas.md                  cada bloque \`\`\`mermaid del .md (notas.html, o notas-1.html, notas-2.html…)
+  dmk carpeta/ --svg            todos los .mmd y .md de la carpeta (sin entrar en subcarpetas)
   dmk archivo.mmd --watch       recarga en vivo: la página se actualiza al guardar el .mmd
   dmk archivo.mmd --svg         exporta archivo.svg (sin abrir nada)
   dmk archivo.mmd --png         exporta archivo.png (sin abrir nada)
@@ -27,7 +31,8 @@ Opciones:
       --png [RUTA]      exportar a PNG
       --escala N        escala del PNG (por defecto 2)
       --html            generar el HTML sin abrirlo
-      --sin-servidor    abrir el HTML guardado como archivo, sin levantar un servidor
+      --servidor        abrir sirviendo la página desde 127.0.0.1 en vez de abrir el archivo
+                        (para navegadores en sandbox, como Edge en flatpak, que no leen cualquier carpeta)
       --tema TEMA       claro, oscuro o auto (el del sistema; por defecto). SVG/PNG: claro
   -c, --comprobar       validar sin generar nada (código de salida 1 si alguno tiene errores)
       --ligero          HTML sin Mermaid incrustado (~130 kB en vez de ~1,4 MB; sin botón «Mermaid»)
@@ -37,7 +42,7 @@ Opciones:
   -v, --version         versión`;
 
 function leerArgumentos(argv) {
-  const op = { archivos: [], tema: null, comprobar: false, salida: null, formato: "html", abrir: true, watch: false, escala: 2, sinServidor: false, ligero: false };
+  const op = { archivos: [], tema: null, comprobar: false, salida: null, formato: "html", abrir: true, watch: false, escala: 2, servidor: false, ligero: false };
   const conValor = (i, nombre) => {
     const v = argv[i + 1];
     if (v === undefined || v.startsWith("-")) fallar(`${nombre} necesita un valor.`);
@@ -75,9 +80,13 @@ function leerArgumentos(argv) {
       case "--html":
         op.abrir = false;
         break;
-      case "--sin-servidor":
+      case "--servidor":
+      case "--server":
+        op.servidor = true;
+        break;
+      case "--sin-servidor": // ya es lo normal; se acepta por compatibilidad
       case "--no-server":
-        op.sinServidor = true;
+        op.servidor = false;
         break;
       case "--ligero":
       case "--light":
@@ -119,7 +128,10 @@ function fallar(mensaje) {
   process.exit(1);
 }
 
-function leerFuente(archivo) {
+function leerFuente(trabajo) {
+  if (trabajo?.error) throw new Error(trabajo.error);
+  if (trabajo?.fuente !== undefined) return trabajo.fuente;
+  const archivo = trabajo?.archivo;
   if (archivo) {
     try {
       return fs.readFileSync(archivo, "utf8");
@@ -138,12 +150,12 @@ const avisar = (warnings, prefijo = "") => {
 // dmk --comprobar: una línea por diagrama; los errores no paran el resto.
 function comprobarTodos(op) {
   const { comprobar } = require("../lib/exportar.js");
-  const archivos = op.archivos.length ? op.archivos : [null];
+  const archivos = op.archivos.length ? expandir(op.archivos) : [null];
   let fallos = 0;
-  for (const archivo of archivos) {
-    const nombre = archivo || "(entrada)";
+  for (const trabajo of archivos) {
+    const nombre = trabajo?.nombre || "(entrada)";
     try {
-      const source = leerFuente(archivo);
+      const source = leerFuente(trabajo);
       if (!source.trim()) throw new Error("El diagrama está vacío.");
       const r = comprobar(source);
       const n = (k, palabra) => `${k} ${palabra}${k === 1 ? "" : "s"}`;
@@ -161,18 +173,19 @@ function comprobarTodos(op) {
 }
 
 // Un diagrama: exporta a SVG/PNG o genera (y abre) el HTML. Lanza Error si algo falla.
-async function procesar(archivo, op, varios) {
-  const source = leerFuente(archivo);
+async function procesar(trabajo, op, varios) {
+  const source = leerFuente(trabajo);
   if (!source.trim()) throw new Error("El diagrama está vacío.");
-  const title = archivo ? path.basename(archivo).replace(/\.[^.]+$/, "") : "diagrama";
-  const junto = (ext) => (archivo ? archivo.replace(/(\.[^./\\]+)?$/, `.${ext}`) : `${title}.${ext}`);
+  const archivo = trabajo?.base;
+  const title = archivo ? path.basename(archivo) : "diagrama";
+  const junto = (ext) => (archivo ? `${archivo}.${ext}` : `${title}.${ext}`);
 
   // Exportar a SVG / PNG: sin navegador.
   if (op.formato === "svg" || op.formato === "png") {
     const { aSvg, aPng } = require("../lib/exportar.js");
     const tema = op.tema === "oscuro" ? "oscuro" : "claro";
     const resultado = aSvg(source, tema);
-    avisar(resultado.warnings, varios ? `${archivo}: ` : "");
+    avisar(resultado.warnings, varios ? `${trabajo.nombre}: ` : "");
     const destino = op.salida || junto(op.formato);
     const datos = op.formato === "svg" ? resultado.svg : await aPng(resultado.svg, op.escala, tema);
     fs.writeFileSync(destino, datos);
@@ -183,36 +196,40 @@ async function procesar(archivo, op, varios) {
   // HTML con el visor.
   const opciones = { mermaid: !op.ligero, tema: op.tema || "auto" };
   const html = construirHtml(source, title, null, opciones);
-  const salida = op.salida || (archivo ? junto("html") : null);
+  // Sin archivo ni -o (terminal o tubería) el HTML se guarda en la carpeta temporal para abrirlo.
+  let salida = op.salida || (archivo ? junto("html") : null);
+  if (!salida && op.abrir && !op.servidor && !op.watch) salida = path.join(os.tmpdir(), "dmk-diagrama.html");
   if (salida) {
     fs.writeFileSync(salida, html);
     console.log(`HTML generado: ${salida}`);
-  } else if (!op.abrir || op.sinServidor) {
+  } else if (!op.abrir) {
     throw new Error("Sin archivo de entrada hace falta -o para guardar el HTML.");
   }
   if (varios) return;
-  if (op.watch) vigilar(archivo, title, { salida, abrirNavegador: op.abrir, ...opciones });
-  else if (op.sinServidor) abrir(path.resolve(salida), { esArchivo: true });
-  else if (op.abrir) await servirUnaVez(html);
+  if (op.watch) vigilar(trabajo.archivo, title, { salida, abrirNavegador: op.abrir, ...opciones });
+  else if (!op.abrir) return;
+  else if (op.servidor) await servirUnaVez(html);
+  else abrir(path.resolve(salida), { esArchivo: true });
 }
 
 async function main() {
   const op = leerArgumentos(process.argv.slice(2));
   if (op.comprobar) return comprobarTodos(op);
-  const varios = op.archivos.length > 1;
+  const trabajos = op.archivos.length ? expandir(op.archivos) : [null];
+  const varios = trabajos.length > 1;
   if (op.watch && !op.archivos.length) fallar("--watch necesita un archivo .mmd que vigilar (no funciona con la terminal ni con tuberías).");
-  if (op.watch && varios) fallar("--watch vigila un solo archivo.");
+  if (op.watch && (varios || trabajos[0].fuente !== undefined)) fallar("--watch vigila un solo archivo .mmd.");
   if (op.watch && op.formato !== "html") fallar("--watch es para el visor: no se combina con --svg ni --png.");
-  if (op.salida && varios) fallar("-o no se combina con varios archivos: cada resultado va junto a su .mmd.");
+  if (op.salida && varios) fallar("-o no se combina con varios diagramas: cada resultado va junto a su archivo.");
   // Con varios archivos solo se generan (como --html); los errores no paran el resto.
   let fallos = 0;
-  for (const archivo of op.archivos.length ? op.archivos : [null]) {
+  for (const trabajo of trabajos) {
     try {
-      await procesar(archivo, op, varios);
+      await procesar(trabajo, op, varios);
     } catch (err) {
-      if (!varios) fallar(err.message);
+      if (!varios) fallar(trabajo?.error ? `${trabajo.nombre}: ${err.message}` : err.message);
       fallos++;
-      console.error(`dmk: ${archivo}: ${err.message}`);
+      console.error(`dmk: ${trabajo.nombre}: ${err.message}`);
     }
   }
   if (fallos) process.exitCode = 1;
