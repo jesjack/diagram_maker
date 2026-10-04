@@ -33,7 +33,7 @@
 })(typeof self !== "undefined" ? self : this, function (base, text, dirs, junctions, grid, geometry, jesjack) {
 const { LAYOUT_DEFAULTS, PILL_HEIGHT, pillWidth, junctionLabel } = base;
 const { wrapText, baseFont, sizeNode } = text;
-const { assignDirections } = dirs;
+const { assignDirections, nodeLabel } = dirs;
 const { addJunctions } = junctions;
 const { placeInGrid } = grid;
 const { computeCoordinates, routeEdge } = geometry;
@@ -232,7 +232,7 @@ function splitBySubgraph(graph, warnings) {
 }
 
 function layoutSingle(graph, measure, opts, warnings) {
-  if (opts.engine === "jesjack") return layoutJesjack(graph, measure, opts);
+  if (opts.engine === "jesjack") return layoutJesjack(graph, measure, opts, warnings);
   const nodes = new Map();
   // Un empalme elegido con @bus mide lo que su pastilla, como los automáticos.
   const size = (n) =>
@@ -278,7 +278,7 @@ function layoutSingle(graph, measure, opts, warnings) {
 // conexiones y devuelve celdas; aquí se miden los nodos, se pasan sus x,y (celdas) a col,row y se
 // reutiliza la conversión a píxeles y el trazado de main engine. El paso k muestra los k+1 primeros
 // nodos en el orden en que el motor los devolvió.
-function layoutJesjack(graph, measure, opts) {
+function layoutJesjack(graph, measure, opts, warnings) {
   const input = {
     nodes: [...graph.nodes.values()].map((n) => ({ id: n.id })),
     connections: graph.edges.map((e) => ({ index: e.index, from: e.from, to: e.to })),
@@ -296,6 +296,14 @@ function layoutJesjack(graph, measure, opts) {
     nodes.set(o.id, { ...sized, col: o.x, row: o.y, step, why: "jesjack engine" });
   });
   for (const id of graph.nodes.keys()) if (!nodes.has(id)) throw new Error(`jesjack engine: falta el nodo '${id}'`);
+  // Mismo aviso que place() de main engine: dos nodos en la misma celda.
+  const occupied = new Map();
+  for (const n of nodes.values()) {
+    const key = `${n.col},${n.row}`;
+    if (occupied.has(key))
+      warnings.push({ line: n.line, message: `Choque: ${nodeLabel(n)} ocupa la misma posición que ${nodeLabel(occupied.get(key))}` });
+    else occupied.set(key, n);
+  }
   const edges = out.connections.map((c) => {
     if (!nodes.has(c.from) || !nodes.has(c.to)) throw new Error(`jesjack engine: conexión ${c.from} -> ${c.to} con un extremo desconocido`);
     if (c.index === undefined)
