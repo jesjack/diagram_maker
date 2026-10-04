@@ -370,7 +370,7 @@ function applyBuses(buses, nodes, edges, warnings) {
       warnings.push({ line: b.line, message: `@bus: la etiqueta de la arista '${b.owner}'–'${b.id}' se ignora (es la extensión)` });
     }
     Object.assign(link, { from: b.owner, to: b.id, label: null, arrowStart: false, arrowEnd: false, bus: true });
-    Object.assign(n, { shape: "junction", text: "", css: null, junctionOf: ownerOf(b.owner) });
+    Object.assign(n, { shape: "junction", text: "", css: null, bus: b.owner, junctionOf: ownerOf(b.owner) });
   }
   edges.sort((a, b) => a.index - b.index);
 }

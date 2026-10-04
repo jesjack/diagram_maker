@@ -280,7 +280,7 @@ function layoutSingle(graph, measure, opts, warnings) {
 // nodos en el orden en que el motor los devolvió.
 function layoutJesjack(graph, measure, opts, warnings) {
   const input = {
-    nodes: [...graph.nodes.values()].map((n) => ({ id: n.id })),
+    nodes: [...graph.nodes.values()].map((n) => (n.bus !== undefined ? { id: n.id, bus: n.bus } : { id: n.id })),
     connections: graph.edges.map((e) => ({ index: e.index, from: e.from, to: e.to })),
   };
   const out = jesjack.jesjackEngine(input);
