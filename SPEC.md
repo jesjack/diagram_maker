@@ -23,7 +23,7 @@ diagrama.mmd ──► CLI (Python) ──► genera HTML autocontenido ──�
   `diagram.py` es la versión anterior, en Python sin dependencias (sin exportación).
 - **Motor en JavaScript**, embebido en el HTML generado (funciona sin servidor).
 - **Apertura**: el HTML se guarda junto al `.mmd` (o en `-o`; sin archivo, en la carpeta temporal)
-  y se abre **como archivo**. En Termux (el navegador no lee los archivos de com.termux) se sirve. Con `--servidor` se sirve **una sola vez**
+  y se abre **como archivo**. En Termux (el navegador no lee los archivos de com.termux) se sirve. Con `--server` se sirve **una sola vez**
   desde un mini servidor en 127.0.0.1 (para navegadores en sandbox, como Edge en flatpak, que no
   leen cualquier carpeta). `--no-open` solo genera el HTML.
 - **Entradas**: `.mmd`, `.md` (cada bloque ```` ```mermaid ````/`~~~mermaid` es un diagrama) y
@@ -48,7 +48,7 @@ diagrama.mmd ──► CLI (Python) ──► genera HTML autocontenido ──�
 - **Mermaid**: abre el mismo código dibujado con Mermaid oficial en otra pestaña, para comparar.
   La librería (Mermaid 11, licencia MIT, en `vendor/`) va incrustada en el HTML comprimida con
   gzip y en base64; el visor la descomprime con `DecompressionStream` al pulsar el botón, sin
-  internet. Con `dmk --ligero` no se incrusta y el botón no aparece.
+  internet. Con `dmk --lite` no se incrusta y el botón no aparece.
 - **Táctil**: un dedo arrastra, dos dedos hacen zoom, doble toque ajusta.
 - **Pastillas de id**: cada nodo lleva su id en una pastilla en la esquina; siempre visibles, también
   en lo exportado, porque los empalmes y conectores se refieren a los nodos por su id. La pastilla

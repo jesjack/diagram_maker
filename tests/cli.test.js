@@ -23,7 +23,7 @@ test("--svg genera el SVG junto al .mmd, con el diagrama y sus pastillas", () =>
 
 test("--png con ruta y escala genera un PNG válido", () => {
   const out = path.join(tmp, "x.png");
-  const r = dmk([ejemplo, "--png", out, "--escala", "1"]);
+  const r = dmk([ejemplo, "--png", out, "--scale", "1"]);
   assert.strictEqual(r.status, 0, r.stderr);
   const png = fs.readFileSync(out);
   assert.strictEqual(png.toString("latin1", 1, 4), "PNG");
@@ -60,16 +60,16 @@ test("errores claros y código de salida 1", () => {
   assert.match(r.stderr, /--watch necesita un archivo/);
 });
 
-test("--version y --ayuda", () => {
+test("--version y --help", () => {
   assert.strictEqual(dmk(["--version"]).stdout.trim(), require("../package.json").version);
-  assert.match(dmk(["--ayuda"]).stdout, /dmk archivo\.mmd --png/);
+  assert.match(dmk(["--help"]).stdout, /dmk archivo\.mmd --png/);
 });
 
-test("el HTML lleva Mermaid incrustado (botón sin internet); con --ligero no", () => {
+test("el HTML lleva Mermaid incrustado (botón sin internet); con --lite no", () => {
   const completo = path.join(tmp, "m.html");
   const ligero = path.join(tmp, "l.html");
   assert.strictEqual(dmk([ejemplo, "--html", "-o", completo]).status, 0);
-  assert.strictEqual(dmk([ejemplo, "--html", "--ligero", "-o", ligero]).status, 0);
+  assert.strictEqual(dmk([ejemplo, "--html", "--lite", "-o", ligero]).status, 0);
   const lib = (f) => fs.readFileSync(f, "utf8").match(/<script type="text\/plain" id="mermaid-lib">([^<]*)<\/script>/)[1];
   const b64 = lib(completo);
   assert.ok(b64.length > 900000, "Mermaid incrustado");
@@ -79,11 +79,11 @@ test("el HTML lleva Mermaid incrustado (botón sin internet); con --ligero no", 
   assert.ok(!fs.readFileSync(completo, "utf8").includes("cdn.jsdelivr"), "no depende de internet");
 });
 
-test("--comprobar valida varios archivos sin generar nada; los errores no paran el resto", () => {
+test("--check valida varios archivos sin generar nada; los errores no paran el resto", () => {
   const malo = path.join(tmp, "malo.mmd");
   fs.writeFileSync(malo, "a -- > b\n");
   const antes = fs.readdirSync(tmp).length;
-  const r = dmk([ejemplo, malo, "--comprobar"]);
+  const r = dmk([ejemplo, malo, "--check"]);
   assert.strictEqual(r.status, 1);
   assert.match(r.stdout, /ok +.*ej\.mmd: 4 nodos, 3 aristas/);
   assert.match(r.stderr, /error +.*malo\.mmd: Línea 1: Se esperaba una arista/);
@@ -102,14 +102,36 @@ test("varios archivos: cada resultado junto a su .mmd; -o no se admite", () => {
   assert.match(dmk([ejemplo, otro, "--watch"]).stderr, /un solo archivo/);
 });
 
-test("--tema oscuro: SVG con colores oscuros y el visor arranca en oscuro", () => {
+test("--theme dark: SVG con colores oscuros y el visor arranca en oscuro", () => {
   const svg = path.join(tmp, "osc.svg");
-  assert.strictEqual(dmk([ejemplo, "--svg", svg, "--tema", "oscuro"]).status, 0);
+  assert.strictEqual(dmk([ejemplo, "--svg", svg, "--theme", "dark"]).status, 0);
   assert.match(fs.readFileSync(svg, "utf8"), /fill="#161b22"/);
   const html = path.join(tmp, "osc.html");
-  assert.strictEqual(dmk([ejemplo, "--html", "--ligero", "--oscuro", "-o", html]).status, 0);
+  assert.strictEqual(dmk([ejemplo, "--html", "--lite", "--dark", "-o", html]).status, 0);
   assert.match(fs.readFileSync(html, "utf8"), /theme: "oscuro"/);
-  assert.match(dmk(["--tema", "rosa"]).stderr, /claro, oscuro o auto/);
+  assert.match(dmk(["--theme", "rosa"]).stderr, /light, dark o auto/);
+});
+
+test("las opciones en español de la 0.2.0 se siguen aceptando", () => {
+  const svg = path.join(tmp, "es.svg");
+  assert.strictEqual(dmk([ejemplo, "--svg", svg, "--tema", "oscuro"]).status, 0);
+  assert.match(fs.readFileSync(svg, "utf8"), /fill="#161b22"/);
+  assert.strictEqual(dmk([ejemplo, "--comprobar"]).status, 0);
+  assert.match(dmk(["--ayuda"]).stdout, /--engine/);
+});
+
+test("--engine elige el motor: llega al SVG y al visor; uno desconocido es un error", () => {
+  const main = path.join(tmp, "main.svg");
+  const jj = path.join(tmp, "jj.svg");
+  assert.strictEqual(dmk([ejemplo, "--svg", main]).status, 0);
+  assert.strictEqual(dmk([ejemplo, "--svg", jj, "-e", "jesjack"]).status, 0);
+  assert.notStrictEqual(fs.readFileSync(jj, "utf8"), fs.readFileSync(main, "utf8"));
+  const html = path.join(tmp, "jj.html");
+  assert.strictEqual(dmk([ejemplo, "--html", "--lite", "--engine", "jesjack", "-o", html]).status, 0);
+  assert.match(fs.readFileSync(html, "utf8"), /engine: "jesjack"/);
+  assert.strictEqual(dmk([ejemplo, "--html", "--lite", "-o", html]).status, 0);
+  assert.match(fs.readFileSync(html, "utf8"), /engine: "main"/);
+  assert.match(dmk(["--engine", "otro"]).stderr, /main o jesjack/);
 });
 
 test("un .md: un diagrama por bloque ```mermaid; sin bloques es un error", () => {
@@ -140,7 +162,7 @@ test("una carpeta: sus .mmd y los bloques de sus .md, sin entrar en subcarpetas"
   assert.strictEqual(r.status, 0, r.stderr);
   assert.ok(fs.existsSync(path.join(dir, "a.svg")) && fs.existsSync(path.join(dir, "b.svg")));
   assert.ok(!fs.existsSync(path.join(dir, "sub", "c.svg")) && !fs.existsSync(path.join(dir, "leeme.svg")));
-  assert.match(dmk([dir, "--comprobar"]).stdout, /2 de 2 sin errores/);
+  assert.match(dmk([dir, "--check"]).stdout, /2 de 2 sin errores/);
   assert.match(dmk([fs.mkdtempSync(path.join(tmp, "nada-")), "--svg"]).stderr, /no hay diagramas/);
 });
 

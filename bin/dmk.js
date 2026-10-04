@@ -9,6 +9,8 @@ const { servirUnaVez, vigilar } = require("../lib/servir.js");
 const { abrir, esTermux } = require("../lib/abrir.js");
 const { expandir } = require("../lib/entradas.js");
 
+const MOTORES = ["main", "jesjack"];
+
 const AYUDA = `dmk: diagramas de flujo a partir de sintaxis Mermaid.
 
 Uso:
@@ -22,29 +24,33 @@ Uso:
   dmk archivo.mmd --html        solo genera el HTML
   dmk a.mmd b.mmd               varios archivos: todos en diagramas.html (o -o), con el selector
   dmk a.mmd b.mmd --svg         con --svg/--png, cada uno junto a su .mmd
-  dmk *.mmd --comprobar         valida sin dibujar: errores, avisos y tamaño de cada diagrama
+  dmk *.mmd --check             valida sin dibujar: errores, avisos y tamaño de cada diagrama
+  dmk archivo.mmd -e jesjack    coloca con jesjack engine en vez del motor principal
   dmk                           escribe el diagrama en la terminal (termina con Ctrl+D)
   cat archivo.mmd | dmk --svg   también por tubería
   dmk --png -o d.png <<'EOF'     o escrito en el propio comando (hasta la línea EOF)
 
 Opciones:
-  -o, --salida RUTA     dónde guardar el resultado (.html, .svg o .png)
+  -o, --output RUTA     dónde guardar el resultado (.html, .svg o .png)
       --svg [RUTA]      exportar a SVG
       --png [RUTA]      exportar a PNG
-      --escala N        escala del PNG (por defecto 2)
+      --scale N         escala del PNG (por defecto 2)
       --html            generar el HTML sin abrirlo
-      --servidor        abrir sirviendo la página desde 127.0.0.1 en vez de abrir el archivo
+      --server          abrir sirviendo la página desde 127.0.0.1 en vez de abrir el archivo
                         (navegadores en sandbox, como Edge en flatpak; en Termux siempre es así)
-      --tema TEMA       claro, oscuro o auto (el del sistema; por defecto). SVG/PNG: claro
-  -c, --comprobar       validar sin generar nada (código de salida 1 si alguno tiene errores)
-      --ligero          HTML sin Mermaid incrustado (~130 kB en vez de ~1,4 MB; sin botón «Mermaid»)
+      --theme TEMA      light, dark o auto (el del sistema; por defecto). SVG/PNG: light
+      --dark            igual que --theme dark
+  -e, --engine MOTOR    motor de colocación: main (por defecto) o jesjack (en desarrollo)
+  -c, --check           validar sin generar nada (código de salida 1 si alguno tiene errores)
+      --lite            HTML sin Mermaid incrustado (~130 kB en vez de ~1,4 MB; sin botón «Mermaid»)
   -w, --watch           servir hasta Ctrl+C y actualizar la página al guardar el .mmd
-      --no-abrir        no abrir el navegador (con --watch se sirve igual)
-  -h, --ayuda           esta ayuda
+      --no-open         no abrir el navegador (con --watch se sirve igual)
+  -h, --help            esta ayuda
   -v, --version         versión`;
 
+// Las opciones en español de la 0.2.0 se siguen aceptando (sin documentar) para no romper scripts.
 function leerArgumentos(argv) {
-  const op = { archivos: [], tema: null, comprobar: false, salida: null, formato: "html", abrir: true, watch: false, escala: 2, servidor: false, ligero: false };
+  const op = { archivos: [], tema: null, comprobar: false, salida: null, formato: "html", abrir: true, watch: false, escala: 2, servidor: false, ligero: false, motor: "main" };
   const conValor = (i, nombre) => {
     const v = argv[i + 1];
     if (v === undefined || v.startsWith("-")) fallar(`${nombre} necesita un valor.`);
@@ -54,8 +60,8 @@ function leerArgumentos(argv) {
     const a = argv[i];
     switch (a) {
       case "-h":
-      case "--ayuda":
       case "--help":
+      case "--ayuda":
         console.log(AYUDA);
         process.exit(0);
       case "-v":
@@ -63,8 +69,8 @@ function leerArgumentos(argv) {
         console.log(require("../package.json").version);
         process.exit(0);
       case "-o":
-      case "--salida":
       case "--output":
+      case "--salida":
         op.salida = conValor(i++, a);
         break;
       case "--svg":
@@ -74,51 +80,57 @@ function leerArgumentos(argv) {
         if (v && !v.startsWith("-") && v.toLowerCase().endsWith(`.${op.formato}`)) op.salida = argv[++i];
         break;
       }
-      case "--escala":
       case "--scale":
+      case "--escala":
         op.escala = Number(conValor(i++, a));
-        if (!(op.escala > 0)) fallar("--escala necesita un número mayor que 0.");
+        if (!(op.escala > 0)) fallar(`${a} necesita un número mayor que 0.`);
         break;
       case "--html":
         op.abrir = false;
         break;
-      case "--servidor":
       case "--server":
+      case "--servidor":
         op.servidor = true;
         break;
-      case "--sin-servidor": // ya es lo normal; se acepta por compatibilidad
-      case "--no-server":
+      case "--no-server": // ya es lo normal; se acepta por compatibilidad
+      case "--sin-servidor":
         op.servidor = false;
         break;
+      case "--lite":
+      case "--light": // nombre anterior de --lite
       case "--ligero":
-      case "--light":
         op.ligero = true;
         break;
-      case "--tema":
       case "--theme":
-        op.tema = { light: "claro", dark: "oscuro" }[argv[i + 1]] || conValor(i, a);
+      case "--tema":
+        op.tema = { light: "claro", dark: "oscuro", auto: "auto", claro: "claro", oscuro: "oscuro" }[conValor(i, a)];
         i++;
-        if (!["claro", "oscuro", "auto"].includes(op.tema)) fallar("--tema admite claro, oscuro o auto.");
+        if (!op.tema) fallar(`${a} admite light, dark o auto.`);
         break;
-      case "--oscuro":
       case "--dark":
+      case "--oscuro":
         op.tema = "oscuro";
         break;
+      case "-e":
+      case "--engine":
+        op.motor = conValor(i++, a);
+        if (!MOTORES.includes(op.motor)) fallar(`${a} admite ${MOTORES.join(" o ")}.`);
+        break;
       case "-c":
-      case "--comprobar":
       case "--check":
+      case "--comprobar":
         op.comprobar = true;
         break;
       case "-w":
       case "--watch":
         op.watch = true;
         break;
-      case "--no-abrir":
       case "--no-open":
+      case "--no-abrir":
         op.abrir = false;
         break;
       default:
-        if (a.startsWith("-")) fallar(`Opción desconocida: ${a}. Usa dmk --ayuda.`);
+        if (a.startsWith("-")) fallar(`Opción desconocida: ${a}. Usa dmk --help.`);
         op.archivos.push(a);
     }
   }
@@ -149,7 +161,7 @@ const avisar = (warnings, prefijo = "") => {
   for (const w of warnings) console.error(`${prefijo}aviso: ${w.line ? `línea ${w.line}: ` : ""}${w.message}`);
 };
 
-// dmk --comprobar: una línea por diagrama; los errores no paran el resto.
+// dmk --check: una línea por diagrama; los errores no paran el resto.
 function comprobarTodos(op) {
   const { comprobar } = require("../lib/exportar.js");
   const archivos = op.archivos.length ? expandir(op.archivos) : [null];
@@ -159,7 +171,7 @@ function comprobarTodos(op) {
     try {
       const source = leerFuente(trabajo);
       if (!source.trim()) throw new Error("El diagrama está vacío.");
-      const r = comprobar(source);
+      const r = comprobar(source, op.motor);
       const n = (k, palabra) => `${k} ${palabra}${k === 1 ? "" : "s"}`;
       const extra = r.subgraphs ? `, ${n(r.subgraphs, "subgraph")}` : "";
       const avisos = r.warnings.length ? `, ${n(r.warnings.length, "aviso")}` : "";
@@ -186,7 +198,7 @@ async function procesar(trabajo, op, varios) {
   if (op.formato === "svg" || op.formato === "png") {
     const { aSvg, aPng } = require("../lib/exportar.js");
     const tema = op.tema === "oscuro" ? "oscuro" : "claro";
-    const resultado = aSvg(source, tema);
+    const resultado = aSvg(source, tema, op.motor);
     avisar(resultado.warnings, varios ? `${trabajo.nombre}: ` : "");
     const destino = op.salida || junto(op.formato);
     const datos = op.formato === "svg" ? resultado.svg : await aPng(resultado.svg, op.escala, tema);
@@ -196,7 +208,7 @@ async function procesar(trabajo, op, varios) {
   }
 
   // HTML con el visor.
-  const opciones = { mermaid: !op.ligero, tema: op.tema || "auto" };
+  const opciones = { mermaid: !op.ligero, tema: op.tema || "auto", motor: op.motor };
   const html = construirHtml(source, title, null, opciones);
   // Sin archivo ni -o (terminal o tubería) el HTML se guarda en la carpeta temporal para abrirlo.
   let salida = op.salida || (archivo ? junto("html") : null);
@@ -211,7 +223,7 @@ async function procesar(trabajo, op, varios) {
   else await abrirHtml(salida, html, op);
 }
 
-// Se abre el archivo guardado; con --servidor, o en Termux (el navegador no puede leer los
+// Se abre el archivo guardado; con --server, o en Termux (el navegador no puede leer los
 // archivos de com.termux), se sirve una vez desde 127.0.0.1.
 async function abrirHtml(salida, html, op) {
   if (!op.abrir) return;
@@ -238,7 +250,7 @@ async function procesarJuntos(trabajos, op) {
   else if (!salida && fs.statSync(arg).isDirectory()) salida = path.join(arg, `${path.basename(path.resolve(arg))}.html`);
   else if (!salida) salida = `${trabajos[0].base.replace(/-1$/, "")}.html`;
   const title = path.basename(salida).replace(/\.[^.]+$/, "");
-  const html = construirHtml(diagramas, title, null, { mermaid: !op.ligero, tema: op.tema || "auto" });
+  const html = construirHtml(diagramas, title, null, { mermaid: !op.ligero, tema: op.tema || "auto", motor: op.motor });
   fs.writeFileSync(salida, html);
   console.log(`HTML generado: ${salida} (${diagramas.length} diagramas)`);
   await abrirHtml(salida, html, op);

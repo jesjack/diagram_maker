@@ -94,6 +94,11 @@ agente `npm version` no puede hacer el commit (git sin autor): hacer a mano el c
   (`--sin-servidor` se acepta y no hace nada). Entradas `.md` (cada bloque mermaid) y carpetas (sin
   subcarpetas), en lib/entradas.js (`expandir`). Varios diagramas en HTML: una página con selector
   (`source` es una lista `[{title, source}]` en el visor, `#picker`); SVG/PNG: `nombre-N`.
+- **Opciones en inglés y `--engine`** (2026-10-04): `--output`, `--scale`, `--server`, `--theme
+  light|dark|auto`, `--dark`, `--check`, `--lite` (antes `--ligero`/`--light`), `--no-open`,
+  `--help`; las españolas siguen aceptándose sin documentar. `-e/--engine main|jesjack` llega a
+  `layoutDiagram` en exportar.js (SVG/PNG/--check) y al visor (`engine` en `DiagramViewer.start`).
+  Instalado en Windows con `npm link` (ahí `dmk` funciona directo).
 
 ### Pendiente
 
@@ -110,7 +115,7 @@ agente `npm version` no puede hacer el commit (git sin autor): hacer a mano el c
 7. **jesjack engine** (`src/engines/jesjack.js`): motor de colocación desde cero, alternativo a
    main engine, con **cada decisión auditada por el usuario** (proponer alternativas, no decidir).
    Recibe nodos y conexiones crudos y decide él los empalmes; contrato en la cabecera del archivo,
-   adaptador `layoutJesjack` en src/layout.js (`layoutDiagram(g, { engine: "jesjack" })`).
+   adaptador `layoutJesjack` en src/layout.js (`layoutDiagram(g, { engine: "jesjack" })`; `dmk -e jesjack`).
    Progreso: `node --test tests/jesjack.test.js` (primera semilla que falla y cuántas de 400 pasan);
    detalle de una: `node tests/jesjack.test.js <semilla>`. Estado: vacío (0/400).
 

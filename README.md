@@ -52,17 +52,18 @@ En Android funciona en **Termux** (`pkg install nodejs`).
 dmk archivo.mmd                 # genera archivo.html junto al .mmd y lo abre en el navegador
 dmk archivo.mmd --watch         # recarga en vivo: la página se actualiza al guardar el .mmd
 dmk archivo.mmd --svg           # exporta archivo.svg, sin abrir nada
-dmk archivo.mmd --png           # exporta archivo.png (--escala 3 para más resolución)
+dmk archivo.mmd --png           # exporta archivo.png (--scale 3 para más resolución)
 dmk archivo.mmd --html          # solo genera el HTML
 dmk notas.md                    # los bloques ```mermaid del .md en notas.html, con un selector de diagrama
 dmk carpeta/                    # los .mmd y .md de la carpeta en carpeta/carpeta.html, con el selector
 dmk notas.md --svg              # un SVG por diagrama (notas-1.svg, notas-2.svg…)
-dmk archivo.mmd --servidor      # abre la página sirviéndola desde 127.0.0.1 (navegadores en sandbox)
-dmk archivo.mmd --ligero        # HTML sin Mermaid incrustado (más pequeño, sin botón «Mermaid»)
-dmk archivo.mmd --tema oscuro   # tema oscuro (visor, SVG y PNG); el visor sigue al sistema y su botón ◐ lo cambia
+dmk archivo.mmd --server        # abre la página sirviéndola desde 127.0.0.1 (navegadores en sandbox)
+dmk archivo.mmd --lite          # HTML sin Mermaid incrustado (más pequeño, sin botón «Mermaid»)
+dmk archivo.mmd --theme dark    # tema oscuro (visor, SVG y PNG); el visor sigue al sistema y su botón ◐ lo cambia
 dmk a.mmd b.mmd                 # varios archivos en diagramas.html (o -o), con el selector
 dmk a.mmd b.mmd --svg           # en SVG/PNG, cada resultado junto a su .mmd
-dmk *.mmd --comprobar           # valida sin dibujar: errores, avisos y tamaño de cada diagrama
+dmk *.mmd --check               # valida sin dibujar: errores, avisos y tamaño de cada diagrama
+dmk archivo.mmd -e jesjack      # coloca con jesjack engine (en desarrollo) en vez del motor principal
 dmk                             # escribe el diagrama en la terminal (termina con Ctrl+D)
 cat archivo.mmd | dmk --svg -o diagrama.svg
 ```
@@ -81,11 +82,11 @@ EOF
 Pon `'EOF'` entre comillas para que la terminal no toque el texto (`$`, `` ` ``, `\`). Sin `--svg`,
 `--png` ni `-o`, el diagrama se guarda en la carpeta temporal y se abre en el navegador.
 
-`dmk --ayuda` muestra todas las opciones.
+`dmk --help` muestra todas las opciones.
 
 - **HTML**: es un único archivo con parser, layout y visor incrustados; se puede abrir o compartir
   sin nada más. `dmk` abre el archivo guardado directamente en el navegador. Los navegadores en
-  sandbox (flatpak, snap) no suelen poder abrir cualquier carpeta: con `--servidor`, `dmk` levanta
+  sandbox (flatpak, snap) no suelen poder abrir cualquier carpeta: con `--server`, `dmk` levanta
   un mini servidor en `127.0.0.1` que sirve la página una vez. En **Termux** siempre se usa el
   servidor: el navegador no puede leer los archivos de Termux.
 - **Markdown y carpetas**: de un `.md` se dibuja cada bloque ```` ```mermaid ```` (o `~~~mermaid`);
@@ -112,7 +113,7 @@ archivo.mmd`, con `--watch` y `--no-open`); no exporta a SVG/PNG.
   depurar el layout.
 - **SVG / PNG**: descarga el diagrama.
 - **Mermaid**: abre el mismo código dibujado con Mermaid oficial en otra pestaña, para comparar.
-  Mermaid va incrustado en el HTML, así que funciona sin internet (`--ligero` lo quita: el HTML
+  Mermaid va incrustado en el HTML, así que funciona sin internet (`--lite` lo quita: el HTML
   pasa de ~1,4 MB a ~130 kB y el botón no aparece).
 - Los errores de sintaxis se muestran con el número de línea marcado en el código.
 

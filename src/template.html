@@ -20,7 +20,7 @@
     --ok: #1a7f37;
     color-scheme: light;
   }
-  /* Tema oscuro: data-theme lo pone el visor (sistema, botón ◐ o dmk --tema). */
+  /* Tema oscuro: data-theme lo pone el visor (sistema, botón ◐ o dmk --theme). */
   :root[data-theme="oscuro"] {
     --bg: #0d1117;
     --dot: #30363d;
@@ -260,7 +260,7 @@
 </div>
 
 <script type="application/json" id="diagram-source">__DIAGRAM_SOURCE__</script>
-<!-- Mermaid oficial (gzip + base64) para el botón «Mermaid» sin internet; vacío con dmk --ligero -->
+<!-- Mermaid oficial (gzip + base64) para el botón «Mermaid» sin internet; vacío con dmk --lite -->
 <script type="text/plain" id="mermaid-lib">__DIAGRAM_MERMAID__</script>
 <script>
 __DIAGRAM_SCRIPTS__
@@ -271,6 +271,7 @@ __DIAGRAM_SCRIPTS__
     title: __DIAGRAM_TITLE__,
     live: __DIAGRAM_LIVE__,
     theme: __DIAGRAM_THEME__,
+    engine: __DIAGRAM_ENGINE__,
   });
 </script>
 </body>

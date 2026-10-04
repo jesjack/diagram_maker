@@ -8,7 +8,7 @@ const DiagramViewer = (() => {
 
   // source: el código de un diagrama, o una lista [{ title, source }] (dmk con un .md o una carpeta)
   // que se recorre con el selector de la barra.
-  function start({ source: initialSource, title, live, theme: themeOption = "auto" }) {
+  function start({ source: initialSource, title, live, theme: themeOption = "auto", engine = "main" }) {
     const stage = document.getElementById("stage");
     const canvas = document.getElementById("canvas");
     const status = document.getElementById("status");
@@ -16,7 +16,7 @@ const DiagramViewer = (() => {
     const diagrams = Array.isArray(initialSource) ? initialSource : null;
 
     // Tema: "claro", "oscuro" o "auto" (el del sistema). El botón ◐ lo cambia y se recuerda en
-    // este navegador; dmk --tema elige el de partida.
+    // este navegador; dmk --theme elige el de partida.
     const dark = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
     let themeChoice = themeOption;
     try {
@@ -178,7 +178,7 @@ const DiagramViewer = (() => {
       else if (ev.key === "+" || ev.key === "=") zoomAt(1.2, ...center());
       else if (ev.key === "-") zoomAt(1 / 1.2, ...center());
     });
-    // Botón «Mermaid» solo si el HTML lleva la librería incrustada (no con dmk --ligero).
+    // Botón «Mermaid» solo si el HTML lleva la librería incrustada (no con dmk --lite).
     const btnMermaid = document.getElementById("btn-mermaid");
     if (mermaidLib()) btnMermaid.onclick = () => openInMermaid(source, title);
     else btnMermaid.hidden = true;
@@ -331,7 +331,7 @@ const DiagramViewer = (() => {
       let next;
       try {
         const graph = parseDiagram(src);
-        next = DiagramLayout.layoutDiagram(graph, { measure: makeMeasure() });
+        next = DiagramLayout.layoutDiagram(graph, { measure: makeMeasure(), engine });
       } catch (err) {
         result = null;
         showError(err, src);
@@ -456,7 +456,7 @@ const DiagramViewer = (() => {
     img.src = url;
   }
 
-  // Mermaid oficial incrustado en el HTML (gzip + base64), o "" si no va (dmk --ligero).
+  // Mermaid oficial incrustado en el HTML (gzip + base64), o "" si no va (dmk --lite).
   const mermaidLib = () => (document.getElementById("mermaid-lib")?.textContent || "").trim();
 
   // Abre el mismo código en una pestaña nueva dibujado con Mermaid oficial, para comparar, con la

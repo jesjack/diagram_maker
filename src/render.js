@@ -24,7 +24,7 @@ const THEME = {
   pngBackground: "#ffffff",
 };
 
-// Tema oscuro (dmk --tema oscuro, o el visor con el sistema en modo oscuro).
+// Tema oscuro (dmk --theme dark, o el visor con el sistema en modo oscuro).
 const DARK_THEME = {
   ...THEME,
   nodeFill: "#161b22",
