@@ -54,12 +54,14 @@ dmk archivo.mmd --watch         # recarga en vivo: la página se actualiza al gu
 dmk archivo.mmd --svg           # exporta archivo.svg, sin abrir nada
 dmk archivo.mmd --png           # exporta archivo.png (--escala 3 para más resolución)
 dmk archivo.mmd --html          # solo genera el HTML
-dmk notas.md                    # cada bloque ```mermaid del .md (notas.html, o notas-1.html, notas-2.html…)
-dmk carpeta/ --svg              # todos los .mmd y .md de la carpeta (sin entrar en subcarpetas)
+dmk notas.md                    # los bloques ```mermaid del .md en notas.html, con un selector de diagrama
+dmk carpeta/                    # los .mmd y .md de la carpeta en carpeta/carpeta.html, con el selector
+dmk notas.md --svg              # un SVG por diagrama (notas-1.svg, notas-2.svg…)
 dmk archivo.mmd --servidor      # abre la página sirviéndola desde 127.0.0.1 (navegadores en sandbox)
 dmk archivo.mmd --ligero        # HTML sin Mermaid incrustado (más pequeño, sin botón «Mermaid»)
 dmk archivo.mmd --tema oscuro   # tema oscuro (visor, SVG y PNG); el visor sigue al sistema y su botón ◐ lo cambia
-dmk a.mmd b.mmd --svg           # varios archivos: cada resultado junto a su .mmd
+dmk a.mmd b.mmd                 # varios archivos en diagramas.html (o -o), con el selector
+dmk a.mmd b.mmd --svg           # en SVG/PNG, cada resultado junto a su .mmd
 dmk *.mmd --comprobar           # valida sin dibujar: errores, avisos y tamaño de cada diagrama
 dmk                             # escribe el diagrama en la terminal (termina con Ctrl+D)
 cat archivo.mmd | dmk --svg -o diagrama.svg
@@ -82,16 +84,14 @@ Pon `'EOF'` entre comillas para que la terminal no toque el texto (`$`, `` ` ``,
 `dmk --ayuda` muestra todas las opciones.
 
 - **HTML**: es un único archivo con parser, layout y visor incrustados; se puede abrir o compartir
-  sin nada más. `dmk` abre el archivo guardado directamente en el navegador. En **Termux** el
-  navegador no puede leer los archivos de Termux: el HTML se copia a `Download/dmk/` y se abre desde
-  ahí (`DMK_CARPETA` cambia la carpeta); sin acceso al almacenamiento (`termux-setup-storage`) se
-  usa el servidor. Los navegadores en
+  sin nada más. `dmk` abre el archivo guardado directamente en el navegador. Los navegadores en
   sandbox (flatpak, snap) no suelen poder abrir cualquier carpeta: con `--servidor`, `dmk` levanta
-  un mini servidor en `127.0.0.1` que sirve la página una vez.
+  un mini servidor en `127.0.0.1` que sirve la página una vez. En **Termux** siempre se usa el
+  servidor: el navegador no puede leer los archivos de Termux.
 - **Markdown y carpetas**: de un `.md` se dibuja cada bloque ```` ```mermaid ```` (o `~~~mermaid`);
-  con uno solo el resultado se llama como el `.md`, con varios se numeran (`notas-1.html`…). Una
-  carpeta aporta sus `.mmd` y los `.md` que tengan bloques, sin entrar en subcarpetas. Con varios
-  diagramas solo se generan, sin abrir nada.
+  una carpeta aporta sus `.mmd` y los `.md` que tengan bloques, sin entrar en subcarpetas. Con
+  varios diagramas se genera **un solo HTML** con un selector en la barra para cambiar de diagrama
+  (el elegido queda en la dirección, `#2`); en SVG/PNG, un archivo por diagrama (`notas-1.svg`…).
 - **`--watch`**: el servidor se queda abierto (Ctrl+C para salir) y vigila el `.mmd`; al guardarlo,
   la página se redibuja sola conservando el zoom y la posición. Si el código tiene un error se
   muestra el panel de error y se sigue vigilando.

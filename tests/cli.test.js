@@ -143,3 +143,21 @@ test("una carpeta: sus .mmd y los bloques de sus .md, sin entrar en subcarpetas"
   assert.match(dmk([dir, "--comprobar"]).stdout, /2 de 2 sin errores/);
   assert.match(dmk([fs.mkdtempSync(path.join(tmp, "nada-")), "--svg"]).stderr, /no hay diagramas/);
 });
+
+test("varios diagramas en HTML: una sola página con todos y el selector", () => {
+  const dir = fs.mkdtempSync(path.join(tmp, "juntos-"));
+  const md = path.join(dir, "notas.md");
+  fs.writeFileSync(md, "```mermaid\nx --> y\n```\n\n```mermaid\np --> q\n```\n");
+  fs.writeFileSync(path.join(dir, "a.mmd"), "a --> b\n");
+  const r = dmk([md, "--html"]);
+  assert.strictEqual(r.status, 0, r.stderr);
+  const html = fs.readFileSync(path.join(dir, "notas.html"), "utf8");
+  const fuente = JSON.parse(/<script type="application\/json" id="diagram-source">(.*?)<\/script>/s.exec(html)[1]);
+  assert.deepStrictEqual(fuente, [{ title: "notas-1", source: "x --> y\n" }, { title: "notas-2", source: "p --> q\n" }]);
+  assert.match(html, /id="picker"/);
+  assert.ok(!fs.existsSync(path.join(dir, "notas-1.html")));
+  assert.strictEqual(dmk([dir, "--html"]).status, 0);
+  assert.ok(fs.existsSync(path.join(dir, path.basename(dir) + ".html")));
+  assert.strictEqual(dmk([md, path.join(dir, "a.mmd"), "--html", "-o", path.join(dir, "todo.html")]).status, 0);
+  assert.match(fs.readFileSync(path.join(dir, "todo.html"), "utf8"), /"title":"a"/);
+});

@@ -6,11 +6,14 @@ const DiagramViewer = (() => {
   const MIN_SCALE = 0.1;
   const MAX_SCALE = 8;
 
+  // source: el código de un diagrama, o una lista [{ title, source }] (dmk con un .md o una carpeta)
+  // que se recorre con el selector de la barra.
   function start({ source: initialSource, title, live, theme: themeOption = "auto" }) {
     const stage = document.getElementById("stage");
     const canvas = document.getElementById("canvas");
     const status = document.getElementById("status");
     document.title = title;
+    const diagrams = Array.isArray(initialSource) ? initialSource : null;
 
     // Tema: "claro", "oscuro" o "auto" (el del sistema). El botón ◐ lo cambia y se recuerda en
     // este navegador; dmk --tema elige el de partida.
@@ -244,6 +247,7 @@ const DiagramViewer = (() => {
     document.getElementById("btn-step-prev").onclick = () => showStep(shown - 1);
     document.getElementById("btn-step-next").onclick = () => showStep(shown + 1);
     window.addEventListener("keydown", (ev) => {
+      if (ev.target && ev.target.tagName === "SELECT") return; // las flechas cambian de diagrama
       if (ev.key === "ArrowLeft") showStep(shown - 1);
       else if (ev.key === "ArrowRight") showStep(shown + 1);
       else if (ev.key === "Home") showStep(1);
@@ -364,7 +368,25 @@ const DiagramViewer = (() => {
       else apply();
       fitted = true;
     };
-    mount(initialSource);
+    // ---- selector de diagrama (varios en un solo HTML). El elegido se guarda en la dirección
+    // (#2) para que recargar la página no vuelva al primero; al cambiar se ajusta la vista.
+    const picker = document.getElementById("picker");
+    if (diagrams && picker) {
+      diagrams.forEach((d, i) => picker.add(new Option(d.title, String(i))));
+      const pick = (i) => {
+        picker.value = String(i);
+        title = diagrams[i].title;
+        fitted = false;
+        mount(diagrams[i].source);
+      };
+      picker.onchange = () => {
+        history.replaceState(null, "", `#${Number(picker.value) + 1}`);
+        pick(Number(picker.value));
+      };
+      picker.hidden = false;
+      const fromHash = parseInt(location.hash.slice(1), 10) - 1;
+      pick(fromHash >= 0 && fromHash < diagrams.length ? fromHash : 0);
+    } else mount(initialSource);
     if (live) watchSource(live.version, mount);
   }
 

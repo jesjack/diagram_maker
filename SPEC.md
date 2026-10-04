@@ -23,12 +23,12 @@ diagrama.mmd ──► CLI (Python) ──► genera HTML autocontenido ──�
   `diagram.py` es la versión anterior, en Python sin dependencias (sin exportación).
 - **Motor en JavaScript**, embebido en el HTML generado (funciona sin servidor).
 - **Apertura**: el HTML se guarda junto al `.mmd` (o en `-o`; sin archivo, en la carpeta temporal)
-  y se abre **como archivo**. En Termux se copia a `/storage/emulated/0/Download/dmk/`
-  (`DMK_CARPETA`) y se abre `file://…` con `termux-open-url`; sin acceso al almacenamiento, servidor. Con `--servidor` se sirve **una sola vez**
+  y se abre **como archivo**. En Termux (el navegador no lee los archivos de com.termux) se sirve. Con `--servidor` se sirve **una sola vez**
   desde un mini servidor en 127.0.0.1 (para navegadores en sandbox, como Edge en flatpak, que no
   leen cualquier carpeta). `--no-open` solo genera el HTML.
-- **Entradas**: `.mmd`, `.md` (cada bloque ```` ```mermaid ````/`~~~mermaid` es un diagrama; con
-  varios, `nombre-1`, `nombre-2`…) y carpetas (sus `.mmd` y `.md`, sin subcarpetas).
+- **Entradas**: `.mmd`, `.md` (cada bloque ```` ```mermaid ````/`~~~mermaid` es un diagrama) y
+  carpetas (sus `.mmd` y `.md`, sin subcarpetas). Varios diagramas en HTML: una sola página con un
+  selector (`#N` en la dirección); en SVG/PNG, `nombre-1`, `nombre-2`…
 - **Recarga en vivo** (`dmk archivo.mmd --watch`): el servidor sigue abierto hasta
   Ctrl+C y vigila el `.mmd` (sondeo del mtime cada 0,5 s). La página servida pregunta cada segundo
   `GET /source?v=N`: `204` si sigue en la versión `N`, o `{"version", "source"}` si el archivo

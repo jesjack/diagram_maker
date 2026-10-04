@@ -85,11 +85,12 @@ desde una terminal normal de Termux (el agente no puede: pide confirmar con la h
   la vez (cada resultado junto a su .mmd; sin `-o` ni `--watch`), tema oscuro (`--tema
   claro|oscuro|auto`, `--oscuro`; `DARK_THEME` en render.js, `data-theme` en la plantilla, botón ◐
   del visor recordado en localStorage; SVG/PNG en claro salvo `--tema oscuro`).
-- **Entradas y apertura** (2026-10-04): `dmk` abre el HTML como archivo (`termux-open`/`xdg-open`);
-  en Termux se copia a `Download/dmk/` (los navegadores no leen com.termux) y sin
-  acceso al almacenamiento se sirve; el servidor de una vez pasa a `--servidor` (`--sin-servidor` se acepta y no hace nada). Entradas
-  `.md` (cada bloque mermaid; `nombre-N` si hay varios) y carpetas (sin subcarpetas), en
-  lib/entradas.js (`expandir`: lista de trabajos con nombre, base de salida y fuente).
+- **Entradas y apertura** (2026-10-04): `dmk` abre el HTML como archivo (`xdg-open`…); en Termux
+  siempre con el servidor (Edge no lee `content://com.termux.files`, ni siquiera en Download: probado
+  `file://`, ruta sola y MediaStore sin éxito); `--servidor` lo fuerza fuera de Termux
+  (`--sin-servidor` se acepta y no hace nada). Entradas `.md` (cada bloque mermaid) y carpetas (sin
+  subcarpetas), en lib/entradas.js (`expandir`). Varios diagramas en HTML: una página con selector
+  (`source` es una lista `[{title, source}]` en el visor, `#picker`); SVG/PNG: `nombre-N`.
 
 ### Pendiente
 
@@ -99,8 +100,8 @@ desde una terminal normal de Termux (el agente no puede: pide confirmar con la h
 3. **Layout**: rotación "como engranajes" (el usuario la ve más sofisticada que solo girar bloques:
    hablarlo antes); semillas >400 que fallan (ver Tests); referencias repetidas entre subgraphs.
 4. TODO de SPEC.md: estilos de subgraph.
-5. Sin probar en navegador por el agente: `dmk` (ahora abre el archivo, sin servidor) + `--watch`
-   en el móvil.
+5. Sin probar en navegador por el agente: `dmk` + `--watch` en el móvil; el selector de varios
+   diagramas.
 6. **`direction` para el crecimiento de cada árbol** (que `flowchart LR` haga crecer las ramas hacia
    la derecha): de momento la dirección solo coloca los subgraphs y los grupos desconectados.
 7. **jesjack engine** (`src/engines/jesjack.js`): motor de colocación desde cero, alternativo a

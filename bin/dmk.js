@@ -6,20 +6,22 @@ const os = require("node:os");
 const path = require("node:path");
 const { construirHtml } = require("../lib/html.js");
 const { servirUnaVez, vigilar } = require("../lib/servir.js");
-const { abrir, esTermux, carpetaPublica } = require("../lib/abrir.js");
+const { abrir, esTermux } = require("../lib/abrir.js");
 const { expandir } = require("../lib/entradas.js");
 
 const AYUDA = `dmk: diagramas de flujo a partir de sintaxis Mermaid.
 
 Uso:
   dmk archivo.mmd               genera archivo.html junto al .mmd y lo abre en el navegador
-  dmk notas.md                  cada bloque \`\`\`mermaid del .md (notas.html, o notas-1.html, notas-2.html…)
-  dmk carpeta/ --svg            todos los .mmd y .md de la carpeta (sin entrar en subcarpetas)
+  dmk notas.md                  los bloques \`\`\`mermaid del .md en notas.html, con un selector de diagrama
+  dmk carpeta/                  los .mmd y .md de la carpeta (sin subcarpetas) en carpeta/carpeta.html
+  dmk notas.md --svg            con --svg/--png, un archivo por diagrama (notas-1.svg, notas-2.svg…)
   dmk archivo.mmd --watch       recarga en vivo: la página se actualiza al guardar el .mmd
   dmk archivo.mmd --svg         exporta archivo.svg (sin abrir nada)
   dmk archivo.mmd --png         exporta archivo.png (sin abrir nada)
   dmk archivo.mmd --html        solo genera el HTML
-  dmk a.mmd b.mmd --svg         varios archivos: cada uno junto a su .mmd (sin abrir nada)
+  dmk a.mmd b.mmd               varios archivos: todos en diagramas.html (o -o), con el selector
+  dmk a.mmd b.mmd --svg         con --svg/--png, cada uno junto a su .mmd
   dmk *.mmd --comprobar         valida sin dibujar: errores, avisos y tamaño de cada diagrama
   dmk                           escribe el diagrama en la terminal (termina con Ctrl+D)
   cat archivo.mmd | dmk --svg   también por tubería
@@ -32,7 +34,7 @@ Opciones:
       --escala N        escala del PNG (por defecto 2)
       --html            generar el HTML sin abrirlo
       --servidor        abrir sirviendo la página desde 127.0.0.1 en vez de abrir el archivo
-                        (para navegadores en sandbox, como Edge en flatpak, que no leen cualquier carpeta)
+                        (navegadores en sandbox, como Edge en flatpak; en Termux siempre es así)
       --tema TEMA       claro, oscuro o auto (el del sistema; por defecto). SVG/PNG: claro
   -c, --comprobar       validar sin generar nada (código de salida 1 si alguno tiene errores)
       --ligero          HTML sin Mermaid incrustado (~130 kB en vez de ~1,4 MB; sin botón «Mermaid»)
@@ -198,33 +200,48 @@ async function procesar(trabajo, op, varios) {
   const html = construirHtml(source, title, null, opciones);
   // Sin archivo ni -o (terminal o tubería) el HTML se guarda en la carpeta temporal para abrirlo.
   let salida = op.salida || (archivo ? junto("html") : null);
-  if (!salida && op.abrir && !op.servidor && !op.watch) salida = path.join(os.tmpdir(), "dmk-diagrama.html");
+  if (!salida && op.abrir && !op.servidor && !op.watch && !esTermux()) salida = path.join(os.tmpdir(), "dmk-diagrama.html");
   if (salida) {
     fs.writeFileSync(salida, html);
     console.log(`HTML generado: ${salida}`);
   } else if (!op.abrir) {
     throw new Error("Sin archivo de entrada hace falta -o para guardar el HTML.");
   }
-  if (varios) return;
   if (op.watch) vigilar(trabajo.archivo, title, { salida, abrirNavegador: op.abrir, ...opciones });
-  else if (!op.abrir) return;
-  else if (op.servidor) await servirUnaVez(html);
-  else if (!esTermux()) abrir(path.resolve(salida), { esArchivo: true });
-  else await abrirEnTermux(salida, html);
+  else await abrirHtml(salida, html, op);
 }
 
-// En Termux el navegador no puede leer los archivos de com.termux: se copia el HTML al
-// almacenamiento compartido y se abre desde ahí; sin acceso a él, se sirve una vez.
-async function abrirEnTermux(salida, html) {
-  const dir = carpetaPublica();
-  if (!dir) {
-    console.log("Sin acceso al almacenamiento compartido (ejecuta termux-setup-storage): se abre con el servidor.");
-    return servirUnaVez(html);
+// Se abre el archivo guardado; con --servidor, o en Termux (el navegador no puede leer los
+// archivos de com.termux), se sirve una vez desde 127.0.0.1.
+async function abrirHtml(salida, html, op) {
+  if (!op.abrir) return;
+  if (op.servidor || esTermux()) await servirUnaVez(html);
+  else abrir(path.resolve(salida), { esArchivo: true });
+}
+
+// Varios diagramas en HTML: una sola página con un selector. Se guarda en -o, junto al .md o
+// dentro de la carpeta (con su nombre), o en diagramas.html si hay varios argumentos.
+async function procesarJuntos(trabajos, op) {
+  const diagramas = [];
+  for (const t of trabajos) {
+    try {
+      diagramas.push({ title: path.basename(t.base), source: leerFuente(t) });
+    } catch (err) {
+      console.error(`dmk: ${t.nombre}: ${err.message}`);
+      process.exitCode = 1;
+    }
   }
-  const copia = path.join(dir, path.basename(salida));
-  if (path.resolve(salida) !== copia) fs.writeFileSync(copia, html);
-  console.log(`Copia para el navegador: ${copia}`);
-  abrir(`file://${copia}`);
+  if (!diagramas.length) return;
+  const [arg] = op.archivos;
+  let salida = op.salida;
+  if (!salida && op.archivos.length > 1) salida = "diagramas.html";
+  else if (!salida && fs.statSync(arg).isDirectory()) salida = path.join(arg, `${path.basename(path.resolve(arg))}.html`);
+  else if (!salida) salida = `${trabajos[0].base.replace(/-1$/, "")}.html`;
+  const title = path.basename(salida).replace(/\.[^.]+$/, "");
+  const html = construirHtml(diagramas, title, null, { mermaid: !op.ligero, tema: op.tema || "auto" });
+  fs.writeFileSync(salida, html);
+  console.log(`HTML generado: ${salida} (${diagramas.length} diagramas)`);
+  await abrirHtml(salida, html, op);
 }
 
 async function main() {
@@ -235,8 +252,9 @@ async function main() {
   if (op.watch && !op.archivos.length) fallar("--watch necesita un archivo .mmd que vigilar (no funciona con la terminal ni con tuberías).");
   if (op.watch && (varios || trabajos[0].fuente !== undefined)) fallar("--watch vigila un solo archivo .mmd.");
   if (op.watch && op.formato !== "html") fallar("--watch es para el visor: no se combina con --svg ni --png.");
-  if (op.salida && varios) fallar("-o no se combina con varios diagramas: cada resultado va junto a su archivo.");
-  // Con varios archivos solo se generan (como --html); los errores no paran el resto.
+  if (varios && op.formato === "html") return procesarJuntos(trabajos, op);
+  if (op.salida && varios) fallar("-o no se combina con varios diagramas en SVG/PNG: cada resultado va junto a su archivo.");
+  // Con varios diagramas en SVG/PNG, los errores no paran el resto.
   let fallos = 0;
   for (const trabajo of trabajos) {
     try {

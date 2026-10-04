@@ -132,6 +132,18 @@
   #live { padding: 0 6px; color: var(--ok); font-size: 12px; white-space: nowrap; }
   #live.off { color: var(--muted); }
   #live[hidden] { display: none; }
+  /* Selector de diagrama (varios diagramas en un solo HTML) */
+  #picker {
+    max-width: min(40vw, 260px);
+    height: 32px;
+    padding: 0 6px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text);
+    font: inherit;
+  }
+  #picker[hidden] { display: none; }
   #status { min-width: 48px; text-align: center; color: var(--muted); font-variant-numeric: tabular-nums; }
 
   #warnings {
@@ -221,6 +233,7 @@
 </div>
 
 <div class="toolbar">
+  <select id="picker" title="Cambiar de diagrama" hidden></select>
   <span id="live" hidden></span>
   <span id="status" title="Zoom: rueda, pellizco o + / - · doble toque o 0 para ajustar">100%</span>
   <span class="sep"></span>
