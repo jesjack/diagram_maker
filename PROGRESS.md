@@ -43,9 +43,12 @@ El HTML generado es un único archivo autocontenido: ningún `.js` puede contene
 
 ## Estado
 
-Última actualización: 2026-10-04. Versión publicada en npm: `@jesjack/diagram-maker` 0.1.1
-(etiqueta `v0.1.1`). Para publicar: `npm version patch`, `git push --follow-tags` y `npm publish`
-desde una terminal normal de Termux (el agente no puede: pide confirmar con la huella).
+Última actualización: 2026-10-04. Versión publicada en npm: `@jesjack/diagram-maker` 0.2.0
+(etiqueta `v0.2.0`: entradas .md y carpetas, varios diagramas en un HTML con selector, Termux con
+servidor). Para publicar: `npm version patch|minor`, `git push --follow-tags` y `npm publish`
+desde una terminal normal de Termux (el agente no puede: pide confirmar con la huella). En el
+agente `npm version` no puede hacer el commit (git sin autor): hacer a mano el commit y
+`git tag -a vX.Y.Z` con `-c user.name=… -c user.email=…` (ver CLAUDE.md).
 
 ### Hecho
 
