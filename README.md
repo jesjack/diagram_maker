@@ -82,7 +82,10 @@ Pon `'EOF'` entre comillas para que la terminal no toque el texto (`$`, `` ` ``,
 `dmk --ayuda` muestra todas las opciones.
 
 - **HTML**: es un único archivo con parser, layout y visor incrustados; se puede abrir o compartir
-  sin nada más. `dmk` abre el archivo guardado directamente en el navegador. Los navegadores en
+  sin nada más. `dmk` abre el archivo guardado directamente en el navegador. En **Termux** el
+  navegador no puede leer los archivos de Termux: el HTML se copia a `Download/dmk/` y se abre desde
+  ahí (`DMK_CARPETA` cambia la carpeta); sin acceso al almacenamiento (`termux-setup-storage`) se
+  usa el servidor. Los navegadores en
   sandbox (flatpak, snap) no suelen poder abrir cualquier carpeta: con `--servidor`, `dmk` levanta
   un mini servidor en `127.0.0.1` que sirve la página una vez.
 - **Markdown y carpetas**: de un `.md` se dibuja cada bloque ```` ```mermaid ```` (o `~~~mermaid`);

@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { construirHtml } = require("../lib/html.js");
 const { servirUnaVez, vigilar } = require("../lib/servir.js");
-const { abrir } = require("../lib/abrir.js");
+const { abrir, esTermux, carpetaPublica } = require("../lib/abrir.js");
 const { expandir } = require("../lib/entradas.js");
 
 const AYUDA = `dmk: diagramas de flujo a partir de sintaxis Mermaid.
@@ -209,7 +209,22 @@ async function procesar(trabajo, op, varios) {
   if (op.watch) vigilar(trabajo.archivo, title, { salida, abrirNavegador: op.abrir, ...opciones });
   else if (!op.abrir) return;
   else if (op.servidor) await servirUnaVez(html);
-  else abrir(path.resolve(salida), { esArchivo: true });
+  else if (!esTermux()) abrir(path.resolve(salida), { esArchivo: true });
+  else await abrirEnTermux(salida, html);
+}
+
+// En Termux el navegador no puede leer los archivos de com.termux: se copia el HTML al
+// almacenamiento compartido y se abre desde ahí; sin acceso a él, se sirve una vez.
+async function abrirEnTermux(salida, html) {
+  const dir = carpetaPublica();
+  if (!dir) {
+    console.log("Sin acceso al almacenamiento compartido (ejecuta termux-setup-storage): se abre con el servidor.");
+    return servirUnaVez(html);
+  }
+  const copia = path.join(dir, path.basename(salida));
+  if (path.resolve(salida) !== copia) fs.writeFileSync(copia, html);
+  console.log(`Copia para el navegador: ${copia}`);
+  abrir(`file://${copia}`);
 }
 
 async function main() {

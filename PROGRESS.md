@@ -86,7 +86,8 @@ desde una terminal normal de Termux (el agente no puede: pide confirmar con la h
   claro|oscuro|auto`, `--oscuro`; `DARK_THEME` en render.js, `data-theme` en la plantilla, botón ◐
   del visor recordado en localStorage; SVG/PNG en claro salvo `--tema oscuro`).
 - **Entradas y apertura** (2026-10-04): `dmk` abre el HTML como archivo (`termux-open`/`xdg-open`);
-  el servidor de una vez pasa a `--servidor` (`--sin-servidor` se acepta y no hace nada). Entradas
+  en Termux se copia a `Download/dmk/` (los navegadores no leen com.termux) y sin
+  acceso al almacenamiento se sirve; el servidor de una vez pasa a `--servidor` (`--sin-servidor` se acepta y no hace nada). Entradas
   `.md` (cada bloque mermaid; `nombre-N` si hay varios) y carpetas (sin subcarpetas), en
   lib/entradas.js (`expandir`: lista de trabajos con nombre, base de salida y fuente).
 

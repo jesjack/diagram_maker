@@ -23,7 +23,8 @@ diagrama.mmd ──► CLI (Python) ──► genera HTML autocontenido ──�
   `diagram.py` es la versión anterior, en Python sin dependencias (sin exportación).
 - **Motor en JavaScript**, embebido en el HTML generado (funciona sin servidor).
 - **Apertura**: el HTML se guarda junto al `.mmd` (o en `-o`; sin archivo, en la carpeta temporal)
-  y se abre **como archivo** (en Termux con `termux-open`). Con `--servidor` se sirve **una sola vez**
+  y se abre **como archivo**. En Termux se copia a `/storage/emulated/0/Download/dmk/`
+  (`DMK_CARPETA`) y se abre `file://…` con `termux-open-url`; sin acceso al almacenamiento, servidor. Con `--servidor` se sirve **una sola vez**
   desde un mini servidor en 127.0.0.1 (para navegadores en sandbox, como Edge en flatpak, que no
   leen cualquier carpeta). `--no-open` solo genera el HTML.
 - **Entradas**: `.mmd`, `.md` (cada bloque ```` ```mermaid ````/`~~~mermaid` es un diagrama; con
